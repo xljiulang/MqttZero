@@ -17,6 +17,8 @@ internal sealed class MqttZeroRouteScope : IDisposable
     private int _bestCount;
     private int _epoch;
     private int _deliveryCount;
+    private int[] _matchedGroupIndexes = [];
+    private int _matchedGroupCount;
     private MqttZeroRouteScopePool? _owner;
 
     public MqttZeroRouteScope()
@@ -110,6 +112,69 @@ internal sealed class MqttZeroRouteScope : IDisposable
         }
     }
 
+    public void AddMatchedGroupIndex(int groupIndex)
+    {
+        if (_matchedGroupIndexes.Length == 0)
+        {
+            _matchedGroupIndexes = ArrayPool<int>.Shared.Rent(16);
+        }
+        else if (_matchedGroupCount == _matchedGroupIndexes.Length)
+        {
+            int[] replacement = ArrayPool<int>.Shared.Rent(
+                _matchedGroupIndexes.Length * 2);
+            Array.Copy(
+                _matchedGroupIndexes,
+                replacement,
+                _matchedGroupCount);
+            ArrayPool<int>.Shared.Return(_matchedGroupIndexes);
+            _matchedGroupIndexes = replacement;
+        }
+
+        _matchedGroupIndexes[_matchedGroupCount++] = groupIndex;
+    }
+
+    public void AddRegularGroups(
+        MqttZeroSubscriptionRouteSnapshot snapshot,
+        MqttZeroSessionState? sender)
+    {
+        if (_matchedGroupCount > 1)
+        {
+            Array.Sort(
+                _matchedGroupIndexes,
+                0,
+                _matchedGroupCount);
+        }
+
+        int previous = -1;
+        for (int matchIndex = 0;
+            matchIndex < _matchedGroupCount;
+            matchIndex++)
+        {
+            int groupIndex = _matchedGroupIndexes[matchIndex];
+            if (groupIndex == previous)
+            {
+                continue;
+            }
+
+            previous = groupIndex;
+            MqttZeroRouteFilterGroup group =
+                snapshot.RegularGroups[groupIndex];
+            for (int entryIndex = 0;
+                entryIndex < group.Entries.Length;
+                entryIndex++)
+            {
+                MqttZeroRouteEntry entry = group.Entries[entryIndex];
+                if (!entry.Subscription.NoLocal ||
+                    !ReferenceEquals(entry.Session, sender))
+                {
+                    AddRegular(entry.Session, entry.Subscription);
+                }
+            }
+        }
+
+        _matchedGroupCount = 0;
+    }
+
     public void AddSharedGroup(
         MqttZeroSharedRouteGroup group,
         ReadOnlySpan<byte> topic,
@@ -166,6 +231,7 @@ internal sealed class MqttZeroRouteScope : IDisposable
     {
         Array.Clear(_deliveries, 0, _deliveryCount);
         _deliveryCount = 0;
+        _matchedGroupCount = 0;
         _bestCount = 0;
         MqttZeroRouteScopePool owner = _owner ??
             throw new InvalidOperationException("The route scope has no owner pool.");
@@ -182,6 +248,11 @@ internal sealed class MqttZeroRouteScope : IDisposable
         }
 
         ReturnBestArrays();
+        if (_matchedGroupIndexes.Length > 0)
+        {
+            ArrayPool<int>.Shared.Return(_matchedGroupIndexes);
+            _matchedGroupIndexes = [];
+        }
         _deliveryCount = 0;
         _owner = null;
     }

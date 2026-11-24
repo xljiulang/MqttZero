@@ -11,9 +11,12 @@ internal sealed class MqttZeroSubscriptionRouteSnapshot
     {
         RegularGroups = regularGroups;
         SharedGroups = sharedGroups;
+        TopicTrie = new MqttZeroTopicTrie(regularGroups);
     }
 
     public MqttZeroRouteFilterGroup[] RegularGroups { get; }
 
     public MqttZeroSharedRouteGroup[] SharedGroups { get; }
+
+    public MqttZeroTopicTrie TopicTrie { get; }
 }

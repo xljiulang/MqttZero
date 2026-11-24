@@ -14,23 +14,8 @@ internal static class MqttZeroRouteSelector
         MqttZeroRouteScopePool scopePool)
     {
         MqttZeroRouteScope route = scopePool.Rent();
-        for (int groupIndex = 0; groupIndex < snapshot.RegularGroups.Length; groupIndex++)
-        {
-            MqttZeroRouteFilterGroup group = snapshot.RegularGroups[groupIndex];
-            if (!MqttZeroTopicMatcher.Matches(group.Filter, topic))
-            {
-                continue;
-            }
-
-            for (int entryIndex = 0; entryIndex < group.Entries.Length; entryIndex++)
-            {
-                MqttZeroRouteEntry entry = group.Entries[entryIndex];
-                if (!entry.Subscription.NoLocal || !ReferenceEquals(entry.Session, sender))
-                {
-                    route.AddRegular(entry.Session, entry.Subscription);
-                }
-            }
-        }
+        snapshot.TopicTrie.Match(topic, route);
+        route.AddRegularGroups(snapshot, sender);
 
         for (int index = 0; index < snapshot.SharedGroups.Length; index++)
         {
