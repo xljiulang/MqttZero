@@ -19,35 +19,23 @@ internal static class MqttZeroPublishPropertyTransformer
             return GetLengthWithoutMessageExpiry(properties.FirstSpan);
         }
 
-        int length = checked((int)properties.Length);
-        byte[] buffer = ArrayPool<byte>.Shared.Rent(length);
-        try
+        SequenceReader<byte> reader = new(properties);
+        int filteredLength = 0;
+        while (reader.Remaining > 0)
         {
-            properties.CopyTo(buffer);
-            int filteredLength = 0;
-            int offset = 0;
-            while (offset < length)
+            long start = reader.Consumed;
+            if (!TrySkipProperty(ref reader, out byte identifier))
             {
-                int propertyLength = GetPropertyLength(buffer.AsSpan(offset, length - offset));
-                if (propertyLength <= 0)
-                {
-                    return (int)properties.Length;
-                }
-
-                if (buffer[offset] != MessageExpiryIntervalId)
-                {
-                    filteredLength += propertyLength;
-                }
-
-                offset += propertyLength;
+                return (int)properties.Length;
             }
 
-            return filteredLength;
+            if (identifier != MessageExpiryIntervalId)
+            {
+                filteredLength += (int)(reader.Consumed - start);
+            }
         }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
+
+        return filteredLength;
     }
 
     public static bool ContainsProperty(
@@ -64,34 +52,21 @@ internal static class MqttZeroPublishPropertyTransformer
             return ContainsProperty(properties.FirstSpan, identifier);
         }
 
-        int length = checked((int)properties.Length);
-        byte[] buffer = ArrayPool<byte>.Shared.Rent(length);
-        try
+        SequenceReader<byte> reader = new(properties);
+        while (reader.Remaining > 0)
         {
-            properties.CopyTo(buffer);
-            int offset = 0;
-            while (offset < length)
+            if (!TrySkipProperty(ref reader, out byte current))
             {
-                int propertyLength = GetPropertyLength(buffer.AsSpan(offset, length - offset));
-                if (propertyLength <= 0)
-                {
-                    return false;
-                }
-
-                if (buffer[offset] == identifier)
-                {
-                    return true;
-                }
-
-                offset += propertyLength;
+                return false;
             }
 
-            return false;
+            if (current == identifier)
+            {
+                return true;
+            }
         }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
+
+        return false;
     }
 
     public static void WriteWithoutMessageExpiry(
@@ -310,6 +285,84 @@ internal static class MqttZeroPublishPropertyTransformer
             0x09 or 0x16 or 0x03 or 0x08 or 0x12 or 0x15 or 0x18 or 0x1A or 0x1C or 0x1F
                 ? TryReadBinaryLength(properties, 1)
                 : -1;
+    }
+
+    private static bool TrySkipProperty(
+        ref SequenceReader<byte> reader,
+        out byte identifier)
+    {
+        identifier = 0;
+        if (!reader.TryRead(out identifier))
+        {
+            return false;
+        }
+
+        if (identifier == 0x0B)
+        {
+            for (int index = 0; index < 4; index++)
+            {
+                if (!reader.TryRead(out byte encoded))
+                {
+                    return false;
+                }
+
+                if ((encoded & 0x80) == 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        int fixedPayloadLength = identifier switch
+        {
+            0x01 or 0x17 or 0x19 or 0x24 or 0x25 or 0x28 or 0x29 or 0x2A => 1,
+            0x11 or 0x27 or MessageExpiryIntervalId => 4,
+            0x13 or 0x21 or 0x22 or 0x23 => 2,
+            _ => 0
+        };
+        if (fixedPayloadLength > 0)
+        {
+            return TryAdvance(ref reader, fixedPayloadLength);
+        }
+
+        if (identifier == 0x26)
+        {
+            return TrySkipBinary(ref reader) &&
+                TrySkipBinary(ref reader);
+        }
+
+        return identifier is
+            0x09 or 0x16 or 0x03 or 0x08 or 0x12 or 0x15 or 0x18 or 0x1A or 0x1C or 0x1F
+                ? TrySkipBinary(ref reader)
+                : false;
+    }
+
+    private static bool TrySkipBinary(ref SequenceReader<byte> reader)
+    {
+        if (!reader.TryReadBigEndian(out short length) ||
+            length < 0 ||
+            reader.Remaining < length)
+        {
+            return false;
+        }
+
+        reader.Advance(length);
+        return true;
+    }
+
+    private static bool TryAdvance(
+        ref SequenceReader<byte> reader,
+        long length)
+    {
+        if (reader.Remaining < length)
+        {
+            return false;
+        }
+
+        reader.Advance(length);
+        return true;
     }
 
     private static int TryReadBinaryLength(

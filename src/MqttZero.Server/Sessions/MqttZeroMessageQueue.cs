@@ -1,17 +1,25 @@
+using MqttZero.Protocol;
+
 namespace MqttZero.Server.Sessions;
 
 internal sealed class MqttZeroMessageQueue
 {
-    private readonly MqttZeroQueuedMessage[] _items;
+    private readonly Qos0Candidate[] _qos0Candidates;
     private int _count;
     private int _expiringCount;
-    private int _head;
+    private int _qos0CandidateCount;
+    private int _qos0CandidateHead;
+    private MqttZeroQueuedMessage? _head;
+    private MqttZeroQueuedMessage? _tail;
 
     public MqttZeroMessageQueue(int capacity)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
-        _items = new MqttZeroQueuedMessage[capacity];
+        Capacity = capacity;
+        _qos0Candidates = new Qos0Candidate[capacity];
     }
+
+    public int Capacity { get; }
 
     public int Count
     {
@@ -35,74 +43,98 @@ internal sealed class MqttZeroMessageQueue
         {
             ArgumentOutOfRangeException.ThrowIfNegative(index);
             ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _count);
-            return _items[(_head + index) % _items.Length];
+            MqttZeroQueuedMessage current = _head!;
+            for (int currentIndex = 0; currentIndex < index; currentIndex++)
+            {
+                current = current.QueueNext!;
+            }
+
+            return current;
         }
     }
 
     public void Add(MqttZeroQueuedMessage message)
     {
         ArgumentNullException.ThrowIfNull(message);
-        if (_count == _items.Length)
+        if (_count == Capacity)
         {
             throw new InvalidOperationException("The message queue is full.");
         }
 
-        _items[(_head + _count) % _items.Length] = message;
-        _count++;
-        if (message.ExpiresAt.HasValue)
-        {
-            _expiringCount++;
-        }
+        LinkLast(message);
     }
 
     public MqttZeroQueuedMessage Peek()
     {
-        if (_count == 0)
+        if (_head == null)
         {
             throw new InvalidOperationException("The message queue is empty.");
         }
 
-        return _items[_head];
+        return _head;
     }
 
     public MqttZeroQueuedMessage Dequeue()
     {
         MqttZeroQueuedMessage message = Peek();
-        _items[_head] = null!;
-        _head = (_head + 1) % _items.Length;
-        _count--;
-        if (message.ExpiresAt.HasValue)
-        {
-            _expiringCount--;
-        }
+        Unlink(message);
         return message;
     }
 
     public void Prepend(MqttZeroQueuedMessage message)
     {
         ArgumentNullException.ThrowIfNull(message);
-        if (_count == _items.Length)
+        if (_count == Capacity)
         {
             throw new InvalidOperationException("The message queue is full.");
         }
 
-        _head = (_head - 1 + _items.Length) % _items.Length;
-        _items[_head] = message;
-        _count++;
-        if (message.ExpiresAt.HasValue)
+        LinkFirst(message);
+    }
+
+    public MqttZeroQueuedMessage? EvictOldestQos0OrOldest()
+    {
+        while (_qos0CandidateCount > 0)
         {
-            _expiringCount++;
+            Qos0Candidate candidate =
+                _qos0Candidates[_qos0CandidateHead];
+            _qos0Candidates[_qos0CandidateHead] = default;
+            _qos0CandidateHead =
+                (_qos0CandidateHead + 1) % _qos0Candidates.Length;
+            _qos0CandidateCount--;
+            if (candidate.Version == candidate.Message.QueueVersion &&
+                candidate.Message.QualityOfServiceLevel ==
+                    MqttQualityOfServiceLevel.AtMostOnce)
+            {
+                Unlink(candidate.Message);
+                return candidate.Message;
+            }
         }
+
+        if (_head == null)
+        {
+            return null;
+        }
+
+        MqttZeroQueuedMessage oldest = _head;
+        Unlink(oldest);
+        return oldest;
     }
 
     public int FindIndex(Predicate<MqttZeroQueuedMessage> predicate)
     {
-        for (int index = 0; index < _count; index++)
+        ArgumentNullException.ThrowIfNull(predicate);
+        int index = 0;
+        for (MqttZeroQueuedMessage? current = _head;
+            current != null;
+            current = current.QueueNext)
         {
-            if (predicate(this[index]))
+            if (predicate(current))
             {
                 return index;
             }
+
+            index++;
         }
 
         return -1;
@@ -112,29 +144,34 @@ internal sealed class MqttZeroMessageQueue
     {
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _count);
-        MqttZeroQueuedMessage removed =
-            _items[(_head + index) % _items.Length];
-        for (int current = index; current < _count - 1; current++)
+        MqttZeroQueuedMessage current = _head!;
+        for (int currentIndex = 0; currentIndex < index; currentIndex++)
         {
-            _items[(_head + current) % _items.Length] =
-                _items[(_head + current + 1) % _items.Length];
+            current = current.QueueNext!;
         }
 
-        if (removed.ExpiresAt.HasValue)
-        {
-            _expiringCount--;
-        }
-
-        _items[(_head + _count - 1) % _items.Length] = null!;
-        _count--;
+        Unlink(current);
     }
 
     public void Clear()
     {
-        Array.Clear(_items);
-        _head = 0;
+        MqttZeroQueuedMessage? current = _head;
+        while (current != null)
+        {
+            MqttZeroQueuedMessage? next = current.QueueNext;
+            current.QueueNext = null;
+            current.QueuePrevious = null;
+            current.QueueVersion++;
+            current = next;
+        }
+
+        _head = null;
+        _tail = null;
         _count = 0;
         _expiringCount = 0;
+        _qos0CandidateHead = 0;
+        _qos0CandidateCount = 0;
+        Array.Clear(_qos0Candidates);
     }
 
     public void RemoveExpired(
@@ -147,45 +184,202 @@ internal sealed class MqttZeroMessageQueue
             return;
         }
 
-        for (int index = _count - 1; index >= 0; index--)
+        MqttZeroQueuedMessage? current = _head;
+        while (current != null)
         {
-            if (index < _count && this[index].IsExpired(now))
+            MqttZeroQueuedMessage? next = current.QueueNext;
+            if (current.IsExpired(now))
             {
-                MqttZeroQueuedMessage message = this[index];
-                RemoveAt(index);
-                expired.Add(message);
+                Unlink(current);
+                expired.Add(current);
             }
+
+            current = next;
         }
     }
 
     public Enumerator GetEnumerator()
     {
-        return new Enumerator(this);
+        return new Enumerator(_head);
+    }
+
+    private void LinkFirst(MqttZeroQueuedMessage message)
+    {
+        PrepareForLink(message);
+        message.QueueNext = _head;
+        if (_head != null)
+        {
+            _head.QueuePrevious = message;
+        }
+        else
+        {
+            _tail = message;
+        }
+
+        _head = message;
+        CompleteLink(message);
+    }
+
+    private void LinkLast(MqttZeroQueuedMessage message)
+    {
+        PrepareForLink(message);
+        message.QueuePrevious = _tail;
+        if (_tail != null)
+        {
+            _tail.QueueNext = message;
+        }
+        else
+        {
+            _head = message;
+        }
+
+        _tail = message;
+        CompleteLink(message);
+    }
+
+    private static void PrepareForLink(MqttZeroQueuedMessage message)
+    {
+        if (message.QueueNext != null ||
+            message.QueuePrevious != null)
+        {
+            throw new InvalidOperationException(
+                "The message is already linked to a queue.");
+        }
+
+        message.QueueVersion++;
+    }
+
+    private void CompleteLink(MqttZeroQueuedMessage message)
+    {
+        _count++;
+        if (message.ExpiresAt.HasValue)
+        {
+            _expiringCount++;
+        }
+
+        if (message.QualityOfServiceLevel ==
+            MqttQualityOfServiceLevel.AtMostOnce)
+        {
+            AddQos0Candidate(message);
+        }
+    }
+
+    private void AddQos0Candidate(MqttZeroQueuedMessage message)
+    {
+        if (_qos0CandidateCount == _qos0Candidates.Length)
+        {
+            CompactQos0Candidates();
+            if (_qos0CandidateCount == _qos0Candidates.Length)
+            {
+                throw new InvalidOperationException(
+                    "The QoS 0 candidate queue is full.");
+            }
+        }
+
+        int index =
+            (_qos0CandidateHead + _qos0CandidateCount) %
+            _qos0Candidates.Length;
+        _qos0Candidates[index] = new Qos0Candidate(
+            message,
+            message.QueueVersion);
+        _qos0CandidateCount++;
+    }
+
+    private void CompactQos0Candidates()
+    {
+        int write = 0;
+        for (int index = 0; index < _qos0CandidateCount; index++)
+        {
+            int sourceIndex =
+                (_qos0CandidateHead + index) %
+                _qos0Candidates.Length;
+            Qos0Candidate candidate = _qos0Candidates[sourceIndex];
+            if (candidate.Version != candidate.Message.QueueVersion)
+            {
+                continue;
+            }
+
+            _qos0Candidates[write++] = candidate;
+        }
+
+        Array.Clear(
+            _qos0Candidates,
+            write,
+            _qos0Candidates.Length - write);
+        _qos0CandidateHead = 0;
+        _qos0CandidateCount = write;
+    }
+
+    private void Unlink(MqttZeroQueuedMessage message)
+    {
+        MqttZeroQueuedMessage? previous = message.QueuePrevious;
+        MqttZeroQueuedMessage? next = message.QueueNext;
+        if (previous != null)
+        {
+            previous.QueueNext = next;
+        }
+        else
+        {
+            _head = next;
+        }
+
+        if (next != null)
+        {
+            next.QueuePrevious = previous;
+        }
+        else
+        {
+            _tail = previous;
+        }
+
+        if (message.ExpiresAt.HasValue)
+        {
+            _expiringCount--;
+        }
+
+        message.QueueNext = null;
+        message.QueuePrevious = null;
+        message.QueueVersion++;
+        _count--;
     }
 
     internal struct Enumerator
     {
-        private readonly MqttZeroMessageQueue _queue;
-        private int _index;
+        private MqttZeroQueuedMessage? _next;
 
-        public Enumerator(MqttZeroMessageQueue queue)
+        public Enumerator(MqttZeroQueuedMessage? head)
         {
-            _queue = queue;
-            _index = -1;
+            _next = head;
+            Current = null!;
         }
 
-        public MqttZeroQueuedMessage Current
-        {
-            get
-            {
-                return _queue[_index];
-            }
-        }
+        public MqttZeroQueuedMessage Current { get; private set; }
 
         public bool MoveNext()
         {
-            _index++;
-            return _index < _queue.Count;
+            if (_next == null)
+            {
+                return false;
+            }
+
+            Current = _next;
+            _next = Current.QueueNext;
+            return true;
         }
+    }
+
+    private readonly struct Qos0Candidate
+    {
+        public Qos0Candidate(
+            MqttZeroQueuedMessage message,
+            long version)
+        {
+            Message = message;
+            Version = version;
+        }
+
+        public MqttZeroQueuedMessage Message { get; }
+
+        public long Version { get; }
     }
 }

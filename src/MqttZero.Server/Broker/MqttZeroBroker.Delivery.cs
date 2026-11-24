@@ -341,26 +341,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroQueuedMessage? evicted = null;
         if (session.PendingMessages.Count >= _options.MaxMessageQueueLength)
         {
-            if (session.PendingMessages[0].QualityOfServiceLevel ==
-                MqttQualityOfServiceLevel.AtMostOnce)
-            {
-                evicted = session.PendingMessages.Dequeue();
-            }
-            else
-            {
-                int oldestQos0Index = session.PendingMessages.FindIndex(
-                    item => item.QualityOfServiceLevel ==
-                        MqttQualityOfServiceLevel.AtMostOnce);
-                if (oldestQos0Index > 0)
-                {
-                    evicted = session.PendingMessages[oldestQos0Index];
-                    session.PendingMessages.RemoveAt(oldestQos0Index);
-                }
-                else
-                {
-                    evicted = session.PendingMessages.Dequeue();
-                }
-            }
+            evicted = session.PendingMessages.EvictOldestQos0OrOldest();
         }
 
         session.PendingMessages.Add(message);

@@ -11,6 +11,12 @@ internal sealed class MqttZeroQueuedMessage
 
     private MqttZeroMessageLease _lease = null!;
 
+    internal MqttZeroQueuedMessage? QueueNext { get; set; }
+
+    internal MqttZeroQueuedMessage? QueuePrevious { get; set; }
+
+    internal long QueueVersion { get; set; }
+
     private MqttZeroQueuedMessage()
     {
     }
@@ -215,6 +221,9 @@ internal sealed class MqttZeroQueuedMessage
         MessageId = 0;
         EncodedLength = 0;
         _encodedLengthMaximumPacketSize = 0;
+        QueueNext = null;
+        QueuePrevious = null;
+        QueueVersion++;
         State = MqttZeroOutboundState.AwaitPubAck;
         MessagePool.Enqueue(this);
     }

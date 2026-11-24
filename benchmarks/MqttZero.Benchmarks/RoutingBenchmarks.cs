@@ -1,7 +1,6 @@
 using MqttZero.Protocol;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
-using System.Collections.Concurrent;
 using BenchmarkDotNet.Attributes;
 
 namespace MqttZero.Benchmarks;
@@ -14,8 +13,6 @@ public class RoutingBenchmarks : IDisposable
 {
     private static readonly byte[] Topic = "route/topic"u8.ToArray();
 
-    private readonly ConcurrentDictionary<string, int> _sharedCursors =
-        new(StringComparer.Ordinal);
     private readonly MqttZeroRouteScopePool _scopePool = new();
 
     private MqttZeroRouteEntry[] _entries = null!;
@@ -67,7 +64,6 @@ public class RoutingBenchmarks : IDisposable
             _snapshot,
             Topic,
             null,
-            _sharedCursors,
             _scopePool);
         return route.Count;
     }
