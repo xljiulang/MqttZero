@@ -168,12 +168,12 @@ internal sealed class MqttZeroConnectionWriter : IAsyncDisposable
             MqttZeroQueuedMessage first = _messages[_head]!;
             int maximumMessages = first.Lease.Payload.Length >= 32 * 1024
                 ? _count > 1
-                    ? 4
+                    ? 8
                     : 1
                 : 128;
             long maximumBytes = first.Lease.Payload.Length >= 32 * 1024
                 ? _count > 1
-                    ? 256 * 1024
+                    ? 512 * 1024
                     : 64 * 1024
                 : 1024 * 1024;
             if (_connection.HasPendingControlWrites)

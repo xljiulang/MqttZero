@@ -376,7 +376,7 @@ namespace MqttZero.Tests.Broker
         }
 
         [Fact(Timeout = 5_000)]
-        public async Task LargeMessageBacklogUsesBoundedBatches()
+        public async Task LargeMessageBacklogUsesLargerBoundedBatches()
         {
             const int messageCount = 8;
             const int payloadSize = 64 * 1024;
@@ -458,7 +458,7 @@ namespace MqttZero.Tests.Broker
                 await subscriberWriter.Completion.WaitAsync(
                     TimeSpan.FromSeconds(2),
                     TestContext.Current.CancellationToken);
-                Assert.Equal(2, subscriberWriter.FlushCount);
+                Assert.Equal(1, subscriberWriter.FlushCount);
             }
             finally
             {
