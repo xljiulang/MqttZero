@@ -14,6 +14,11 @@ internal static class MqttZeroPublishPropertyTransformer
             return 0;
         }
 
+        if (properties.IsSingleSegment)
+        {
+            return GetLengthWithoutMessageExpiry(properties.FirstSpan);
+        }
+
         int length = checked((int)properties.Length);
         byte[] buffer = ArrayPool<byte>.Shared.Rent(length);
         try
@@ -52,6 +57,11 @@ internal static class MqttZeroPublishPropertyTransformer
         if (properties.IsEmpty)
         {
             return false;
+        }
+
+        if (properties.IsSingleSegment)
+        {
+            return ContainsProperty(properties.FirstSpan, identifier);
         }
 
         int length = checked((int)properties.Length);
@@ -201,6 +211,54 @@ internal static class MqttZeroPublishPropertyTransformer
         {
             ArrayPool<byte>.Shared.Return(buffer);
         }
+    }
+
+    private static int GetLengthWithoutMessageExpiry(
+        ReadOnlySpan<byte> properties)
+    {
+        int filteredLength = 0;
+        int offset = 0;
+        while (offset < properties.Length)
+        {
+            int propertyLength = GetPropertyLength(properties[offset..]);
+            if (propertyLength <= 0)
+            {
+                return properties.Length;
+            }
+
+            if (properties[offset] != MessageExpiryIntervalId)
+            {
+                filteredLength += propertyLength;
+            }
+
+            offset += propertyLength;
+        }
+
+        return filteredLength;
+    }
+
+    private static bool ContainsProperty(
+        ReadOnlySpan<byte> properties,
+        byte identifier)
+    {
+        int offset = 0;
+        while (offset < properties.Length)
+        {
+            int propertyLength = GetPropertyLength(properties[offset..]);
+            if (propertyLength <= 0)
+            {
+                return false;
+            }
+
+            if (properties[offset] == identifier)
+            {
+                return true;
+            }
+
+            offset += propertyLength;
+        }
+
+        return false;
     }
 
     private static int GetPropertyLength(ReadOnlySpan<byte> properties)
