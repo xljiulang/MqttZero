@@ -19,6 +19,57 @@ namespace MqttZero.Tests.Broker;
 
 public sealed partial class BrokerIntegrationTests
 {
+    [Fact(Timeout = 10_000)]
+    public async Task Qos2PublishWaitsForPublishInterceptorBeforePubRec()
+    {
+        int port = GetFreePort();
+        GatePublishInterceptor interceptor = new();
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.Logging.ClearProviders();
+        builder.WebHost.ConfigureKestrel(kestrel =>
+            kestrel.Listen(IPAddress.Loopback, port, listen => listen.UseMqttZero()));
+        builder.Services.AddMqttZero();
+        builder.Services.AddSingleton<IMqttZeroPublishInterceptor>(interceptor);
+        await using WebApplication app = builder.Build();
+        await app.StartAsync(TestContext.Current.CancellationToken);
+        using TcpClient client = new();
+        await client.ConnectAsync(
+            IPAddress.Loopback,
+            port,
+            TestContext.Current.CancellationToken);
+        NetworkStream stream = client.GetStream();
+        await SendPacketAsync(
+            stream,
+            new MqttConnectPacket
+            {
+                ClientId = new ReadOnlySequence<byte>("qos2-gate"u8.ToArray())
+            },
+            TestContext.Current.CancellationToken);
+        _ = await ReadPacketAsync(stream, TestContext.Current.CancellationToken);
+        await SendPacketAsync(
+            stream,
+            new MqttPublishPacket
+            {
+                TopicName = new ReadOnlySequence<byte>("qos2/gate"u8.ToArray()),
+                PacketIdentifier = 7,
+                QualityOfServiceLevel = MqttQualityOfServiceLevel.ExactlyOnce
+            },
+            TestContext.Current.CancellationToken);
+        await interceptor.Started.Task.WaitAsync(
+            TimeSpan.FromSeconds(2),
+            TestContext.Current.CancellationToken);
+        using CancellationTokenSource probeTimeout = new(
+            TimeSpan.FromMilliseconds(200));
+        Task<MqttPacket> pubRecProbe = ReadPacketAsync(
+            stream,
+            probeTimeout.Token);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await pubRecProbe);
+        interceptor.Release();
+        _ = Assert.IsType<MqttPubRecPacket>(
+            await ReadPacketAsync(stream, TestContext.Current.CancellationToken));
+    }
+
     [Fact(Timeout = 15_000)]
     public async Task PublishInterceptorCanReplaceTypedProperties()
     {
@@ -687,6 +738,29 @@ public sealed partial class BrokerIntegrationTests
                 UserProperties = [new MqttUserProperty("source", "interceptor")]
             };
             return ValueTask.FromResult(MqttZeroInterceptionResult.Continue);
+        }
+    }
+
+    private sealed class GatePublishInterceptor : IMqttZeroPublishInterceptor
+    {
+        private readonly TaskCompletionSource _release = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Started { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Release()
+        {
+            _release.TrySetResult();
+        }
+
+        public async ValueTask<MqttZeroInterceptionResult> InterceptAsync(
+            MqttZeroPublishContext context,
+            CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            await _release.Task.WaitAsync(cancellationToken);
+            return MqttZeroInterceptionResult.Continue;
         }
     }
 }

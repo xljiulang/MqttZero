@@ -591,7 +591,7 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        if (!routeCompleted && CanDispatchInboundQos2)
+        if (!routeCompleted && CanDispatchInbound)
         {
             await EnqueueInboundAsync(
                 lease,
@@ -1035,14 +1035,6 @@ public sealed partial class MqttZeroBroker
                 !_messageStore.IsEnabled &&
                 !_retainedMessageStore.IsEnabled &&
                 _inboundDispatcher != null;
-        }
-    }
-
-    private bool CanDispatchInboundQos2
-    {
-        get
-        {
-            return CanDispatchInbound && _publishInterceptors.Length == 0;
         }
     }
 

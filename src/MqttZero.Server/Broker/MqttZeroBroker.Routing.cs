@@ -35,12 +35,6 @@ public sealed partial class MqttZeroBroker
             {
                 receiveMaximumExceeded = true;
             }
-            else
-            {
-                lease.EnsureOwned();
-                session.InboundQos2Messages[packetIdentifier] = lease;
-                session.RoutedInboundQos2Messages.Remove(packetIdentifier);
-            }
         }
 
         if (duplicate)
@@ -64,12 +58,64 @@ public sealed partial class MqttZeroBroker
             return false;
         }
 
+        MqttZeroPreparedPublish prepared = await PreparePublishForDispatchAsync(
+            session,
+            connection,
+            lease,
+            cancellationToken).ConfigureAwait(false);
+        if (prepared.Result == MqttZeroInterceptionResult.CloseConnection)
+        {
+            await connection.CloseAsync(
+                prepared.ReasonCode == MqttReasonCode.Success
+                    ? MqttReasonCode.NotAuthorized
+                    : prepared.ReasonCode,
+                cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
+        if (prepared.Result != MqttZeroInterceptionResult.Continue ||
+            prepared.Lease == null)
+        {
+            await connection.SendPubRecAsync(
+                packetIdentifier,
+                prepared.ReasonCode,
+                cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
+        MqttZeroMessageLease storedLease = prepared.Lease;
+        bool inserted = false;
+        lock (session.SyncRoot)
+        {
+            if (!session.InboundQos2Messages.ContainsKey(packetIdentifier) &&
+                session.InboundQos2Messages.Count < _options.MaxAwaitingRel)
+            {
+                session.InboundQos2Messages[packetIdentifier] = storedLease;
+                session.RoutedInboundQos2Messages.Remove(packetIdentifier);
+                inserted = true;
+            }
+        }
+
+        if (!inserted)
+        {
+            if (!prepared.UsesSourceLease)
+            {
+                storedLease.Release();
+            }
+
+            await connection.SendPubRecAsync(
+                packetIdentifier,
+                MqttReasonCode.Success,
+                cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+
         if (_messageStore.IsEnabled)
         {
             try
             {
                 await SaveInboundQos2Async(
-                    lease,
+                    storedLease,
                     session.ClientId,
                     packetIdentifier,
                     cancellationToken).ConfigureAwait(false);
@@ -81,15 +127,26 @@ public sealed partial class MqttZeroBroker
                     if (session.InboundQos2Messages.TryGetValue(
                             packetIdentifier,
                             out MqttZeroMessageLease? stored) &&
-                        ReferenceEquals(stored, lease))
+                        ReferenceEquals(stored, storedLease))
                     {
                         session.InboundQos2Messages.Remove(packetIdentifier);
                     }
                 }
 
+                if (!prepared.UsesSourceLease)
+                {
+                    storedLease.Release();
+                }
+
                 throw;
             }
         }
+
+        if (!prepared.UsesSourceLease)
+        {
+            lease.Release();
+        }
+
         await connection.SendPubRecAsync(
             packetIdentifier,
             MqttReasonCode.Success,
