@@ -372,6 +372,144 @@ public sealed partial class MqttZeroBroker
         return result[0];
     }
 
+    internal async ValueTask<MqttZeroPreparedPublish> PreparePublishForDispatchAsync(
+        MqttZeroSessionState sender,
+        MqttZeroClientConnection senderConnection,
+        MqttZeroMessageLease lease,
+        CancellationToken cancellationToken)
+    {
+        if (lease.ExpiresAt.HasValue &&
+            lease.ExpiresAt.Value <= _timeProvider.GetUtcNow())
+        {
+            return new MqttZeroPreparedPublish(
+                null,
+                MqttZeroInterceptionResult.Consume,
+                MqttReasonCode.Success,
+                false);
+        }
+
+        if (_publishInterceptors.Length == 0)
+        {
+            lease.EnsureOwned();
+            return new MqttZeroPreparedPublish(
+                lease,
+                MqttZeroInterceptionResult.Continue,
+                MqttReasonCode.Success,
+                true);
+        }
+
+        MqttZeroPublishContext context = MqttZeroPublishContext.Rent();
+        context.Topic = new ReadOnlySequence<byte>(lease.Topic);
+        context.Payload = new ReadOnlySequence<byte>(lease.Payload);
+        if (!MqttPublishPropertiesCodec.TryDecode(
+                lease.Properties.Length == 0
+                    ? ReadOnlySequence<byte>.Empty
+                    : new ReadOnlySequence<byte>(lease.Properties),
+                out MqttPublishProperties properties,
+                out _,
+                out _))
+        {
+            context.Release();
+            throw new InvalidOperationException(
+                "The MQTT PUBLISH properties are invalid.");
+        }
+
+        context.Properties = properties;
+        context.QualityOfServiceLevel = lease.QualityOfServiceLevel;
+        context.Retain = lease.RetainFlag;
+        context.Sender = senderConnection.ConnectedClient;
+        try
+        {
+            foreach (IMqttZeroPublishInterceptor interceptor in _publishInterceptors)
+            {
+                MqttZeroInterceptionResult result = await interceptor
+                    .InterceptAsync(context, cancellationToken)
+                    .ConfigureAwait(false);
+                if (result != MqttZeroInterceptionResult.Continue)
+                {
+                    return new MqttZeroPreparedPublish(
+                        null,
+                        result,
+                        context.ResultReasonCode,
+                        false);
+                }
+            }
+
+            MqttZeroMessageLease effectiveLease = MqttZeroMessageLease.CopyFrom(
+                context.Topic,
+                MqttPublishPropertiesCodec.Encode(context.Properties),
+                context.Payload,
+                context.QualityOfServiceLevel,
+                context.Retain,
+                context.Properties.MessageExpiryInterval,
+                lease.SubscriptionIdentifier,
+                _bufferPool);
+            effectiveLease.SetExpiresAt(
+                context.Properties.MessageExpiryInterval ==
+                    lease.MessageExpiryInterval
+                    ? lease.ExpiresAt
+                    : CalculateMessageExpiresAt(
+                        context.Properties.MessageExpiryInterval));
+            effectiveLease.PacketIdentifier = lease.PacketIdentifier;
+            return new MqttZeroPreparedPublish(
+                effectiveLease,
+                MqttZeroInterceptionResult.Continue,
+                MqttReasonCode.Success,
+                false);
+        }
+        finally
+        {
+            context.Release();
+        }
+    }
+
+    internal async ValueTask RoutePreparedLeaseAsync(
+        MqttZeroSessionState sender,
+        MqttZeroClientConnection senderConnection,
+        MqttZeroMessageLease lease,
+        CancellationToken cancellationToken)
+    {
+        if (lease.RetainFlag)
+        {
+            await StoreRetainedMessageAsync(
+                lease,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        MqttZeroSubscriptionRouteSnapshot routeSnapshot =
+            Volatile.Read(ref _subscriptionRouteSnapshot);
+        using MqttZeroRouteScope deliveries = MqttZeroRouteSelector.Select(
+            routeSnapshot,
+            lease.Topic.Span,
+            sender,
+            _sharedSubscriptionCursors,
+            _routeScopes);
+        if (deliveries.Count == 0 && _deliveryObservers.Length > 0)
+        {
+            await NotifyNotConsumedAsync(
+                senderConnection.ConnectedClient,
+                lease,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        for (int index = 0; index < deliveries.Count; index++)
+        {
+            MqttZeroDeliveryCandidate delivery = deliveries[index];
+            MqttQualityOfServiceLevel deliveryQos =
+                (MqttQualityOfServiceLevel)Math.Min(
+                    (byte)lease.QualityOfServiceLevel,
+                    (byte)delivery.QualityOfServiceLevel);
+            await DeliverLeaseAsync(
+                delivery.Session,
+                lease,
+                deliveryQos,
+                delivery.Subscription.RetainAsPublished && lease.RetainFlag,
+                delivery.SubscriptionIdentifiers,
+                senderConnection,
+                cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     private async ValueTask RoutePublishLeaseCoreAsync(
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,

@@ -591,7 +591,7 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        if (!routeCompleted && CanDispatchInbound)
+        if (!routeCompleted && CanDispatchInboundQos2)
         {
             await EnqueueInboundAsync(
                 lease,
@@ -1034,8 +1034,15 @@ public sealed partial class MqttZeroBroker
             return !_sessionStore.IsEnabled &&
                 !_messageStore.IsEnabled &&
                 !_retainedMessageStore.IsEnabled &&
-                _publishInterceptors.Length == 0 &&
                 _inboundDispatcher != null;
+        }
+    }
+
+    private bool CanDispatchInboundQos2
+    {
+        get
+        {
+            return CanDispatchInbound && _publishInterceptors.Length == 0;
         }
     }
 
@@ -1069,12 +1076,11 @@ public sealed partial class MqttZeroBroker
         MqttZeroInboundWork work,
         CancellationToken cancellationToken)
     {
-        await RoutePublishLeaseAsync(
+        await RoutePreparedLeaseAsync(
             work.Sender,
             work.SenderConnection,
             work.Lease,
-            cancellationToken,
-            suppressPublisherAck: true).ConfigureAwait(false);
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static void ReleaseSessionMessages(MqttZeroSessionState session)

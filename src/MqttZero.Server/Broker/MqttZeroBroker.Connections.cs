@@ -243,17 +243,50 @@ public sealed partial class MqttZeroBroker
                                         MqttQualityOfServiceLevel.AtLeastOnce &&
                                     CanDispatchInbound)
                                 {
-                                    lease.EnsureOwned();
-                                    await EnqueueInboundAsync(
-                                        lease,
-                                        session,
-                                        connection,
-                                        connectionLifetime.Token).ConfigureAwait(false);
-                                    transferred = true;
-                                    await connection.SendPubAckAsync(
-                                        lease.PacketIdentifier,
-                                        MqttReasonCode.Success,
-                                        connectionLifetime.Token).ConfigureAwait(false);
+                                    MqttZeroPreparedPublish prepared =
+                                        await PreparePublishForDispatchAsync(
+                                            session,
+                                            connection,
+                                            lease,
+                                            connectionLifetime.Token).ConfigureAwait(false);
+                                    if (prepared.Result ==
+                                        MqttZeroInterceptionResult.CloseConnection)
+                                    {
+                                        await connection.CloseAsync(
+                                            prepared.ReasonCode == MqttReasonCode.Success
+                                                ? MqttReasonCode.NotAuthorized
+                                                : prepared.ReasonCode,
+                                            connectionLifetime.Token).ConfigureAwait(false);
+                                        return;
+                                    }
+
+                                    if (prepared.Result !=
+                                            MqttZeroInterceptionResult.Continue ||
+                                        prepared.Lease == null)
+                                    {
+                                        await connection.SendPubAckAsync(
+                                            lease.PacketIdentifier,
+                                            prepared.ReasonCode,
+                                            connectionLifetime.Token).ConfigureAwait(false);
+                                    }
+                                    else
+                                    {
+                                        await EnqueueInboundAsync(
+                                            prepared.Lease,
+                                            session,
+                                            connection,
+                                            connectionLifetime.Token).ConfigureAwait(false);
+                                        transferred = true;
+                                        if (!prepared.UsesSourceLease)
+                                        {
+                                            lease.Release();
+                                        }
+
+                                        await connection.SendPubAckAsync(
+                                            lease.PacketIdentifier,
+                                            MqttReasonCode.Success,
+                                            connectionLifetime.Token).ConfigureAwait(false);
+                                    }
                                 }
                                 else
                                 {
