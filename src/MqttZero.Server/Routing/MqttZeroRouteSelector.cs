@@ -14,6 +14,8 @@ internal static class MqttZeroRouteSelector
         MqttZeroRouteScopePool scopePool)
     {
         MqttZeroRouteScope route = scopePool.Rent();
+        route.EnsureMatchedGroupCapacity(
+            snapshot.RegularGroups.Length);
         snapshot.TopicTrie.Match(topic, route);
         route.AddRegularGroups(snapshot, sender);
 

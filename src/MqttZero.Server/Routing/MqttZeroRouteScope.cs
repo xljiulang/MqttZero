@@ -133,6 +133,26 @@ internal sealed class MqttZeroRouteScope : IDisposable
         _matchedGroupIndexes[_matchedGroupCount++] = groupIndex;
     }
 
+    public void EnsureMatchedGroupCapacity(int capacity)
+    {
+        if (_matchedGroupIndexes.Length >= capacity)
+        {
+            return;
+        }
+
+        int[] replacement = ArrayPool<int>.Shared.Rent(capacity);
+        if (_matchedGroupIndexes.Length > 0)
+        {
+            Array.Copy(
+                _matchedGroupIndexes,
+                replacement,
+                _matchedGroupCount);
+            ArrayPool<int>.Shared.Return(_matchedGroupIndexes);
+        }
+
+        _matchedGroupIndexes = replacement;
+    }
+
     public void AddRegularGroups(
         MqttZeroSubscriptionRouteSnapshot snapshot,
         MqttZeroSessionState? sender)
