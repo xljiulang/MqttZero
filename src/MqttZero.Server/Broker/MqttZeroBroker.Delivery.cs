@@ -792,11 +792,11 @@ public sealed partial class MqttZeroBroker
                         long batchBytes = next.Lease.Payload.Length + 32;
                         long maximumBatchBytes =
                             next.Lease.Payload.Length >= 32 * 1024
-                                ? 256 * 1024
+                                ? 64 * 1024
                                 : 1024 * 1024;
                         int maximumBatchMessages =
                             next.Lease.Payload.Length >= 32 * 1024
-                                ? 32
+                                ? 1
                                 : 128;
                         while (batch.Count < maximumBatchMessages &&
                             batchBytes < maximumBatchBytes &&
