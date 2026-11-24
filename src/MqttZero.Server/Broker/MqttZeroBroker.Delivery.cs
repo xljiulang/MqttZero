@@ -808,8 +808,16 @@ public sealed partial class MqttZeroBroker
                         }
 
                         long batchBytes = next.Lease.Payload.Length + 32;
-                        while (batch.Count < 128 &&
-                            batchBytes < 1024 * 1024 &&
+                        long maximumBatchBytes =
+                            next.Lease.Payload.Length >= 32 * 1024
+                                ? 256 * 1024
+                                : 1024 * 1024;
+                        int maximumBatchMessages =
+                            next.Lease.Payload.Length >= 32 * 1024
+                                ? 32
+                                : 128;
+                        while (batch.Count < maximumBatchMessages &&
+                            batchBytes < maximumBatchBytes &&
                             session.PendingMessages.Count > 0)
                         {
                             MqttZeroQueuedMessage head =
