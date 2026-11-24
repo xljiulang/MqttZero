@@ -341,9 +341,14 @@ internal static class MqttZeroPublishPropertyTransformer
 
     private static bool TrySkipBinary(ref SequenceReader<byte> reader)
     {
-        if (!reader.TryReadBigEndian(out short length) ||
-            length < 0 ||
-            reader.Remaining < length)
+        if (!reader.TryRead(out byte high) ||
+            !reader.TryRead(out byte low))
+        {
+            return false;
+        }
+
+        int length = (high << 8) | low;
+        if (reader.Remaining < length)
         {
             return false;
         }

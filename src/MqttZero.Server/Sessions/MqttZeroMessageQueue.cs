@@ -161,6 +161,7 @@ internal sealed class MqttZeroMessageQueue
             MqttZeroQueuedMessage? next = current.QueueNext;
             current.QueueNext = null;
             current.QueuePrevious = null;
+            current.IsQueued = false;
             current.QueueVersion++;
             current = next;
         }
@@ -239,14 +240,14 @@ internal sealed class MqttZeroMessageQueue
 
     private static void PrepareForLink(MqttZeroQueuedMessage message)
     {
-        if (message.QueueNext != null ||
-            message.QueuePrevious != null)
+        if (message.IsQueued)
         {
             throw new InvalidOperationException(
                 "The message is already linked to a queue.");
         }
 
         message.QueueVersion++;
+        message.IsQueued = true;
     }
 
     private void CompleteLink(MqttZeroQueuedMessage message)
@@ -339,6 +340,7 @@ internal sealed class MqttZeroMessageQueue
 
         message.QueueNext = null;
         message.QueuePrevious = null;
+        message.IsQueued = false;
         message.QueueVersion++;
         _count--;
     }

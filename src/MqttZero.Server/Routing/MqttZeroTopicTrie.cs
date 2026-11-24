@@ -19,6 +19,7 @@ internal sealed class MqttZeroTopicTrie
         MatchNode(
             _root,
             topic,
+            true,
             route);
     }
 
@@ -62,10 +63,11 @@ internal sealed class MqttZeroTopicTrie
     private static void MatchNode(
         Node node,
         ReadOnlySpan<byte> remainingTopic,
+        bool hasCurrentLevel,
         MqttZeroRouteScope route)
     {
         AddGroups(node.MultiLevelGroups, route);
-        if (remainingTopic.IsEmpty)
+        if (!hasCurrentLevel)
         {
             AddGroups(node.ExactGroups, route);
             return;
@@ -91,7 +93,8 @@ internal sealed class MqttZeroTopicTrie
                 {
                     MatchNode(
                         child.Node,
-                        hasMoreLevels ? rest : ReadOnlySpan<byte>.Empty,
+                        rest,
+                        hasMoreLevels,
                         route);
                 }
             }
@@ -101,7 +104,8 @@ internal sealed class MqttZeroTopicTrie
         {
             MatchNode(
                 node.SingleLevel,
-                hasMoreLevels ? rest : ReadOnlySpan<byte>.Empty,
+                rest,
+                hasMoreLevels,
                 route);
         }
     }

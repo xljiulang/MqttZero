@@ -171,6 +171,54 @@ namespace MqttZero.Tests.Protocol
 
             Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
         }
+
+        [Fact]
+        public void EncodesCorrelationDataLargerThanSignedShortMaximum()
+        {
+            byte[] properties = new byte[3 + 32_768];
+            properties[0] = 0x09;
+            properties[1] = 0x80;
+            properties[2] = 0x00;
+            MqttZeroPublishView view = new(
+                new ReadOnlySequence<byte>("large/property"u8.ToArray()),
+                CreateSegmentedSequence(properties, 10),
+                new ReadOnlySequence<byte>("payload"u8.ToArray()),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                0,
+                false,
+                false,
+                null,
+                null,
+                ReadOnlyMemory<uint>.Empty,
+                null);
+            ArrayBufferWriter<byte> writer = new();
+
+            MqttPublishPacketCodec.Encode(view, writer);
+
+            Assert.True(writer.WrittenCount > properties.Length);
+        }
+
+        [Fact]
+        public void FindsMessageExpiryAfterLargeBinaryProperty()
+        {
+            byte[] properties = new byte[8 + 32_768];
+            properties[0] = 0x09;
+            properties[1] = 0x80;
+            properties[2] = 0x00;
+            properties[3 + 32_768] = 0x02;
+            properties[4 + 32_768] = 0x00;
+            properties[5 + 32_768] = 0x00;
+            properties[6 + 32_768] = 0x00;
+            properties[7 + 32_768] = 60;
+            ReadOnlySequence<byte> propertySequence =
+                CreateSegmentedSequence(properties, 10);
+
+            Assert.True(
+                MqttZeroPublishPropertyTransformer.ContainsProperty(
+                    propertySequence,
+                    0x02));
+        }
+
         private static ReadOnlySequence<byte> CreateSegmentedSequence(
             byte[] bytes,
             int segmentCount)

@@ -17,6 +17,8 @@ internal sealed class MqttZeroQueuedMessage
 
     internal long QueueVersion { get; set; }
 
+    internal bool IsQueued { get; set; }
+
     private MqttZeroQueuedMessage()
     {
     }
@@ -223,6 +225,7 @@ internal sealed class MqttZeroQueuedMessage
         _encodedLengthMaximumPacketSize = 0;
         QueueNext = null;
         QueuePrevious = null;
+        IsQueued = false;
         QueueVersion++;
         State = MqttZeroOutboundState.AwaitPubAck;
         MessagePool.Enqueue(this);

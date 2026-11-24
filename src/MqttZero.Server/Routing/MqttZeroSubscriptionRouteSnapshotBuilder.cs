@@ -6,7 +6,8 @@ namespace MqttZero.Server.Routing;
 internal static class MqttZeroSubscriptionRouteSnapshotBuilder
 {
     public static MqttZeroSubscriptionRouteSnapshot Build(
-        IEnumerable<MqttZeroSessionState> sessions)
+        IEnumerable<MqttZeroSessionState> sessions,
+        MqttZeroSubscriptionRouteSnapshot? previousSnapshot = null)
     {
         Dictionary<string, List<MqttZeroRouteEntry>> regularGroups =
             new(StringComparer.Ordinal);
@@ -54,9 +55,14 @@ internal static class MqttZeroSubscriptionRouteSnapshotBuilder
         foreach (KeyValuePair<string, List<MqttZeroRouteEntry>> pair in sharedGroups)
         {
             MqttZeroSharedRouteEntry[] entries = BuildSharedEntries(pair.Value);
+            int initialCursor = previousSnapshot?.SharedGroups
+                .FirstOrDefault(group => group.CursorKey == pair.Key)
+                ?.Cursor ?? 0;
             sharedRouteGroups[sharedGroupIndex++] = new MqttZeroSharedRouteGroup(
+                pair.Value[0].Subscription.SharedGroup!,
+                entries,
                 pair.Key,
-                entries);
+                initialCursor);
         }
 
         return new MqttZeroSubscriptionRouteSnapshot(

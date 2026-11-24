@@ -375,6 +375,99 @@ namespace MqttZero.Tests.Broker
             }
         }
 
+        [Fact(Timeout = 5_000)]
+        public async Task LargeMessageBacklogUsesBoundedBatches()
+        {
+            const int messageCount = 8;
+            const int payloadSize = 64 * 1024;
+            MqttZeroOptions options = new()
+            {
+                MaxMessageQueueLength = 20
+            };
+            await using MqttZeroBroker broker = MqttZeroBroker.Create(
+                options,
+                TimeProvider.System);
+            TrackingPipeWriter subscriberWriter = new()
+            {
+                CompletionWrittenBytes = messageCount * payloadSize
+            };
+            MqttZeroClientConnection subscriberConnection = new(
+                subscriberWriter,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                2 * 1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState receiver = new(
+                "receiver",
+                options.MaxMessageQueueLength);
+            receiver.Subscriptions.Add(new MqttZeroSubscription(
+                "batch/#"u8.ToArray(),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                false,
+                null));
+            receiver.Connection = subscriberConnection;
+            AddSession(broker, receiver);
+            RebuildRoutes(broker);
+            TrackingPipeWriter publisherWriter = new();
+            MqttZeroClientConnection publisherConnection = new(
+                publisherWriter,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                2 * 1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState publisher = new("publisher");
+
+            for (int index = 0; index < messageCount; index++)
+            {
+                MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                    new ReadOnlySequence<byte>("batch/topic"u8.ToArray()),
+                    ReadOnlySequence<byte>.Empty,
+                    new ReadOnlySequence<byte>(new byte[payloadSize]),
+                    MqttQualityOfServiceLevel.AtMostOnce,
+                    false,
+                    null,
+                    null);
+                try
+                {
+                    await broker.RoutePublishLeaseAsync(
+                        publisher,
+                        publisherConnection,
+                        lease,
+                        TestContext.Current.CancellationToken);
+                }
+                finally
+                {
+                    lease.Release();
+                }
+            }
+
+            using CancellationTokenSource pumpLifetime = new();
+            MqttZeroSessionOutboundPump pump = broker.StartSessionOutboundPump(
+                receiver,
+                subscriberConnection,
+                pumpLifetime.Token);
+            try
+            {
+                await subscriberWriter.Completion.WaitAsync(
+                    TimeSpan.FromSeconds(2),
+                    TestContext.Current.CancellationToken);
+                Assert.Equal(2, subscriberWriter.FlushCount);
+            }
+            finally
+            {
+                await pump.StopAsync();
+                await publisherConnection.DisposeAsync();
+                await subscriberConnection.DisposeAsync();
+            }
+        }
+
         private static MqttZeroMessageLease CreateQosZeroLease()
         {
             return MqttZeroMessageLease.CopyFrom(

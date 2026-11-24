@@ -6,15 +6,29 @@ internal sealed class MqttZeroSharedRouteGroup
 
     public MqttZeroSharedRouteGroup(
         string group,
-        MqttZeroSharedRouteEntry[] entries)
+        MqttZeroSharedRouteEntry[] entries,
+        string? cursorKey = null,
+        int initialCursor = 0)
     {
         Group = group;
         Entries = entries;
+        CursorKey = cursorKey ?? group;
+        _cursor = initialCursor;
     }
 
     public string Group { get; }
 
     public MqttZeroSharedRouteEntry[] Entries { get; }
+
+    public string CursorKey { get; }
+
+    public int Cursor
+    {
+        get
+        {
+            return Volatile.Read(ref _cursor);
+        }
+    }
 
     public int NextOffset(int count)
     {

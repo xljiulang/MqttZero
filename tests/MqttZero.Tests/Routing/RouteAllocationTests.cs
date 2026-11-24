@@ -73,6 +73,41 @@ namespace MqttZero.Tests.Routing
         }
 
         [Fact]
+        public void RebuiltSharedRoutePreservesRoundRobinCursor()
+        {
+            List<MqttZeroSessionState> sessions =
+            [
+                CreateSession("a", "$share/workers/jobs/#"),
+                CreateSession("b", "$share/workers/jobs/#")
+            ];
+            MqttZeroSubscriptionRouteSnapshot first =
+                MqttZeroSubscriptionRouteSnapshotBuilder.Build(sessions);
+            MqttZeroRouteScopePool pool = new();
+            using (MqttZeroRouteScope initial = MqttZeroRouteSelector.Select(
+                first,
+                "jobs/one"u8,
+                null,
+                pool))
+            {
+                Assert.Equal("a", Assert.Single(
+                    Enumerable.Range(0, initial.Count)
+                        .Select(index => initial[index].Session.ClientId)));
+            }
+
+            MqttZeroSubscriptionRouteSnapshot rebuilt =
+                MqttZeroSubscriptionRouteSnapshotBuilder.Build(
+                    sessions,
+                    first);
+            using MqttZeroRouteScope next = MqttZeroRouteSelector.Select(
+                rebuilt,
+                "jobs/one"u8,
+                null,
+                pool);
+
+            Assert.Equal("b", next[0].Session.ClientId);
+        }
+
+        [Fact]
         public void SharedSubscriptionSelectsHighestMatchingQosAndHonorsNoLocal()
         {
             MqttZeroSessionState first = new("a");

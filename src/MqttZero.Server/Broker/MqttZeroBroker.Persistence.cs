@@ -362,7 +362,19 @@ public sealed partial class MqttZeroBroker
             RebuildSubscriptionRouteSnapshot();
             while (inboundDispatches.Count > 0)
             {
-                int dispatchIndex = inboundDispatches.Count - 1;
+                int dispatchIndex = 0;
+                for (int index = 1;
+                    index < inboundDispatches.Count;
+                    index++)
+                {
+                    if (CompareInboundDispatchOrder(
+                        inboundDispatches[index],
+                        inboundDispatches[dispatchIndex]) < 0)
+                    {
+                        dispatchIndex = index;
+                    }
+                }
+
                 (
                     MqttZeroSessionState Session,
                     MqttZeroMessageLease Lease,
@@ -1068,6 +1080,24 @@ public sealed partial class MqttZeroBroker
             Retain = lease.RetainFlag,
             ExpiresAt = lease.ExpiresAt
         };
+    }
+
+    private static int CompareInboundDispatchOrder(
+        (
+            MqttZeroSessionState Session,
+            MqttZeroMessageLease Lease,
+            long MessageId) left,
+        (
+            MqttZeroSessionState Session,
+            MqttZeroMessageLease Lease,
+            long MessageId) right)
+    {
+        int clientComparison = string.CompareOrdinal(
+            left.Session.ClientId,
+            right.Session.ClientId);
+        return clientComparison != 0
+            ? clientComparison
+            : left.MessageId.CompareTo(right.MessageId);
     }
 
     private static ReadOnlySequence<byte> NormalizePersistedMessageProperties(

@@ -7,6 +7,7 @@ using MqttZero.Server.Sessions;
 using MqttZero.Server.Storage;
 using MqttZero.Memory;
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Reflection;
 
 namespace MqttZero.Tests.Storage
@@ -184,6 +185,70 @@ namespace MqttZero.Tests.Storage
         }
 
         [Fact]
+        public async Task RestoreRoutesInboundDispatchesInMessageIdOrder()
+        {
+            TestSessionStore sessionStore = new();
+            sessionStore.Sessions["sender"] = new MqttZeroPersistedSession
+            {
+                ClientId = "sender",
+                ExpiryInterval = 60
+            };
+            sessionStore.Sessions["receiver"] = new MqttZeroPersistedSession
+            {
+                ClientId = "receiver",
+                ExpiryInterval = 60,
+                Subscriptions =
+                [
+                    new MqttZeroPersistedSubscription
+                    {
+                        TopicFilter = "ordered/#"u8.ToArray(),
+                        QualityOfServiceLevel =
+                            MqttQualityOfServiceLevel.AtLeastOnce
+                    }
+                ]
+            };
+            TestMessageStore messageStore = new();
+            for (int index = 1; index <= 3; index++)
+            {
+                messageStore.Messages.Add(new MqttZeroPersistedMessage
+                {
+                    ClientId = "sender",
+                    MessageId = index,
+                    PacketIdentifier = (ushort)index,
+                    Kind = MqttZeroPersistedMessageKind.InboundDispatch,
+                    State = MqttZeroPersistedDeliveryState.Queued,
+                    Topic = System.Text.Encoding.UTF8.GetBytes(
+                        $"ordered/{index}"),
+                    Payload = new[] { (byte)index },
+                    QualityOfServiceLevel =
+                        MqttQualityOfServiceLevel.AtLeastOnce
+                });
+            }
+
+            ServiceCollection services = new();
+            services.AddSingleton<IMqttZeroSessionStore>(sessionStore);
+            services.AddSingleton<IMqttZeroMessageStore>(messageStore);
+            services.AddSingleton<IMqttZeroRetainedMessageStore, TestRetainedStore>();
+            services.AddMqttZero();
+            await using ServiceProvider provider = services.BuildServiceProvider();
+            MqttZeroBroker broker = provider.GetRequiredService<MqttZeroBroker>();
+
+            await broker.StartAsync(TestContext.Current.CancellationToken);
+
+            MqttZeroSessionState receiver = GetSession(broker, "receiver");
+            List<string> topics = [];
+            foreach (MqttZeroQueuedMessage message in
+                receiver.PendingMessages)
+            {
+                topics.Add(System.Text.Encoding.UTF8.GetString(
+                    message.Topic.Span));
+            }
+            Assert.Equal(
+                ["ordered/1", "ordered/2", "ordered/3"],
+                topics);
+        }
+
+        [Fact]
         public async Task RestoreTreatsZeroRetainedCountAsUnlimited()
         {
             TestRetainedStore retainedStore = new();
@@ -327,6 +392,19 @@ namespace MqttZero.Tests.Storage
                 "_bufferPool",
                 BindingFlags.Instance | BindingFlags.NonPublic)!;
             return (MqttZeroBufferPool)field.GetValue(broker)!;
+        }
+
+        private static MqttZeroSessionState GetSession(
+            MqttZeroBroker broker,
+            string clientId)
+        {
+            FieldInfo field = typeof(MqttZeroBroker).GetField(
+                "_sessions",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            ConcurrentDictionary<string, MqttZeroSessionState> sessions =
+                (ConcurrentDictionary<string, MqttZeroSessionState>)
+                    field.GetValue(broker)!;
+            return sessions[clientId];
         }
 
         private sealed class TestSessionStore : IMqttZeroSessionStore

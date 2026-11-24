@@ -585,6 +585,7 @@ public sealed partial class MqttZeroBroker
                 session.RoutedInboundQos2Messages.Remove(packet.PacketIdentifier);
             }
 
+            lease.Release();
             await connection.SendPubCompAsync(
                 packet.PacketIdentifier,
                 MqttReasonCode.Success,
@@ -790,13 +791,19 @@ public sealed partial class MqttZeroBroker
                         }
 
                         long batchBytes = next.Lease.Payload.Length + 32;
+                        bool hasBacklog =
+                            session.PendingMessages.Count > 0;
                         long maximumBatchBytes =
                             next.Lease.Payload.Length >= 32 * 1024
-                                ? 64 * 1024
+                                ? hasBacklog
+                                    ? 256 * 1024
+                                    : 64 * 1024
                                 : 1024 * 1024;
                         int maximumBatchMessages =
                             next.Lease.Payload.Length >= 32 * 1024
-                                ? 1
+                                ? hasBacklog
+                                    ? 4
+                                    : 1
                                 : 128;
                         while (batch.Count < maximumBatchMessages &&
                             batchBytes < maximumBatchBytes &&

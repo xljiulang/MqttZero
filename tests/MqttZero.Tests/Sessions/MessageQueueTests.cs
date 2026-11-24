@@ -246,6 +246,22 @@ namespace MqttZero.Tests.Sessions
             qos1Lease.Release();
         }
 
+        [Fact]
+        public void RejectsAddingTheSameSingleItemTwice()
+        {
+            MqttZeroMessageQueue queue = new(2);
+            MqttZeroQueuedMessage message = CreateQueuedMessage(
+                null,
+                out MqttZeroMessageLease lease);
+            queue.Add(message);
+
+            Assert.Throws<InvalidOperationException>(
+                () => queue.Add(message));
+            Assert.Equal(1, queue.Count);
+            queue.Dequeue().Release();
+            lease.Release();
+        }
+
         private static MqttZeroQueuedMessage CreateQueuedMessage(
             DateTimeOffset? expiresAt,
             out MqttZeroMessageLease lease)

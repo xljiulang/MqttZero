@@ -306,6 +306,11 @@ public sealed partial class MqttZeroBroker
                                                 session.ClientId,
                                                 messageId,
                                                 CancellationToken.None).ConfigureAwait(false);
+                                            if (!prepared.UsesSourceLease)
+                                            {
+                                                prepared.Lease.Release();
+                                            }
+
                                             throw;
                                         }
 
@@ -315,6 +320,7 @@ public sealed partial class MqttZeroBroker
                                             lease.Release();
                                         }
 
+                                        prepared.Lease.Release();
                                         await connection.SendPubAckAsync(
                                             lease.PacketIdentifier,
                                             MqttReasonCode.Success,

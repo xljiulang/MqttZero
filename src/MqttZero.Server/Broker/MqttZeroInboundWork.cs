@@ -34,6 +34,7 @@ internal sealed class MqttZeroInboundWork
             work = new MqttZeroInboundWork();
         }
 
+        lease.Retain();
         work.Lease = lease;
         work.Sender = sender;
         work.SenderConnection = senderConnection;

@@ -761,7 +761,9 @@ public sealed partial class MqttZeroBroker
         lock (_sessionGate)
         {
             MqttZeroSubscriptionRouteSnapshot snapshot =
-                MqttZeroSubscriptionRouteSnapshotBuilder.Build(_sessions.Values);
+                MqttZeroSubscriptionRouteSnapshotBuilder.Build(
+                    _sessions.Values,
+                    _subscriptionRouteSnapshot);
             Volatile.Write(ref _subscriptionRouteSnapshot, snapshot);
         }
     }

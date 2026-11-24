@@ -98,5 +98,30 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(1, dispatcher.FailedCount);
             Assert.Equal(0, dispatcher.CompletedCount);
         }
+
+        [Fact]
+        public void InboundWorkOwnsIndependentLeaseReference()
+        {
+            MqttZeroBufferPool pool = new(1024 * 1024);
+            MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                new ReadOnlySequence<byte>("lease/topic"u8.ToArray()),
+                ReadOnlySequence<byte>.Empty,
+                new ReadOnlySequence<byte>(new byte[1024]),
+                MqttQualityOfServiceLevel.AtLeastOnce,
+                false,
+                null,
+                null,
+                pool);
+            MqttZeroInboundWork work = MqttZeroInboundWork.Rent(
+                lease,
+                new MqttZeroSessionState("sender"),
+                null);
+
+            work.Release();
+
+            Assert.True(pool.RentedBytes > 0);
+            lease.Release();
+            Assert.Equal(0, pool.RentedBytes);
+        }
     }
 }
