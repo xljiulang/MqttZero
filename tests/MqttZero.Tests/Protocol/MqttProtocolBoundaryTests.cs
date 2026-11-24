@@ -97,8 +97,8 @@ namespace MqttZero.Tests.Protocol
 
         [Theory]
         [InlineData("60020001")]
-        [InlineData("6203000100")]
-        [InlineData("7003000100")]
+        [InlineData("620100")]
+        [InlineData("700100")]
         public void MalformedQos2AcknowledgementsAreRejected(string hex)
         {
             byte[] bytes = Convert.FromHexString(hex);

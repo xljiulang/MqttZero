@@ -181,13 +181,16 @@ public static partial class MqttPacketCodec
             }
 
             reasonCode = (MqttReasonCode)encodedReasonCode;
-            if (!TryReadProperties(ref reader, out ReadOnlySequence<byte> properties) ||
-                !Mqtt5PropertyReader.TryReadReasonProperties(
-                    properties,
-                    out reasonString,
-                    out userProperties))
+            if (reader.Remaining > 0)
             {
-                return false;
+                if (!TryReadProperties(ref reader, out ReadOnlySequence<byte> properties) ||
+                    !Mqtt5PropertyReader.TryReadReasonProperties(
+                        properties,
+                        out reasonString,
+                        out userProperties))
+                {
+                    return false;
+                }
             }
         }
 

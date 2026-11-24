@@ -106,6 +106,28 @@ namespace MqttZero.Tests.Protocol
             Assert.Equal(MqttReasonCode.Success, pubAckPacket.ReasonCode);
         }
 
+        [Theory]
+        [InlineData("4003002A00", MqttPacketType.PubAck)]
+        [InlineData("5003002A00", MqttPacketType.PubRec)]
+        [InlineData("6203002A00", MqttPacketType.PubRel)]
+        [InlineData("7003002A00", MqttPacketType.PubComp)]
+        public void DecodesAcknowledgementWithReasonButNoPropertyLength(
+            string hex,
+            MqttPacketType packetType)
+        {
+            byte[] bytes = Convert.FromHexString(hex);
+
+            bool decoded = MqttPacketCodec.TryDecode(
+                new ReadOnlySequence<byte>(bytes),
+                out MqttPacket? packet,
+                out long consumed);
+
+            Assert.True(decoded, hex);
+            Assert.Equal(bytes.Length, consumed);
+            Assert.Equal(packetType, packet!.PacketType);
+            Assert.Equal(MqttReasonCode.Success, GetReasonCode(packet));
+        }
+
         [Fact]
         public void DecodesBadAuthenticationMethodConnAckReason()
         {
@@ -261,6 +283,19 @@ namespace MqttZero.Tests.Protocol
                 new ReadOnlySequence<byte>(bytes),
                 out _,
                 out _));
+        }
+
+        private static MqttReasonCode GetReasonCode(MqttPacket packet)
+        {
+            return packet switch
+            {
+                MqttPubAckPacket pubAck => pubAck.ReasonCode,
+                MqttPubRecPacket pubRec => pubRec.ReasonCode,
+                MqttPubRelPacket pubRel => pubRel.ReasonCode,
+                MqttPubCompPacket pubComp => pubComp.ReasonCode,
+                _ => throw new InvalidOperationException(
+                    $"Unexpected acknowledgement type: {packet.GetType()}.")
+            };
         }
     }
 }
