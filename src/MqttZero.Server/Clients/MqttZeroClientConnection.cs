@@ -293,7 +293,18 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                         "The outbound MQTT packet exceeds the client maximum packet size.");
                 }
 
-                MqttPublishPacketCodec.Encode(view, _writer);
+                if (message.Lease.Payload.Length < 64 * 1024 &&
+                    message.Lease.Properties.IsEmpty)
+                {
+                    _ = MqttPublishPacketCodec.EncodeToWriter(
+                        view,
+                        _bufferWriter,
+                        _writer);
+                }
+                else
+                {
+                    MqttPublishPacketCodec.Encode(view, _writer);
+                }
                 encodedBytes += encodedLength;
             }
 
