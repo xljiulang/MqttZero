@@ -7,6 +7,103 @@ namespace MqttZero.Protocol;
 /// </summary>
 public static partial class MqttPacketCodec
 {
+    internal static bool TryDecodeAcknowledgement(
+        in ReadOnlySequence<byte> sequence,
+        out MqttZeroAcknowledgementView view,
+        out long consumed)
+    {
+        view = default;
+        consumed = 0;
+        if (sequence.IsEmpty)
+        {
+            return false;
+        }
+
+        SequenceReader<byte> reader = new(sequence);
+        if (!reader.TryRead(out byte firstByte))
+        {
+            return false;
+        }
+
+        MqttPacketType packetType = (MqttPacketType)(firstByte >> 4);
+        if (!IsAcknowledgementPacketType(packetType) ||
+            !TryReadVariableByteInteger(ref reader, out int remainingLength) ||
+            remainingLength < 0 ||
+            reader.Remaining < remainingLength)
+        {
+            return false;
+        }
+
+        ReadOnlySequence<byte> body = sequence.Slice(reader.Position, remainingLength);
+        SequenceReader<byte> bodyReader = new(body);
+        if (!TryReadUInt16(ref bodyReader, out ushort packetIdentifier) ||
+            packetIdentifier == 0)
+        {
+            return false;
+        }
+
+        MqttReasonCode reasonCode = MqttReasonCode.Success;
+        if (bodyReader.Remaining > 0)
+        {
+            if (!bodyReader.TryRead(out byte encodedReasonCode))
+            {
+                return false;
+            }
+
+            reasonCode = (MqttReasonCode)encodedReasonCode;
+            if (bodyReader.Remaining > 0)
+            {
+                if (!TryReadProperties(
+                        ref bodyReader,
+                        out ReadOnlySequence<byte> properties) ||
+                    !Mqtt5PropertyReader.TryValidateReasonProperties(properties))
+                {
+                    return false;
+                }
+            }
+        }
+
+        if (bodyReader.Remaining != 0 ||
+            (packetType == MqttPacketType.PubRel &&
+                (firstByte & 0x0F) != 0x02) ||
+            (packetType != MqttPacketType.PubRel &&
+                (firstByte & 0x0F) != 0) ||
+            !IsValidAcknowledgementReasonCode(packetType, reasonCode))
+        {
+            return false;
+        }
+
+        consumed = reader.Consumed + remainingLength;
+        view = new MqttZeroAcknowledgementView(
+            packetType,
+            packetIdentifier,
+            reasonCode);
+        return true;
+    }
+
+    internal static bool IsAcknowledgementPacketType(MqttPacketType packetType)
+    {
+        return packetType is
+            MqttPacketType.PubAck or
+            MqttPacketType.PubRec or
+            MqttPacketType.PubRel or
+            MqttPacketType.PubComp;
+    }
+
+    private static bool IsValidAcknowledgementReasonCode(
+        MqttPacketType packetType,
+        MqttReasonCode reasonCode)
+    {
+        return packetType switch
+        {
+            MqttPacketType.PubAck or MqttPacketType.PubRec =>
+                MqttZeroProtocolValidator.IsValidPubAckReasonCode(reasonCode),
+            MqttPacketType.PubRel or MqttPacketType.PubComp =>
+                MqttZeroProtocolValidator.IsValidPubRelReasonCode(reasonCode),
+            _ => false
+        };
+    }
+
     private static bool TryDecodeConnAck(
         byte firstByte,
         ref SequenceReader<byte> reader,

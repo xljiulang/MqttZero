@@ -355,6 +355,73 @@ public sealed partial class MqttZeroBroker
                         continue;
                     }
 
+                    if (session != null && !buffer.IsEmpty)
+                    {
+                        MqttPacketType inboundPacketType =
+                            (MqttPacketType)(buffer.Slice(0, 1).FirstSpan[0] >> 4);
+                        if (MqttPacketCodec.IsAcknowledgementPacketType(
+                                inboundPacketType))
+                        {
+                            if (MqttPacketCodec.TryDecodeAcknowledgement(
+                                    buffer,
+                                    out MqttZeroAcknowledgementView acknowledgement,
+                                    out long acknowledgementConsumed))
+                            {
+                                connection!.MarkPacketReceived(
+                                    _timeProvider,
+                                    acknowledgementConsumed,
+                                    false);
+                                switch (acknowledgement.PacketType)
+                                {
+                                    case MqttPacketType.PubAck:
+                                        await ProcessOutboundPubAckAsync(
+                                            session,
+                                            acknowledgement.PacketIdentifier,
+                                            connectionLifetime.Token).ConfigureAwait(false);
+                                        break;
+                                    case MqttPacketType.PubRec:
+                                        await ProcessOutboundPubRecAsync(
+                                            session,
+                                            connection!,
+                                            acknowledgement.PacketIdentifier,
+                                            acknowledgement.ReasonCode,
+                                            connectionLifetime.Token).ConfigureAwait(false);
+                                        break;
+                                    case MqttPacketType.PubRel:
+                                        await ProcessInboundPubRelAsync(
+                                            session,
+                                            connection!,
+                                            acknowledgement.PacketIdentifier,
+                                            connectionLifetime.Token).ConfigureAwait(false);
+                                        break;
+                                    case MqttPacketType.PubComp:
+                                        await ProcessOutboundPubCompAsync(
+                                            session,
+                                            acknowledgement.PacketIdentifier,
+                                            connectionLifetime.Token).ConfigureAwait(false);
+                                        break;
+                                }
+
+                                buffer = buffer.Slice(acknowledgementConsumed);
+                                continue;
+                            }
+
+                            if (MqttPacketCodec.TryGetPacketLength(
+                                    buffer,
+                                    out _,
+                                    out bool acknowledgementComplete) &&
+                                acknowledgementComplete)
+                            {
+                                await connection!.CloseAsync(
+                                    MqttReasonCode.ProtocolError,
+                                    connectionLifetime.Token).ConfigureAwait(false);
+                                return;
+                            }
+
+                            break;
+                        }
+                    }
+
                     if (!MqttPacketCodec.TryDecode(
                         buffer,
                         out MqttPacket? packet,

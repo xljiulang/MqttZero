@@ -575,6 +575,44 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    internal static bool TryValidateReasonProperties(ReadOnlySequence<byte> properties)
+    {
+        bool hasReasonString = false;
+        SequenceReader<byte> reader = new(properties);
+        while (reader.Remaining > 0)
+        {
+            if (!reader.TryRead(out byte identifier))
+            {
+                return false;
+            }
+
+            if (identifier == ReasonString)
+            {
+                if (hasReasonString ||
+                    !TrySkipValidatedUtf8(ref reader))
+                {
+                    return false;
+                }
+
+                hasReasonString = true;
+            }
+            else if (identifier == UserProperty)
+            {
+                if (!TrySkipValidatedUtf8(ref reader) ||
+                    !TrySkipValidatedUtf8(ref reader))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public static bool TryReadDisconnect(
         ReadOnlySequence<byte> properties,
         MqttDisconnectPacket packet)
@@ -907,6 +945,26 @@ internal static class Mqtt5PropertyReader
     private static bool TrySkipUtf8(ref SequenceReader<byte> reader)
     {
         return TrySkipBinary(ref reader);
+    }
+
+    private static bool TrySkipValidatedUtf8(ref SequenceReader<byte> reader)
+    {
+        if (!TryReadUInt16(ref reader, out ushort length) ||
+            reader.Remaining < length)
+        {
+            return false;
+        }
+
+        ReadOnlySequence<byte> encoded = length == 0
+            ? ReadOnlySequence<byte>.Empty
+            : reader.Sequence.Slice(reader.Position, length);
+        if (!MqttZeroProtocolValidator.IsValidUtf8(encoded))
+        {
+            return false;
+        }
+
+        reader.Advance(length);
+        return true;
     }
 
     private static bool TryReadUtf8String(

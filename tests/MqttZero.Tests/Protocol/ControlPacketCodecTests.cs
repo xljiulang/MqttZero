@@ -128,6 +128,59 @@ namespace MqttZero.Tests.Protocol
             Assert.Equal(MqttReasonCode.Success, GetReasonCode(packet));
         }
 
+        [Theory]
+        [InlineData("4002002A", MqttPacketType.PubAck, MqttReasonCode.Success)]
+        [InlineData("4003002A00", MqttPacketType.PubAck, MqttReasonCode.Success)]
+        [InlineData("4004002A0000", MqttPacketType.PubAck, MqttReasonCode.Success)]
+        [InlineData("4008002A00041F000178", MqttPacketType.PubAck, MqttReasonCode.Success)]
+        [InlineData("5003002A00", MqttPacketType.PubRec, MqttReasonCode.Success)]
+        [InlineData("6203002A00", MqttPacketType.PubRel, MqttReasonCode.Success)]
+        [InlineData("7003002A00", MqttPacketType.PubComp, MqttReasonCode.Success)]
+        public void DecodesAcknowledgementView(
+            string hex,
+            MqttPacketType packetType,
+            MqttReasonCode reasonCode)
+        {
+            byte[] bytes = Convert.FromHexString(hex);
+            bool decoded = MqttPacketCodec.TryDecodeAcknowledgement(
+                new ReadOnlySequence<byte>(bytes),
+                out MqttZeroAcknowledgementView view,
+                out long consumed);
+
+            Assert.True(decoded, hex);
+            Assert.Equal(bytes.Length, consumed);
+            Assert.Equal(packetType, view.PacketType);
+            Assert.Equal((ushort)42, view.PacketIdentifier);
+            Assert.Equal(reasonCode, view.ReasonCode);
+        }
+
+        [Fact]
+        public void AcknowledgementViewDecodingDoesNotAllocateAfterWarmup()
+        {
+            byte[] bytes = Convert.FromHexString("4008002A00041F000178");
+            ReadOnlySequence<byte> source = new(bytes);
+
+            for (int index = 0; index < 100; index++)
+            {
+                Assert.True(MqttPacketCodec.TryDecodeAcknowledgement(
+                    source,
+                    out _,
+                    out _));
+            }
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int index = 0; index < 1000; index++)
+            {
+                Assert.True(MqttPacketCodec.TryDecodeAcknowledgement(
+                    source,
+                    out _,
+                    out _));
+            }
+
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.Equal(0, allocated);
+        }
+
         [Fact]
         public void DecodesBadAuthenticationMethodConnAckReason()
         {

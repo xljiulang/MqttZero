@@ -19,6 +19,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     private readonly MqttZeroPooledTopicAlias?[] _inboundTopicAliasArray = new MqttZeroPooledTopicAlias?[257];
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly PipeWriter _writer;
+    private readonly MqttZeroConnectionWriter _outboundWriter;
     private readonly DateTimeOffset _connectedAt;
     private readonly TimeProvider _timeProvider;
     private int _disposed;
@@ -47,6 +48,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         _bufferPool = bufferPool ?? MqttZeroBufferPool.Shared;
         ConnectionId = Interlocked.Increment(ref NextConnectionId);
         _writer = writer;
+        _outboundWriter = new MqttZeroConnectionWriter(this);
         _timeProvider = timeProvider;
         RemoteEndPoint = remoteEndPoint;
         IsSecure = isSecure;
@@ -64,6 +66,14 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     public EndPoint? RemoteEndPoint { get; }
 
     internal long ConnectionId { get; }
+
+    internal MqttZeroConnectionWriter OutboundWriter
+    {
+        get
+        {
+            return _outboundWriter;
+        }
+    }
 
     public bool IsSecure { get; }
 
@@ -994,6 +1004,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
 
         _closed.Cancel();
+        await _outboundWriter.StopAsync().ConfigureAwait(false);
         await _writeLock.WaitAsync().ConfigureAwait(false);
         _writeLock.Dispose();
         _closed.Dispose();

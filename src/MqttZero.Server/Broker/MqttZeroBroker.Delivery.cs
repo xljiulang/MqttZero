@@ -440,13 +440,14 @@ public sealed partial class MqttZeroBroker
     private async ValueTask ProcessOutboundPubRecAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
-        MqttPubRecPacket packet,
+        ushort packetIdentifier,
+        MqttReasonCode reasonCode,
         CancellationToken cancellationToken)
     {
         MqttZeroQueuedMessage? message;
         lock (session.SyncRoot)
         {
-            session.InflightMessages.TryGetValue(packet.PacketIdentifier, out message);
+            session.InflightMessages.TryGetValue(packetIdentifier, out message);
         }
 
         if (message == null ||
@@ -455,12 +456,12 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        if (packet.ReasonCode >= MqttReasonCode.UnspecifiedError)
+        if (reasonCode >= MqttReasonCode.UnspecifiedError)
         {
             MqttZeroQueuedMessage? failed = null;
             lock (session.SyncRoot)
             {
-                session.InflightMessages.Remove(packet.PacketIdentifier, out failed);
+                session.InflightMessages.Remove(packetIdentifier, out failed);
             }
 
             if (failed != null)
@@ -476,7 +477,7 @@ public sealed partial class MqttZeroBroker
                 {
                     lock (session.SyncRoot)
                     {
-                        session.InflightMessages[packet.PacketIdentifier] = failed;
+                        session.InflightMessages[packetIdentifier] = failed;
                     }
 
                     throw;
@@ -504,20 +505,20 @@ public sealed partial class MqttZeroBroker
         }
 
         await connection.SendPubRelAsync(
-            packet.PacketIdentifier,
+            packetIdentifier,
             MqttReasonCode.Success,
             cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask ProcessOutboundPubCompAsync(
         MqttZeroSessionState session,
-        MqttPubCompPacket packet,
+        ushort packetIdentifier,
         CancellationToken cancellationToken)
     {
         MqttZeroQueuedMessage? completed = null;
         lock (session.SyncRoot)
         {
-            session.InflightMessages.Remove(packet.PacketIdentifier, out completed);
+            session.InflightMessages.Remove(packetIdentifier, out completed);
         }
 
         if (completed != null)
@@ -533,7 +534,7 @@ public sealed partial class MqttZeroBroker
             {
                 lock (session.SyncRoot)
                 {
-                    session.InflightMessages[packet.PacketIdentifier] = completed;
+                    session.InflightMessages[packetIdentifier] = completed;
                 }
 
                 throw;
@@ -548,7 +549,7 @@ public sealed partial class MqttZeroBroker
     private async ValueTask ProcessInboundPubRelAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
-        MqttPubRelPacket packet,
+        ushort packetIdentifier,
         CancellationToken cancellationToken)
     {
         MqttZeroMessageLease? lease;
@@ -557,16 +558,16 @@ public sealed partial class MqttZeroBroker
         bool stateRemoved = false;
         lock (session.SyncRoot)
         {
-            session.InboundQos2Messages.TryGetValue(packet.PacketIdentifier, out lease);
+            session.InboundQos2Messages.TryGetValue(packetIdentifier, out lease);
             routeCompleted = session.RoutedInboundQos2Messages.TryGetValue(
-                packet.PacketIdentifier,
+                packetIdentifier,
                 out completionReason);
         }
 
         if (lease == null)
         {
             await connection.SendPubCompAsync(
-                packet.PacketIdentifier,
+                packetIdentifier,
                 MqttReasonCode.PacketIdentifierNotFound,
                 cancellationToken).ConfigureAwait(false);
             return;
@@ -581,13 +582,13 @@ public sealed partial class MqttZeroBroker
                 cancellationToken).ConfigureAwait(false);
             lock (session.SyncRoot)
             {
-                session.InboundQos2Messages.Remove(packet.PacketIdentifier);
-                session.RoutedInboundQos2Messages.Remove(packet.PacketIdentifier);
+                session.InboundQos2Messages.Remove(packetIdentifier);
+                session.RoutedInboundQos2Messages.Remove(packetIdentifier);
             }
 
             lease.Release();
             await connection.SendPubCompAsync(
-                packet.PacketIdentifier,
+                packetIdentifier,
                 MqttReasonCode.Success,
                 cancellationToken).ConfigureAwait(false);
             return;
@@ -605,24 +606,24 @@ public sealed partial class MqttZeroBroker
                 completionReason = MqttReasonCode.Success;
                 lock (session.SyncRoot)
                 {
-                    session.RoutedInboundQos2Messages[packet.PacketIdentifier] =
+                    session.RoutedInboundQos2Messages[packetIdentifier] =
                         completionReason;
                 }
             }
 
             await DeleteInboundQos2Async(
                 session.ClientId,
-                packet.PacketIdentifier,
+                packetIdentifier,
                 cancellationToken).ConfigureAwait(false);
             lock (session.SyncRoot)
             {
-                session.InboundQos2Messages.Remove(packet.PacketIdentifier);
-                session.RoutedInboundQos2Messages.Remove(packet.PacketIdentifier);
+                session.InboundQos2Messages.Remove(packetIdentifier);
+                session.RoutedInboundQos2Messages.Remove(packetIdentifier);
                 stateRemoved = true;
             }
 
             await connection.SendPubCompAsync(
-                packet.PacketIdentifier,
+                packetIdentifier,
                 completionReason,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -682,6 +683,7 @@ public sealed partial class MqttZeroBroker
             await DrainQueuedMessagesAsync(
                 session,
                 connection,
+                connection.OutboundWriter,
                 pumpCancellationToken).ConfigureAwait(false);
         }
 
@@ -703,7 +705,8 @@ public sealed partial class MqttZeroBroker
                 }
 
                 connection.Abort();
-            });
+            },
+            connection.OutboundWriter.StopAsync);
         lock (session.SyncRoot)
         {
             if (session.OutboundPump != null)
@@ -715,6 +718,15 @@ public sealed partial class MqttZeroBroker
             session.OutboundPump = pump;
         }
 
+        connection.OutboundWriter.Start(
+            exception =>
+            {
+                MqttZeroBrokerLogging.LogOutboundPumpFailure(
+                    _logger,
+                    session.ClientId,
+                    exception);
+                connection.Abort();
+            });
         pump.Start();
         pump.Signal();
         return pump;
@@ -751,6 +763,7 @@ public sealed partial class MqttZeroBroker
     private async ValueTask DrainQueuedMessagesAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
+        MqttZeroConnectionWriter outboundWriter,
         CancellationToken cancellationToken)
     {
         while (true)
@@ -966,7 +979,7 @@ public sealed partial class MqttZeroBroker
 
                 try
                 {
-                    await connection.SendPublishBatchAsync(
+                    await outboundWriter.EnqueueBatchAsync(
                         batch,
                         cancellationToken).ConfigureAwait(false);
                 }
@@ -984,16 +997,6 @@ public sealed partial class MqttZeroBroker
 
                     batch.Clear();
                     throw;
-                }
-
-                for (int index = 0; index < batch.Count; index++)
-                {
-                    MqttZeroQueuedMessage message = batch[index];
-                    if (message.QualityOfServiceLevel ==
-                        MqttQualityOfServiceLevel.AtMostOnce)
-                    {
-                        message.Release();
-                    }
                 }
 
                 batch.Clear();

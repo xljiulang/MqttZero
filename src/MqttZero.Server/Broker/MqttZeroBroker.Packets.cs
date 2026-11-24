@@ -41,62 +41,30 @@ public sealed partial class MqttZeroBroker
                 await connection.SendPingRespAsync(cancellationToken).ConfigureAwait(false);
                 break;
             case MqttPubAckPacket pubAckPacket:
-                MqttZeroQueuedMessage? acknowledgedMessage = null;
-                lock (session.SyncRoot)
-                {
-                    if (session.InflightMessages.TryGetValue(
-                            pubAckPacket.PacketIdentifier,
-                            out acknowledgedMessage) &&
-                        acknowledgedMessage.QualityOfServiceLevel ==
-                            MqttQualityOfServiceLevel.AtLeastOnce)
-                    {
-                        session.InflightMessages.Remove(pubAckPacket.PacketIdentifier);
-                    }
-                }
-
-                if (acknowledgedMessage != null)
-                {
-                    try
-                    {
-                        await DeleteMessageAsync(
-                            session.ClientId,
-                            acknowledgedMessage.MessageId,
-                            cancellationToken).ConfigureAwait(false);
-                    }
-                    catch
-                    {
-                        lock (session.SyncRoot)
-                        {
-                            session.InflightMessages[pubAckPacket.PacketIdentifier] =
-                                acknowledgedMessage;
-                        }
-
-                        throw;
-                    }
-
-                    acknowledgedMessage.Release();
-                }
-
-                session.OutboundPump?.Signal();
+                await ProcessOutboundPubAckAsync(
+                    session,
+                    pubAckPacket.PacketIdentifier,
+                    cancellationToken).ConfigureAwait(false);
                 break;
             case MqttPubRecPacket pubRecPacket:
                 await ProcessOutboundPubRecAsync(
                     session,
                     connection,
-                    pubRecPacket,
+                    pubRecPacket.PacketIdentifier,
+                    pubRecPacket.ReasonCode,
                     cancellationToken).ConfigureAwait(false);
                 break;
             case MqttPubRelPacket pubRelPacket:
                 await ProcessInboundPubRelAsync(
                     session,
                     connection,
-                    pubRelPacket,
+                    pubRelPacket.PacketIdentifier,
                     cancellationToken).ConfigureAwait(false);
                 break;
             case MqttPubCompPacket pubCompPacket:
                 await ProcessOutboundPubCompAsync(
                     session,
-                    pubCompPacket,
+                    pubCompPacket.PacketIdentifier,
                     cancellationToken).ConfigureAwait(false);
                 break;
             case MqttDisconnectPacket disconnectPacket:
@@ -119,6 +87,49 @@ public sealed partial class MqttZeroBroker
 
                 break;
         }
+    }
+
+    private async ValueTask ProcessOutboundPubAckAsync(
+        MqttZeroSessionState session,
+        ushort packetIdentifier,
+        CancellationToken cancellationToken)
+    {
+        MqttZeroQueuedMessage? acknowledgedMessage = null;
+        lock (session.SyncRoot)
+        {
+            if (session.InflightMessages.TryGetValue(
+                    packetIdentifier,
+                    out acknowledgedMessage) &&
+                acknowledgedMessage.QualityOfServiceLevel ==
+                    MqttQualityOfServiceLevel.AtLeastOnce)
+            {
+                session.InflightMessages.Remove(packetIdentifier);
+            }
+        }
+
+        if (acknowledgedMessage != null)
+        {
+            try
+            {
+                await DeleteMessageAsync(
+                    session.ClientId,
+                    acknowledgedMessage.MessageId,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                lock (session.SyncRoot)
+                {
+                    session.InflightMessages[packetIdentifier] = acknowledgedMessage;
+                }
+
+                throw;
+            }
+
+            acknowledgedMessage.Release();
+        }
+
+        session.OutboundPump?.Signal();
     }
 
     private async ValueTask ProcessSubscribeAsync(

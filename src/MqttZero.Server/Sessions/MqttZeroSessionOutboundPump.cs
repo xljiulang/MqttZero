@@ -4,6 +4,7 @@ internal sealed class MqttZeroSessionOutboundPump : IAsyncDisposable
 {
     private readonly Func<CancellationToken, ValueTask> _drain;
     private readonly Action<Exception> _faulted;
+    private readonly Func<ValueTask>? _stopAsync;
     private readonly MqttZeroAsyncSignal _signal = new();
     private readonly object _gate = new();
     private readonly CancellationTokenSource _stopping = new();
@@ -14,9 +15,18 @@ internal sealed class MqttZeroSessionOutboundPump : IAsyncDisposable
     public MqttZeroSessionOutboundPump(
         Func<CancellationToken, ValueTask> drain,
         Action<Exception> faulted)
+        : this(drain, faulted, null)
+    {
+    }
+
+    internal MqttZeroSessionOutboundPump(
+        Func<CancellationToken, ValueTask> drain,
+        Action<Exception> faulted,
+        Func<ValueTask>? stopAsync)
     {
         _drain = drain ?? throw new ArgumentNullException(nameof(drain));
         _faulted = faulted ?? throw new ArgumentNullException(nameof(faulted));
+        _stopAsync = stopAsync;
     }
 
     public void Start()
@@ -61,6 +71,10 @@ internal sealed class MqttZeroSessionOutboundPump : IAsyncDisposable
         {
             _stopping.Cancel();
             _signal.Signal();
+            if (_stopAsync != null)
+            {
+                await _stopAsync().ConfigureAwait(false);
+            }
         }
 
         try
