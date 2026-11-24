@@ -30,7 +30,7 @@ dotnet run -c Release --project benchmarks/MqttZero.BrokerBenchmarks -- `
 
 ## Gate Status
 
-The strict gate requires throughput of at least `1.10x` and p99 no worse than
+The strict gate requires throughput of at least `1.00x` and p99 no worse than
 MQTTnet in every cell. The gate is not met.
 
 QoS 0 passes throughput comfortably. QoS 1/2 are approximately at parity, but

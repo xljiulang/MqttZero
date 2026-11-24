@@ -8,6 +8,10 @@ internal sealed class BrokerBenchmarkResult
 
     public long FailedOperations { get; init; }
 
+    public long WarmupPublishedMessages { get; init; }
+
+    public long WarmupReceivedMessages { get; init; }
+
     public double ThroughputPerSecond { get; init; }
 
     public double LatencyP50Microseconds { get; init; }

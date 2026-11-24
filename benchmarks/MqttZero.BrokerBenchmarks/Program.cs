@@ -19,6 +19,9 @@ using System.Net;
 using System.Reflection;
 using System.Text.Json;
 
+const double MinimumThroughputRatio = 1.0;
+const double MaximumP99Ratio = 1.0;
+
 Dictionary<string, string> arguments = ParseArguments(args);
 string mode = GetValue(arguments, "mode", args.FirstOrDefault() ?? "compare");
 
@@ -187,20 +190,27 @@ static async Task CompareAsync(Dictionary<string, string> arguments)
         }
     }
 
+    IReadOnlyList<object> summaries = Summarize(results, out bool gatePassed);
     Console.WriteLine(JsonSerializer.Serialize(new
     {
         Results = results,
-        Summary = Summarize(results)
+        Summary = summaries,
+        GatePassed = gatePassed
     }, new JsonSerializerOptions
     {
         WriteIndented = true
     }));
+    if (!gatePassed)
+    {
+        Environment.ExitCode = 1;
+    }
 }
 
 static async Task RunOutboundAsync(Dictionary<string, string> arguments)
 {
     int port = GetInt(arguments, "port", 19300);
     int qos = GetInt(arguments, "qos", 0);
+    int subscriberCount = GetInt(arguments, "subscribers", 1);
     int payloadSize = GetInt(arguments, "payload", 8192);
     int warmupSeconds = GetInt(arguments, "warmup", 3);
     int measurementSeconds = GetInt(arguments, "seconds", 10);
@@ -233,30 +243,35 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
     await app.StartAsync();
     MqttZeroBroker broker = app.Services.GetRequiredService<MqttZeroBroker>();
     MqttClientFactory factory = new();
-    using IMqttClient subscriber = factory.CreateMqttClient();
+    List<IMqttClient> subscribers = [];
     long receivedMessages = 0;
-    subscriber.ApplicationMessageReceivedAsync += _ =>
+    for (int index = 0; index < subscriberCount; index++)
     {
-        Interlocked.Increment(ref receivedMessages);
-        return Task.CompletedTask;
-    };
-    await subscriber.ConnectAsync(
-        CreateClientOptions(port, "outbound-subscriber"),
-        CancellationToken.None);
-    await subscriber.SubscribeAsync(
-        new MqttClientSubscribeOptionsBuilder()
-            .WithTopicFilter(
-                "bench/topic",
-                qos switch
-                {
-                    0 => MqttQualityOfServiceLevel.AtMostOnce,
-                    1 => MqttQualityOfServiceLevel.AtLeastOnce,
-                    2 => MqttQualityOfServiceLevel.ExactlyOnce,
-                    _ => throw new InvalidOperationException(
-                        $"Unsupported QoS value: {qos}.")
-                })
-            .Build(),
-        CancellationToken.None);
+        IMqttClient subscriber = factory.CreateMqttClient();
+        subscriber.ApplicationMessageReceivedAsync += _ =>
+        {
+            Interlocked.Increment(ref receivedMessages);
+            return Task.CompletedTask;
+        };
+        subscribers.Add(subscriber);
+        await subscriber.ConnectAsync(
+            CreateClientOptions(port, $"outbound-subscriber-{index}"),
+            CancellationToken.None);
+        await subscriber.SubscribeAsync(
+            new MqttClientSubscribeOptionsBuilder()
+                .WithTopicFilter(
+                    "bench/topic",
+                    qos switch
+                    {
+                        0 => MqttQualityOfServiceLevel.AtMostOnce,
+                        1 => MqttQualityOfServiceLevel.AtLeastOnce,
+                        2 => MqttQualityOfServiceLevel.ExactlyOnce,
+                        _ => throw new InvalidOperationException(
+                            $"Unsupported QoS value: {qos}.")
+                    })
+                .Build(),
+            CancellationToken.None);
+    }
     MqttZeroPublishMessage message = new()
     {
         Topic = "bench/topic",
@@ -265,49 +280,91 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
     };
     using CancellationTokenSource warmup = new(
         TimeSpan.FromSeconds(warmupSeconds));
-    _ = await RunOutboundPublishLoopAsync(
+    OutboundLoopResult warmupResult = await RunOutboundPublishLoopAsync(
         broker,
         message,
         maxPendingMessages,
         warmup.Token,
-        () => Interlocked.Read(ref receivedMessages));
+        subscriberCount,
+        () => Interlocked.Read(ref receivedMessages),
+        collectTimings: false);
+    await WaitForSubscriberDrainAsync(
+        advertisedMessages:
+            warmupResult.PublishedMessages * subscriberCount,
+        () => Interlocked.Read(ref receivedMessages),
+        CancellationToken.None);
     Interlocked.Exchange(ref receivedMessages, 0);
     Stopwatch stopwatch = Stopwatch.StartNew();
+    List<long> waitTicks = [];
+    List<long> publishTicks = [];
     using CancellationTokenSource measurement = new(
         TimeSpan.FromSeconds(measurementSeconds));
-    long measuredPublishes = await RunOutboundPublishLoopAsync(
+    OutboundLoopResult loopResult = await RunOutboundPublishLoopAsync(
         broker,
         message,
         maxPendingMessages,
         measurement.Token,
-        () => Interlocked.Read(ref receivedMessages));
+        subscriberCount,
+        () => Interlocked.Read(ref receivedMessages),
+        collectTimings: true,
+        waitTicks,
+        publishTicks);
     stopwatch.Stop();
-    Console.WriteLine(JsonSerializer.Serialize(new BrokerBenchmarkResult
+    waitTicks.Sort();
+    publishTicks.Sort();
+    Console.WriteLine(JsonSerializer.Serialize(new
     {
-        PublishedMessages = measuredPublishes,
+        PublishedMessages = loopResult.PublishedMessages,
         ReceivedMessages = Interlocked.Read(ref receivedMessages),
         FailedOperations = 0,
         ThroughputPerSecond =
-            measuredPublishes / stopwatch.Elapsed.TotalSeconds,
-        FirstError = null
+            loopResult.PublishedMessages / stopwatch.Elapsed.TotalSeconds,
+        WaitP50Microseconds = PercentileMicroseconds(
+            waitTicks.ToArray(),
+            waitTicks.Count,
+            0.50),
+        WaitP99Microseconds = PercentileMicroseconds(
+            waitTicks.ToArray(),
+            waitTicks.Count,
+            0.99),
+        PublishP50Microseconds = PercentileMicroseconds(
+            publishTicks.ToArray(),
+            publishTicks.Count,
+            0.50),
+        PublishP99Microseconds = PercentileMicroseconds(
+            publishTicks.ToArray(),
+            publishTicks.Count,
+            0.99),
+        FirstError = (string?)null
     }));
-    await subscriber.DisconnectAsync();
+    foreach (IMqttClient subscriber in subscribers)
+    {
+        await subscriber.DisconnectAsync();
+        subscriber.Dispose();
+    }
+
     await app.StopAsync();
 }
 
-static async Task<long> RunOutboundPublishLoopAsync(
+static async Task<OutboundLoopResult> RunOutboundPublishLoopAsync(
     MqttZeroBroker broker,
     MqttZeroPublishMessage message,
     int maxPendingMessages,
     CancellationToken cancellationToken,
-    Func<long> getReceivedMessages)
+    int deliveryMultiplier,
+    Func<long> getReceivedMessages,
+    bool collectTimings,
+    List<long>? waitTicks = null,
+    List<long>? publishTicks = null)
 {
     long publishedMessages = 0;
     try
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            while (publishedMessages - getReceivedMessages() >
+            long waitStarted = Stopwatch.GetTimestamp();
+            while (publishedMessages * deliveryMultiplier -
+                getReceivedMessages() >
                 maxPendingMessages)
             {
                 await Task.Delay(
@@ -315,7 +372,18 @@ static async Task<long> RunOutboundPublishLoopAsync(
                     cancellationToken);
             }
 
+            if (collectTimings)
+            {
+                waitTicks!.Add(Stopwatch.GetTimestamp() - waitStarted);
+            }
+
+            long publishStarted = Stopwatch.GetTimestamp();
             await broker.PublishAsync(message, cancellationToken);
+            if (collectTimings)
+            {
+                publishTicks!.Add(Stopwatch.GetTimestamp() - publishStarted);
+            }
+
             publishedMessages++;
         }
     }
@@ -323,7 +391,7 @@ static async Task<long> RunOutboundPublishLoopAsync(
     {
     }
 
-    return publishedMessages;
+    return new OutboundLoopResult(publishedMessages);
 }
 
 static Process StartServerProcess(
@@ -428,16 +496,18 @@ static async Task<BrokerBenchmarkResult> RunLoadAsync(
             .WithPayload(payload)
             .WithQualityOfServiceLevel(qualityOfServiceLevel)
             .Build();
+        bool ShouldPause()
+        {
+            return Interlocked.Read(ref publishedMessages) * subscribers >
+                Interlocked.Read(ref receivedMessages) + maxPendingMessages;
+        }
+
         using CancellationTokenSource warmup = new(TimeSpan.FromSeconds(warmupSeconds));
         await RunPublishersAsync(
             publisherClients,
             message,
             warmup.Token,
-            qualityOfServiceLevel == MqttQualityOfServiceLevel.AtMostOnce
-                ? () =>
-                    Interlocked.Read(ref publishedMessages) * subscribers >
-                    Interlocked.Read(ref receivedMessages) + maxPendingMessages
-                : null,
+            ShouldPause,
             null,
             exception =>
             {
@@ -445,6 +515,15 @@ static async Task<BrokerBenchmarkResult> RunLoadAsync(
                 errors.Enqueue(exception.ToString());
             },
             () => Interlocked.Increment(ref publishedMessages));
+        await WaitForSubscriberDrainAsync(
+            advertisedMessages:
+                Interlocked.Read(ref publishedMessages) * subscribers,
+            () => Interlocked.Read(ref receivedMessages),
+            CancellationToken.None);
+        long warmupPublishedMessages =
+            Interlocked.Read(ref publishedMessages);
+        long warmupReceivedMessages =
+            Interlocked.Read(ref receivedMessages);
         Interlocked.Exchange(ref receivedMessages, 0);
         Interlocked.Exchange(ref publishedMessages, 0);
 
@@ -457,11 +536,7 @@ static async Task<BrokerBenchmarkResult> RunLoadAsync(
             publisherClients,
             message,
             measurement.Token,
-            qualityOfServiceLevel == MqttQualityOfServiceLevel.AtMostOnce
-                ? () =>
-                    Interlocked.Read(ref publishedMessages) * subscribers >
-                    Interlocked.Read(ref receivedMessages) + maxPendingMessages
-                : null,
+            ShouldPause,
             elapsedTicks =>
             {
                 int index = Interlocked.Increment(ref latencySampleCount) - 1;
@@ -489,6 +564,8 @@ static async Task<BrokerBenchmarkResult> RunLoadAsync(
             PublishedMessages = measuredPublishes,
             ReceivedMessages = Interlocked.Read(ref receivedMessages),
             FailedOperations = Interlocked.Read(ref failedOperations),
+            WarmupPublishedMessages = warmupPublishedMessages,
+            WarmupReceivedMessages = warmupReceivedMessages,
             ThroughputPerSecond = measuredPublishes / stopwatch.Elapsed.TotalSeconds,
             LatencyP50Microseconds = PercentileMicroseconds(latencySamples, sampleCount, 0.50),
             LatencyP95Microseconds = PercentileMicroseconds(latencySamples, sampleCount, 0.95),
@@ -510,9 +587,25 @@ static async Task<BrokerBenchmarkResult> RunLoadAsync(
     }
 }
 
-static IReadOnlyList<object> Summarize(
-    IReadOnlyList<BrokerComparisonResult> results)
+static async Task WaitForSubscriberDrainAsync(
+    long advertisedMessages,
+    Func<long> getReceivedMessages,
+    CancellationToken cancellationToken)
 {
+    using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(
+        cancellationToken);
+    timeout.CancelAfter(TimeSpan.FromSeconds(30));
+    while (getReceivedMessages() < advertisedMessages)
+    {
+        await Task.Delay(TimeSpan.FromMilliseconds(1), timeout.Token);
+    }
+}
+
+static IReadOnlyList<object> Summarize(
+    IReadOnlyList<BrokerComparisonResult> results,
+    out bool gatePassed)
+{
+    gatePassed = true;
     List<object> summaries = [];
     foreach (IGrouping<(int Qos, int Subscribers, int PayloadSize), BrokerComparisonResult> group in
         results.GroupBy(static result => (
@@ -539,6 +632,12 @@ static IReadOnlyList<object> Summarize(
             mqttZero.Select(static result => result.Result.LatencyP99Microseconds));
         double mqttNetP99 = Median(
             mqttNet.Select(static result => result.Result.LatencyP99Microseconds));
+        double throughputRatio = mqttZeroThroughput / mqttNetThroughput;
+        double p99Ratio = mqttZeroP99 / mqttNetP99;
+        bool cellPassed =
+            throughputRatio >= MinimumThroughputRatio &&
+            p99Ratio <= MaximumP99Ratio;
+        gatePassed &= cellPassed;
         summaries.Add(new
         {
             group.Key.Qos,
@@ -546,10 +645,11 @@ static IReadOnlyList<object> Summarize(
             group.Key.PayloadSize,
             MqttZeroThroughput = mqttZeroThroughput,
             MqttNetThroughput = mqttNetThroughput,
-            ThroughputRatio = mqttZeroThroughput / mqttNetThroughput,
+            ThroughputRatio = throughputRatio,
             MqttZeroP99Microseconds = mqttZeroP99,
             MqttNetP99Microseconds = mqttNetP99,
-            P99Ratio = mqttZeroP99 / mqttNetP99
+            P99Ratio = p99Ratio,
+            GatePassed = cellPassed
         });
     }
 

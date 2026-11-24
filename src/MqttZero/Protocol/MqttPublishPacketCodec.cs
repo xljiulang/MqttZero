@@ -91,8 +91,8 @@ internal static class MqttPublishPacketCodec
 
     public static void Encode(in MqttZeroPublishView view, IBufferWriter<byte> writer)
     {
-        int bodyLength = GetBodyLength(view);
         int propertyLength = GetPropertyLength(view);
+        int bodyLength = GetBodyLength(view, propertyLength);
         Span<byte> fixedHeader = writer.GetSpan(5);
         byte firstByte = 0x30;
         if (view.Duplicate)
@@ -471,6 +471,13 @@ internal static class MqttPublishPacketCodec
     private static int GetBodyLength(in MqttZeroPublishView view)
     {
         int propertyLength = GetPropertyLength(view);
+        return GetBodyLength(view, propertyLength);
+    }
+
+    private static int GetBodyLength(
+        in MqttZeroPublishView view,
+        int propertyLength)
+    {
         return
             2 +
             (int)view.Topic.Length +
@@ -726,6 +733,14 @@ internal static class MqttPublishPacketCodec
 
     private static void WriteSequence(IBufferWriter<byte> writer, ReadOnlySequence<byte> value)
     {
+        if (value.IsSingleSegment)
+        {
+            Span<byte> destination = writer.GetSpan(value.FirstSpan.Length);
+            value.FirstSpan.CopyTo(destination);
+            writer.Advance(value.FirstSpan.Length);
+            return;
+        }
+
         foreach (ReadOnlyMemory<byte> segment in value)
         {
             Span<byte> destination = writer.GetSpan(segment.Length);

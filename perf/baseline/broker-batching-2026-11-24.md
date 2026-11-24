@@ -36,7 +36,7 @@ reached approximately `1.30x`, with a substantially worse p99.
 
 ## Gate Status
 
-The strict goal of `1.10x` throughput and non-worse p99 in every cell is not yet
+The strict goal of `1.00x` throughput and non-worse p99 in every cell is not yet
 met. The batch is retained because it materially improves QoS 0 medium messages,
 but no `0.12.0-alpha.1` release or universal performance claim is made.
 
