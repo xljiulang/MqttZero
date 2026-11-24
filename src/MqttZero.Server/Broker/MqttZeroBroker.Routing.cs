@@ -242,7 +242,6 @@ public sealed partial class MqttZeroBroker
                 routeSnapshot,
                 lease.Topic.Span,
                 sender,
-                _sharedSubscriptionCursors,
                 _routeScopes);
             if (deliveries.Count == 0 && _deliveryObservers.Length > 0)
             {
@@ -413,22 +412,6 @@ public sealed partial class MqttZeroBroker
             cancellationToken);
     }
 
-    internal async ValueTask<MqttReasonCode> RoutePublishLeaseWithResultAsync(
-        MqttZeroSessionState sender,
-        MqttZeroClientConnection senderConnection,
-        MqttZeroMessageLease lease,
-        CancellationToken cancellationToken)
-    {
-        MqttReasonCode[] result = [MqttReasonCode.Success];
-        await RoutePublishLeaseCoreAsync(
-            sender,
-            senderConnection,
-            lease,
-            result,
-            cancellationToken).ConfigureAwait(false);
-        return result[0];
-    }
-
     internal async ValueTask<MqttZeroPreparedPublish> PreparePublishForDispatchAsync(
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,
@@ -539,7 +522,6 @@ public sealed partial class MqttZeroBroker
             routeSnapshot,
             lease.Topic.Span,
             sender,
-            _sharedSubscriptionCursors,
             _routeScopes);
         if (deliveries.Count == 0 && _deliveryObservers.Length > 0)
         {
@@ -691,7 +673,6 @@ public sealed partial class MqttZeroBroker
                 routeSnapshot,
                 effectiveLease.Topic.Span,
                 sender,
-                _sharedSubscriptionCursors,
                 _routeScopes);
             if (deliveries.Count == 0 && _deliveryObservers.Length > 0)
             {
@@ -782,16 +763,6 @@ public sealed partial class MqttZeroBroker
             MqttZeroSubscriptionRouteSnapshot snapshot =
                 MqttZeroSubscriptionRouteSnapshotBuilder.Build(_sessions.Values);
             Volatile.Write(ref _subscriptionRouteSnapshot, snapshot);
-            HashSet<string> activeSharedGroups = new(
-                snapshot.SharedGroups.Select(static group => group.Group),
-                StringComparer.Ordinal);
-            foreach (string group in _sharedSubscriptionCursors.Keys)
-            {
-                if (!activeSharedGroups.Contains(group))
-                {
-                    _sharedSubscriptionCursors.TryRemove(group, out _);
-                }
-            }
         }
     }
 

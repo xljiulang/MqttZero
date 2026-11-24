@@ -1,7 +1,6 @@
 using MqttZero.Protocol;
 using MqttZero.Server.Sessions;
 using System.Buffers;
-using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
@@ -165,6 +164,19 @@ internal sealed class MqttZeroRouteScope : IDisposable
                 _matchedGroupCount);
         }
 
+        int requiredDeliveries = 0;
+        for (int matchIndex = 0;
+            matchIndex < _matchedGroupCount;
+            matchIndex++)
+        {
+            requiredDeliveries +=
+                snapshot.RegularGroups[
+                    _matchedGroupIndexes[matchIndex]].Entries.Length;
+        }
+
+        EnsureDeliveryCapacity(
+            _deliveryCount + requiredDeliveries);
+
         int previous = -1;
         for (int matchIndex = 0;
             matchIndex < _matchedGroupCount;
@@ -198,8 +210,7 @@ internal sealed class MqttZeroRouteScope : IDisposable
     public void AddSharedGroup(
         MqttZeroSharedRouteGroup group,
         ReadOnlySpan<byte> topic,
-        MqttZeroSessionState? sender,
-        ConcurrentDictionary<string, int> cursors)
+        MqttZeroSessionState? sender)
     {
         int matchingSessionCount = 0;
         for (int index = 0; index < group.Entries.Length; index++)
@@ -216,11 +227,7 @@ internal sealed class MqttZeroRouteScope : IDisposable
             return;
         }
 
-        int cursor = cursors.AddOrUpdate(
-            group.Group,
-            0,
-            static (_, current) => current == int.MaxValue ? 0 : current + 1);
-        int selectedOffset = cursor % matchingSessionCount;
+        int selectedOffset = group.NextOffset(matchingSessionCount);
         for (int index = 0; index < group.Entries.Length; index++)
         {
             MqttZeroSharedRouteEntry entry = group.Entries[index];

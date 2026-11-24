@@ -615,11 +615,12 @@ public sealed partial class MqttZeroBroker
         {
             if (!routeCompleted)
             {
-                completionReason = await RoutePublishLeaseWithResultAsync(
+                await RoutePreparedLeaseAsync(
                     session,
                     connection,
                     lease,
                     cancellationToken).ConfigureAwait(false);
+                completionReason = MqttReasonCode.Success;
                 lock (session.SyncRoot)
                 {
                     session.RoutedInboundQos2Messages[packet.PacketIdentifier] =

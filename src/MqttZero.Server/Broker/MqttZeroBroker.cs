@@ -47,8 +47,6 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly List<(MqttZeroSessionState Session, MqttZeroWillMessage Will)> _dueWills = [];
     private readonly List<MqttZeroSessionState> _expiredSessions = [];
     private readonly List<string> _expiredRetainedTopics = [];
-    private readonly ConcurrentDictionary<string, int> _sharedSubscriptionCursors =
-        new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<long, CancellationTokenSource> _acceptedConnections = new();
     private readonly Dictionary<string, SessionMutationLock> _sessionMutationLocks = [];
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);

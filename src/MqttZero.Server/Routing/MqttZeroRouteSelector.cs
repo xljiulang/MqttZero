@@ -1,6 +1,5 @@
 using MqttZero.Protocol;
 using MqttZero.Server.Sessions;
-using System.Collections.Concurrent;
 
 namespace MqttZero.Server.Routing;
 
@@ -10,7 +9,6 @@ internal static class MqttZeroRouteSelector
         MqttZeroSubscriptionRouteSnapshot snapshot,
         ReadOnlySpan<byte> topic,
         MqttZeroSessionState? sender,
-        ConcurrentDictionary<string, int> sharedCursors,
         MqttZeroRouteScopePool scopePool)
     {
         MqttZeroRouteScope route = scopePool.Rent();
@@ -24,8 +22,7 @@ internal static class MqttZeroRouteSelector
             route.AddSharedGroup(
                 snapshot.SharedGroups[index],
                 topic,
-                sender,
-                sharedCursors);
+                sender);
         }
 
         return route;

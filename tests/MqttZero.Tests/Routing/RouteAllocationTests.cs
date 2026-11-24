@@ -4,7 +4,6 @@ using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
-using System.Collections.Concurrent;
 
 namespace MqttZero.Tests.Routing
 {
@@ -39,14 +38,12 @@ namespace MqttZero.Tests.Routing
             ];
             MqttZeroSubscriptionRouteSnapshot snapshot =
                 MqttZeroSubscriptionRouteSnapshotBuilder.Build(sessions);
-            ConcurrentDictionary<string, int> cursors = new(StringComparer.Ordinal);
             MqttZeroRouteScopePool scopePool = new();
 
             using MqttZeroRouteScope route = MqttZeroRouteSelector.Select(
                 snapshot,
                 "jobs/one"u8,
                 null,
-                cursors,
                 scopePool);
 
             Assert.Equal(2, route.Count);
@@ -64,14 +61,12 @@ namespace MqttZero.Tests.Routing
             ];
             MqttZeroSubscriptionRouteSnapshot snapshot =
                 MqttZeroSubscriptionRouteSnapshotBuilder.Build(sessions);
-            ConcurrentDictionary<string, int> cursors = new(StringComparer.Ordinal);
             MqttZeroRouteScopePool scopePool = new();
 
             using MqttZeroRouteScope route = MqttZeroRouteSelector.Select(
                 snapshot,
                 "jobs/one"u8,
                 null,
-                cursors,
                 scopePool);
 
             Assert.Equal(2, route.Count);
@@ -113,14 +108,12 @@ namespace MqttZero.Tests.Routing
                     new MqttZeroSharedRouteEntry(second, [secondOnly])
                 ]);
             MqttZeroSubscriptionRouteSnapshot snapshot = new([], [group]);
-            ConcurrentDictionary<string, int> cursors = new(StringComparer.Ordinal);
             MqttZeroRouteScopePool scopePool = new();
 
             using (MqttZeroRouteScope route = MqttZeroRouteSelector.Select(
                 snapshot,
                 "route/topic"u8,
                 second,
-                cursors,
                 scopePool))
             {
                 Assert.Equal(1, route.Count);
@@ -133,7 +126,6 @@ namespace MqttZero.Tests.Routing
                 snapshot,
                 "route/topic"u8,
                 first,
-                cursors,
                 scopePool))
             {
                 Assert.Equal(1, route.Count);
@@ -166,7 +158,6 @@ namespace MqttZero.Tests.Routing
                 [new MqttZeroSharedRouteGroup(
                     "workers",
                     entries)]);
-            ConcurrentDictionary<string, int> cursors = new(StringComparer.Ordinal);
             MqttZeroRouteScopePool scopePool = new();
             for (int index = 0; index < 10; index++)
             {
@@ -174,7 +165,6 @@ namespace MqttZero.Tests.Routing
                     snapshot,
                     "route/topic"u8,
                     null,
-                    cursors,
                     scopePool);
                 Assert.Equal(1, warmup.Count);
             }
@@ -187,7 +177,6 @@ namespace MqttZero.Tests.Routing
                     snapshot,
                     "route/topic"u8,
                     null,
-                    cursors,
                     scopePool);
                 delivered += route.Count;
             }
@@ -209,7 +198,6 @@ namespace MqttZero.Tests.Routing
 
             MqttZeroSubscriptionRouteSnapshot snapshot =
                 MqttZeroSubscriptionRouteSnapshotBuilder.Build(sessions);
-            ConcurrentDictionary<string, int> cursors = new(StringComparer.Ordinal);
             MqttZeroRouteScopePool scopePool = new();
             for (int index = 0; index < 10; index++)
             {
@@ -217,7 +205,6 @@ namespace MqttZero.Tests.Routing
                     snapshot,
                     "route/topic"u8,
                     null,
-                    cursors,
                     scopePool))
                 {
                     Assert.Equal(subscriberCount, warmup.Count);
@@ -232,7 +219,6 @@ namespace MqttZero.Tests.Routing
                     snapshot,
                     "route/topic"u8,
                     null,
-                    cursors,
                     scopePool);
                 delivered += route.Count;
             }
