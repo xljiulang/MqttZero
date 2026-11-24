@@ -591,7 +591,7 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        if (!routeCompleted && CanDispatchInbound)
+        if (!routeCompleted && CanDispatchInboundQos2)
         {
             await EnqueueInboundAsync(
                 lease,
@@ -1031,10 +1031,15 @@ public sealed partial class MqttZeroBroker
     {
         get
         {
-            return !_sessionStore.IsEnabled &&
-                !_messageStore.IsEnabled &&
-                !_retainedMessageStore.IsEnabled &&
-                _inboundDispatcher != null;
+            return _inboundDispatcher != null;
+        }
+    }
+
+    private bool CanDispatchInboundQos2
+    {
+        get
+        {
+            return CanDispatchInbound && !_messageStore.IsEnabled;
         }
     }
 
@@ -1042,14 +1047,16 @@ public sealed partial class MqttZeroBroker
         MqttZeroMessageLease lease,
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long messageId = 0)
     {
         MqttZeroInboundDispatcher dispatcher = _inboundDispatcher ??
             throw new InvalidOperationException("The inbound dispatcher is not running.");
         MqttZeroInboundWork work = MqttZeroInboundWork.Rent(
             lease,
             sender,
-            senderConnection);
+            senderConnection,
+            messageId);
         try
         {
             await dispatcher.EnqueueAsync(
@@ -1070,8 +1077,12 @@ public sealed partial class MqttZeroBroker
     {
         await RoutePreparedLeaseAsync(
             work.Sender,
-            work.SenderConnection,
+            work.SenderConnection!,
             work.Lease,
+            cancellationToken).ConfigureAwait(false);
+        await DeleteInboundDispatchAsync(
+            work.Sender.ClientId,
+            work.MessageId,
             cancellationToken).ConfigureAwait(false);
     }
 

@@ -522,7 +522,7 @@ public sealed partial class MqttZeroBroker
 
     internal async ValueTask RoutePreparedLeaseAsync(
         MqttZeroSessionState sender,
-        MqttZeroClientConnection senderConnection,
+        MqttZeroClientConnection? senderConnection,
         MqttZeroMessageLease lease,
         CancellationToken cancellationToken)
     {
@@ -544,7 +544,7 @@ public sealed partial class MqttZeroBroker
         if (deliveries.Count == 0 && _deliveryObservers.Length > 0)
         {
             await NotifyNotConsumedAsync(
-                senderConnection.ConnectedClient,
+                senderConnection?.ConnectedClient,
                 lease,
                 cancellationToken).ConfigureAwait(false);
         }

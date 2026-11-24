@@ -17,14 +17,17 @@ internal sealed class MqttZeroInboundWork
 
     public MqttZeroSessionState Sender { get; private set; } = null!;
 
-    public MqttZeroClientConnection SenderConnection { get; private set; } = null!;
+    public MqttZeroClientConnection? SenderConnection { get; private set; }
+
+    public long MessageId { get; private set; }
 
     public long CreatedTimestamp { get; private set; }
 
     public static MqttZeroInboundWork Rent(
         MqttZeroMessageLease lease,
         MqttZeroSessionState sender,
-        MqttZeroClientConnection senderConnection)
+        MqttZeroClientConnection? senderConnection,
+        long messageId = 0)
     {
         if (!Pool.TryDequeue(out MqttZeroInboundWork? work))
         {
@@ -34,6 +37,7 @@ internal sealed class MqttZeroInboundWork
         work.Lease = lease;
         work.Sender = sender;
         work.SenderConnection = senderConnection;
+        work.MessageId = messageId;
         work.CreatedTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
         return work;
     }
@@ -44,6 +48,7 @@ internal sealed class MqttZeroInboundWork
         Lease = null!;
         Sender = null!;
         SenderConnection = null!;
+        MessageId = 0;
         Pool.Enqueue(this);
     }
 }

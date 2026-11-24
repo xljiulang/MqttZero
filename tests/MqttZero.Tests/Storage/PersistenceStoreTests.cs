@@ -128,6 +128,62 @@ namespace MqttZero.Tests.Storage
         }
 
         [Fact]
+        public async Task RestoreRoutesPersistedInboundDispatchAndDeletesRecord()
+        {
+            TestSessionStore sessionStore = new();
+            sessionStore.Sessions["sender"] = new MqttZeroPersistedSession
+            {
+                ClientId = "sender",
+                ExpiryInterval = 60
+            };
+            sessionStore.Sessions["receiver"] = new MqttZeroPersistedSession
+            {
+                ClientId = "receiver",
+                ExpiryInterval = 60,
+                Subscriptions =
+                [
+                    new MqttZeroPersistedSubscription
+                    {
+                        TopicFilter = "dispatch/#"u8.ToArray(),
+                        QualityOfServiceLevel =
+                            MqttQualityOfServiceLevel.AtLeastOnce
+                    }
+                ]
+            };
+            TestMessageStore messageStore = new();
+            messageStore.Messages.Add(new MqttZeroPersistedMessage
+            {
+                ClientId = "sender",
+                MessageId = 99,
+                PacketIdentifier = 7,
+                Kind = MqttZeroPersistedMessageKind.InboundDispatch,
+                State = MqttZeroPersistedDeliveryState.Queued,
+                Topic = "dispatch/value"u8.ToArray(),
+                Payload = "payload"u8.ToArray(),
+                QualityOfServiceLevel =
+                    MqttQualityOfServiceLevel.AtLeastOnce
+            });
+            ServiceCollection services = new();
+            services.AddSingleton<IMqttZeroSessionStore>(sessionStore);
+            services.AddSingleton<IMqttZeroMessageStore>(messageStore);
+            services.AddSingleton<IMqttZeroRetainedMessageStore, TestRetainedStore>();
+            services.AddMqttZero();
+            await using ServiceProvider provider = services.BuildServiceProvider();
+            MqttZeroBroker broker = provider.GetRequiredService<MqttZeroBroker>();
+
+            await broker.StartAsync(TestContext.Current.CancellationToken);
+
+            MqttZeroSessionSnapshot receiver = Assert.Single(
+                broker.GetSessions(),
+                session => session.ClientId == "receiver");
+            Assert.Equal(1, receiver.PendingMessageCount);
+            Assert.DoesNotContain(
+                messageStore.Messages,
+                message => message.Kind ==
+                    MqttZeroPersistedMessageKind.InboundDispatch);
+        }
+
+        [Fact]
         public async Task RestoreTreatsZeroRetainedCountAsUnlimited()
         {
             TestRetainedStore retainedStore = new();

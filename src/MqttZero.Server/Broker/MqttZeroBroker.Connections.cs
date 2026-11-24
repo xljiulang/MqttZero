@@ -271,11 +271,44 @@ public sealed partial class MqttZeroBroker
                                     }
                                     else
                                     {
-                                        await EnqueueInboundAsync(
-                                            prepared.Lease,
-                                            session,
-                                            connection,
-                                            connectionLifetime.Token).ConfigureAwait(false);
+                                        long messageId = _messageStore.IsEnabled
+                                            ? GetNextMessageId()
+                                            : 0;
+                                        try
+                                        {
+                                            await SaveInboundDispatchAsync(
+                                                prepared.Lease,
+                                                session,
+                                                messageId,
+                                                connectionLifetime.Token).ConfigureAwait(false);
+                                        }
+                                        catch
+                                        {
+                                            if (!prepared.UsesSourceLease)
+                                            {
+                                                prepared.Lease.Release();
+                                            }
+
+                                            throw;
+                                        }
+                                        try
+                                        {
+                                            await EnqueueInboundAsync(
+                                                prepared.Lease,
+                                                session,
+                                                connection,
+                                                connectionLifetime.Token,
+                                                messageId).ConfigureAwait(false);
+                                        }
+                                        catch
+                                        {
+                                            await DeleteInboundDispatchAsync(
+                                                session.ClientId,
+                                                messageId,
+                                                CancellationToken.None).ConfigureAwait(false);
+                                            throw;
+                                        }
+
                                         transferred = true;
                                         if (!prepared.UsesSourceLease)
                                         {

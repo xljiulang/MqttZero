@@ -445,11 +445,54 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
+        [Fact(Timeout = 10_000)]
+        public async Task InboundDispatchPersistenceFailurePreventsQos1Acknowledgement()
+        {
+            int port = GetFreePort();
+            ControllableMessageStore messageStore = new()
+            {
+                FailNextInboundDispatch = true
+            };
+            WebApplicationBuilder builder = WebApplication.CreateBuilder();
+            builder.Logging.ClearProviders();
+            builder.WebHost.ConfigureKestrel(kestrel =>
+                kestrel.Listen(
+                    IPAddress.Loopback,
+                    port,
+                    listen => listen.UseMqttZero()));
+            builder.Services.AddSingleton<IMqttZeroMessageStore>(messageStore);
+            builder.Services.AddMqttZero();
+            await using WebApplication app = builder.Build();
+            await app.StartAsync(TestContext.Current.CancellationToken);
+            MqttClientFactory factory = new();
+            using IMqttClient publisher = factory.CreateMqttClient();
+            await publisher.ConnectAsync(
+                CreateClientOptions(port, "dispatch-store-failure"),
+                TestContext.Current.CancellationToken);
+
+            await Assert.ThrowsAnyAsync<Exception>(async () =>
+                await publisher.PublishStringAsync(
+                    "dispatch/store-failure",
+                    "payload",
+                    MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce,
+                    cancellationToken: TestContext.Current.CancellationToken)
+                    .WaitAsync(
+                        TimeSpan.FromSeconds(2),
+                        TestContext.Current.CancellationToken));
+
+            Assert.DoesNotContain(
+                messageStore.Messages.Values,
+                message => message.Kind ==
+                    MqttZeroPersistedMessageKind.InboundDispatch);
+            await app.StopAsync(TestContext.Current.CancellationToken);
+        }
+
         private sealed class ControllableMessageStore : IMqttZeroMessageStore
         {
             private int _failTransition;
             private int _failDeleteInbound;
             private int _failNextDeleteMessage;
+            private int _failNextInboundDispatch;
 
             public bool FailTransition
             {
@@ -484,6 +527,20 @@ namespace MqttZero.Tests.Broker
                 set
                 {
                     Volatile.Write(ref _failNextDeleteMessage, value ? 1 : 0);
+                }
+            }
+
+            public bool FailNextInboundDispatch
+            {
+                get
+                {
+                    return Volatile.Read(ref _failNextInboundDispatch) != 0;
+                }
+                set
+                {
+                    Volatile.Write(
+                        ref _failNextInboundDispatch,
+                        value ? 1 : 0);
                 }
             }
 
@@ -524,6 +581,22 @@ namespace MqttZero.Tests.Broker
                 MqttZeroPersistedMessage message,
                 CancellationToken cancellationToken)
             {
+                Messages[message.MessageId] = message;
+                return ValueTask.CompletedTask;
+            }
+
+            public ValueTask SaveInboundDispatchAsync(
+                MqttZeroPersistedMessage message,
+                CancellationToken cancellationToken)
+            {
+                if (Interlocked.Exchange(
+                        ref _failNextInboundDispatch,
+                        0) != 0)
+                {
+                    throw new InvalidOperationException(
+                        "Inbound dispatch persistence failed.");
+                }
+
                 Messages[message.MessageId] = message;
                 return ValueTask.CompletedTask;
             }

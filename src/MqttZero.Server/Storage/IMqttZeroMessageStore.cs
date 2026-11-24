@@ -13,6 +13,19 @@ public interface IMqttZeroMessageStore
     ValueTask SaveOutboundAsync(MqttZeroPersistedMessage message, CancellationToken cancellationToken);
     /// <summary>Saves an inbound QoS 2 message.</summary>
     ValueTask SaveInboundQos2Async(MqttZeroPersistedMessage message, CancellationToken cancellationToken);
+    /// <summary>Saves an accepted inbound dispatch message.</summary>
+    ValueTask SaveInboundDispatchAsync(MqttZeroPersistedMessage message, CancellationToken cancellationToken)
+    {
+        return SaveQueuedAsync(message, cancellationToken);
+    }
+    /// <summary>Deletes an accepted inbound dispatch message.</summary>
+    ValueTask DeleteInboundDispatchAsync(
+        string clientId,
+        long messageId,
+        CancellationToken cancellationToken)
+    {
+        return DeleteMessageAsync(clientId, messageId, cancellationToken);
+    }
     /// <summary>Atomically promotes one queued message to outbound in-flight state.</summary>
     ValueTask TransitionQueuedToOutboundAsync(
         string clientId,

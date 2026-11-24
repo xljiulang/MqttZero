@@ -17,6 +17,11 @@ public sealed partial class MqttZeroBroker
             new(StringComparer.Ordinal);
         Dictionary<string, MqttZeroRetainedMessage> stagedRetainedMessages =
             new(StringComparer.Ordinal);
+        List<(
+            MqttZeroSessionState Session,
+            MqttZeroMessageLease Lease,
+            long MessageId)> inboundDispatches = [];
+        bool inboundDispatchesReleased = true;
         long stagedRetainedBytes = 0;
         bool committed = false;
         try
@@ -180,6 +185,31 @@ public sealed partial class MqttZeroBroker
                     continue;
                 }
 
+                if (persisted.Kind ==
+                    MqttZeroPersistedMessageKind.InboundDispatch)
+                {
+                    MqttZeroMessageLease dispatchLease =
+                        MqttZeroMessageLease.CopyFrom(
+                            new ReadOnlySequence<byte>(persisted.Topic),
+                            NormalizePersistedMessageProperties(
+                                persisted.Properties),
+                            new ReadOnlySequence<byte>(persisted.Payload),
+                            persisted.QualityOfServiceLevel,
+                            persisted.Retain,
+                            null,
+                            null,
+                            _bufferPool);
+                    dispatchLease.SetExpiresAt(persisted.ExpiresAt);
+                    dispatchLease.PacketIdentifier =
+                        persisted.PacketIdentifier;
+                    inboundDispatches.Add((
+                        session,
+                        dispatchLease,
+                        persisted.MessageId));
+                    inboundDispatchesReleased = false;
+                    continue;
+                }
+
                 if ((persisted.Kind == MqttZeroPersistedMessageKind.Outbound &&
                         (session.InflightMessages.ContainsKey(persisted.PacketIdentifier) ||
                             session.InflightMessages.Count >= _options.MaxInflight)) ||
@@ -330,6 +360,35 @@ public sealed partial class MqttZeroBroker
             }
 
             RebuildSubscriptionRouteSnapshot();
+            while (inboundDispatches.Count > 0)
+            {
+                int dispatchIndex = inboundDispatches.Count - 1;
+                (
+                    MqttZeroSessionState Session,
+                    MqttZeroMessageLease Lease,
+                    long MessageId) dispatch =
+                    inboundDispatches[dispatchIndex];
+                inboundDispatches.RemoveAt(dispatchIndex);
+                try
+                {
+                    await RoutePreparedLeaseAsync(
+                        dispatch.Session,
+                        null,
+                        dispatch.Lease,
+                        cancellationToken).ConfigureAwait(false);
+                    await DeleteInboundDispatchAsync(
+                        dispatch.Session.ClientId,
+                        dispatch.MessageId,
+                        cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    dispatch.Lease.Release();
+                }
+            }
+
+            inboundDispatchesReleased = true;
+
             committed = true;
         }
         catch (Exception exception)
@@ -353,6 +412,17 @@ public sealed partial class MqttZeroBroker
         {
             if (!committed)
             {
+                if (!inboundDispatchesReleased)
+                {
+                    foreach ((
+                        _,
+                        MqttZeroMessageLease lease,
+                        _) in inboundDispatches)
+                    {
+                        lease.Release();
+                    }
+                }
+
                 foreach (MqttZeroSessionState session in stagedSessions.Values)
                 {
                     ReleaseSessionMessages(session);
@@ -434,6 +504,15 @@ public sealed partial class MqttZeroBroker
         {
             return message.QualityOfServiceLevel ==
                     MqttQualityOfServiceLevel.ExactlyOnce &&
+                message.State == MqttZeroPersistedDeliveryState.Queued &&
+                message.PacketIdentifier != 0;
+        }
+
+        if (message.Kind == MqttZeroPersistedMessageKind.InboundDispatch)
+        {
+            return message.MessageId > 0 &&
+                message.QualityOfServiceLevel ==
+                    MqttQualityOfServiceLevel.AtLeastOnce &&
                 message.State == MqttZeroPersistedDeliveryState.Queued &&
                 message.PacketIdentifier != 0;
         }
@@ -659,6 +738,65 @@ public sealed partial class MqttZeroBroker
             MqttZeroBrokerLogging.LogPersistenceFailure(
                 _logger,
                 nameof(IMqttZeroMessageStore.SaveInboundQos2Async),
+                clientId,
+                exception);
+            throw;
+        }
+    }
+
+    private async ValueTask SaveInboundDispatchAsync(
+        MqttZeroMessageLease lease,
+        MqttZeroSessionState sender,
+        long messageId,
+        CancellationToken cancellationToken)
+    {
+        if (!_messageStore.IsEnabled)
+        {
+            return;
+        }
+
+        try
+        {
+            await _messageStore.SaveInboundDispatchAsync(
+                CreateInboundDispatchPersistedMessage(
+                    lease,
+                    sender.ClientId,
+                    messageId),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            MqttZeroBrokerLogging.LogPersistenceFailure(
+                _logger,
+                nameof(IMqttZeroMessageStore.SaveInboundDispatchAsync),
+                sender.ClientId,
+                exception);
+            throw;
+        }
+    }
+
+    private async ValueTask DeleteInboundDispatchAsync(
+        string clientId,
+        long messageId,
+        CancellationToken cancellationToken)
+    {
+        if (!_messageStore.IsEnabled || messageId == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await _messageStore.DeleteInboundDispatchAsync(
+                clientId,
+                messageId,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            MqttZeroBrokerLogging.LogPersistenceFailure(
+                _logger,
+                nameof(IMqttZeroMessageStore.DeleteInboundDispatchAsync),
                 clientId,
                 exception);
             throw;
@@ -901,6 +1039,27 @@ public sealed partial class MqttZeroBroker
             MessageId = packetIdentifier,
             PacketIdentifier = packetIdentifier,
             Kind = MqttZeroPersistedMessageKind.InboundQos2,
+            State = MqttZeroPersistedDeliveryState.Queued,
+            Topic = lease.Topic,
+            Properties = lease.Properties,
+            Payload = lease.Payload,
+            QualityOfServiceLevel = lease.QualityOfServiceLevel,
+            Retain = lease.RetainFlag,
+            ExpiresAt = lease.ExpiresAt
+        };
+    }
+
+    private static MqttZeroPersistedMessage CreateInboundDispatchPersistedMessage(
+        MqttZeroMessageLease lease,
+        string clientId,
+        long messageId)
+    {
+        return new MqttZeroPersistedMessage
+        {
+            ClientId = clientId,
+            MessageId = messageId,
+            PacketIdentifier = lease.PacketIdentifier,
+            Kind = MqttZeroPersistedMessageKind.InboundDispatch,
             State = MqttZeroPersistedDeliveryState.Queued,
             Topic = lease.Topic,
             Properties = lease.Properties,
