@@ -60,3 +60,19 @@ dotnet run -c Release --project benchmarks/MqttZero.BrokerBenchmarks -- `
 
 The 1000-subscriber / 64 KiB cases remain the largest scalability gaps. They
 must not be treated as capacity claims for the current alpha.
+
+## Correctness Review Fixes
+
+- Inbound Work now owns an independent Lease reference.
+- BufferPool capacity wakeups were restored to the non-lossy unconditional
+  semaphore release path.
+- Topic Trie now distinguishes absent levels from trailing empty levels.
+- Binary MQTT property lengths are parsed as unsigned values.
+- InboundDispatch restore processes messages in Client ID + MessageId order.
+- Shared-subscription cursors survive route snapshot rebuilds.
+- Message queue ownership now uses an explicit queued flag.
+- Large message batches use four-message batches only when a subscriber queue
+  already has backlog; isolated messages continue to flush individually.
+
+These fixes are correctness and operational-safety changes. They do not change
+the strict performance gate result.
