@@ -167,20 +167,24 @@ public sealed partial class MqttZeroBroker
         MqttZeroQueuedMessage? evicted = null;
         bool dropOfflineQos0 = false;
         bool packetTooLarge = false;
+        int encodedLength = 0;
 
         try
         {
             lock (session.SyncRoot)
             {
                 connection = session.Connection;
-                if (connection != null &&
-                    connection.IsPublishTooLarge(
+                if (connection != null)
+                {
+                    encodedLength = connection.GetPublishEncodedLength(
                         lease,
                         qos,
                         retain,
-                        subscriptionIdentifiers))
-                {
-                    packetTooLarge = true;
+                        subscriptionIdentifiers);
+                    if (encodedLength > connection.MaximumPacketSize)
+                    {
+                        packetTooLarge = true;
+                    }
                 }
 
                 if (!packetTooLarge)
@@ -199,6 +203,13 @@ public sealed partial class MqttZeroBroker
                             retain,
                             subscriptionIdentifiers,
                             expiresAt);
+                        if (connection != null)
+                        {
+                            message.SetEncodedLength(
+                                encodedLength,
+                                connection.MaximumPacketSize);
+                        }
+
                         message.SetMessageId(GetNextMessageId());
                         evicted = EnqueueMessage(session, message);
                         messageHeld = true;
@@ -762,11 +773,10 @@ public sealed partial class MqttZeroBroker
                 if (hasNext)
                 {
                     next = session.PendingMessages.Dequeue();
-                    nextTooLarge = connection.IsPublishTooLarge(
-                        next.Lease,
-                        next.QualityOfServiceLevel,
-                        next.Retain,
-                        next.SubscriptionIdentifiers);
+                    ValidateEncodedLength(
+                        connection,
+                        next,
+                        out nextTooLarge);
                     if (!nextTooLarge)
                     {
                         batch.Add(next);
@@ -794,11 +804,11 @@ public sealed partial class MqttZeroBroker
 
                             MqttZeroQueuedMessage candidate =
                                 session.PendingMessages.Dequeue();
-                            if (connection.IsPublishTooLarge(
-                                candidate.Lease,
-                                candidate.QualityOfServiceLevel,
-                                candidate.Retain,
-                                candidate.SubscriptionIdentifiers))
+                            ValidateEncodedLength(
+                                connection,
+                                candidate,
+                                out bool candidateTooLarge);
+                            if (candidateTooLarge)
                             {
                                 session.PendingMessages.Prepend(candidate);
                                 break;
@@ -967,6 +977,26 @@ public sealed partial class MqttZeroBroker
                 continue;
             }
         }
+    }
+
+    private static void ValidateEncodedLength(
+        MqttZeroClientConnection connection,
+        MqttZeroQueuedMessage message,
+        out bool tooLarge)
+    {
+        if (!message.IsEncodedLengthValidFor(connection.MaximumPacketSize))
+        {
+            int encodedLength = connection.GetPublishEncodedLength(
+                message.Lease,
+                message.QualityOfServiceLevel,
+                message.Retain,
+                message.SubscriptionIdentifiers);
+            message.SetEncodedLength(
+                encodedLength,
+                connection.MaximumPacketSize);
+        }
+
+        tooLarge = message.EncodedLength > connection.MaximumPacketSize;
     }
 
     private static void ReleaseSessionMessages(MqttZeroSessionState session)

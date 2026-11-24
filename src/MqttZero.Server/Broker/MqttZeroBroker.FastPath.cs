@@ -175,18 +175,22 @@ public sealed partial class MqttZeroBroker
         MqttZeroQueuedMessage? message = null;
         MqttZeroClientConnection? connection = null;
         bool packetTooLarge = false;
+        int encodedLength = 0;
         bool messageHeld = false;
         lock (session.SyncRoot)
         {
             connection = session.Connection;
-            if (connection != null &&
-                connection.IsPublishTooLarge(
+            if (connection != null)
+            {
+                encodedLength = connection.GetPublishEncodedLength(
                     lease,
                     qos,
                     retain,
-                    subscriptionIdentifiers))
-            {
-                packetTooLarge = true;
+                    subscriptionIdentifiers);
+                if (encodedLength > connection.MaximumPacketSize)
+                {
+                    packetTooLarge = true;
+                }
             }
 
             if (!packetTooLarge)
@@ -204,6 +208,13 @@ public sealed partial class MqttZeroBroker
                     retain,
                     subscriptionIdentifiers,
                     expiresAt);
+                if (connection != null)
+                {
+                    message.SetEncodedLength(
+                        encodedLength,
+                        connection.MaximumPacketSize);
+                }
+
                 message.SetMessageId(GetNextMessageId());
                 MqttZeroQueuedMessage? evicted = EnqueueMessage(session, message);
                 evicted?.Release();

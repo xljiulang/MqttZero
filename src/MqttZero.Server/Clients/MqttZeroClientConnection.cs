@@ -279,7 +279,10 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                     null,
                     message.SubscriptionIdentifiers,
                     null);
-                int encodedLength = MqttPublishPacketCodec.GetEncodedLength(view);
+                int encodedLength = message.EncodedLength > 0 &&
+                    message.ExpiresAt == null
+                    ? message.EncodedLength
+                    : MqttPublishPacketCodec.GetEncodedLength(view);
                 if (encodedLength > MaximumPacketSize)
                 {
                     throw new InvalidOperationException(
@@ -358,6 +361,19 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         bool retain,
         ReadOnlyMemory<uint> subscriptionIdentifiers)
     {
+        return GetPublishEncodedLength(
+            lease,
+            qualityOfServiceLevel,
+            retain,
+            subscriptionIdentifiers) > MaximumPacketSize;
+    }
+
+    internal int GetPublishEncodedLength(
+        MqttZeroMessageLease lease,
+        MqttQualityOfServiceLevel qualityOfServiceLevel,
+        bool retain,
+        ReadOnlyMemory<uint> subscriptionIdentifiers)
+    {
         MqttZeroPublishView view = new(
             lease.TopicSequence,
             lease.PropertiesSequence,
@@ -370,7 +386,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             null,
             subscriptionIdentifiers,
             null);
-        return MqttPublishPacketCodec.GetEncodedLength(view) > MaximumPacketSize;
+        return MqttPublishPacketCodec.GetEncodedLength(view);
     }
 
     public async ValueTask SendPubAckAsync(

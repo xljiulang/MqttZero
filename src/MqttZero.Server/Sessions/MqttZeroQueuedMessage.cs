@@ -61,6 +61,10 @@ internal sealed class MqttZeroQueuedMessage
 
     public long MessageId { get; private set; }
 
+    public int EncodedLength { get; private set; }
+
+    private uint _encodedLengthMaximumPacketSize;
+
     public static MqttZeroQueuedMessage Rent(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -121,6 +125,19 @@ internal sealed class MqttZeroQueuedMessage
     public void SetMessageId(long messageId)
     {
         MessageId = messageId;
+    }
+
+    public void SetEncodedLength(int encodedLength, uint maximumPacketSize)
+    {
+        EncodedLength = encodedLength;
+        _encodedLengthMaximumPacketSize = maximumPacketSize;
+    }
+
+    public bool IsEncodedLengthValidFor(uint maximumPacketSize)
+    {
+        return EncodedLength > 0 &&
+            _encodedLengthMaximumPacketSize == maximumPacketSize &&
+            ExpiresAt == null;
     }
 
     public void Restore(ushort packetIdentifier, MqttZeroOutboundState state)
@@ -196,6 +213,8 @@ internal sealed class MqttZeroQueuedMessage
         ExpiresAt = null;
         PacketIdentifier = 0;
         MessageId = 0;
+        EncodedLength = 0;
+        _encodedLengthMaximumPacketSize = 0;
         State = MqttZeroOutboundState.AwaitPubAck;
         MessagePool.Enqueue(this);
     }
