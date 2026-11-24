@@ -530,6 +530,249 @@ namespace MqttZero.Tests.Broker
             }
         }
 
+        [Fact]
+        public async Task QosZeroOfflineDropReleasesOwnedLease()
+        {
+            const int payloadSize = 1024;
+            MqttZeroOptions options = new()
+            {
+                MaxMessageQueueLength = 10,
+                StoreQos0InQueue = false
+            };
+            await using MqttZeroBroker broker = MqttZeroBroker.Create(
+                options,
+                TimeProvider.System);
+            MqttZeroBufferPool bufferPool = GetBufferPool(broker);
+            MqttZeroSessionState receiver = new(
+                "offline-qos-zero",
+                options.MaxMessageQueueLength);
+            receiver.Subscriptions.Add(new MqttZeroSubscription(
+                "drop/#"u8.ToArray(),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                false,
+                null));
+            AddSession(broker, receiver);
+            RebuildRoutes(broker);
+            MqttZeroClientConnection publisherConnection = new(
+                new TrackingPipeWriter(),
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState publisher = new("publisher");
+            MqttZeroMessageLease lease = CreateQosZeroLease(
+                bufferPool,
+                "drop/topic",
+                payloadSize);
+            try
+            {
+                await broker.RoutePublishLeaseAsync(
+                    publisher,
+                    publisherConnection,
+                    lease,
+                    TestContext.Current.CancellationToken);
+            }
+            finally
+            {
+                lease.Release();
+                await publisherConnection.DisposeAsync();
+            }
+
+            Assert.Equal(0, receiver.PendingMessages.Count);
+            Assert.Equal(0, bufferPool.RentedBytes);
+        }
+
+        [Fact]
+        public async Task QueueEvictionReleasesOwnedLease()
+        {
+            const int payloadSize = 1024;
+            MqttZeroOptions options = new()
+            {
+                MaxMessageQueueLength = 1,
+                StoreQos0InQueue = true
+            };
+            await using MqttZeroBroker broker = MqttZeroBroker.Create(
+                options,
+                TimeProvider.System);
+            MqttZeroBufferPool bufferPool = GetBufferPool(broker);
+            MqttZeroSessionState receiver = new(
+                "evicting-qos-zero",
+                options.MaxMessageQueueLength);
+            receiver.Subscriptions.Add(new MqttZeroSubscription(
+                "evict/#"u8.ToArray(),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                false,
+                null));
+            AddSession(broker, receiver);
+            RebuildRoutes(broker);
+            MqttZeroClientConnection publisherConnection = new(
+                new TrackingPipeWriter(),
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState publisher = new("publisher");
+            MqttZeroMessageLease first = CreateQosZeroLease(
+                bufferPool,
+                "evict/topic",
+                payloadSize);
+            MqttZeroMessageLease second = CreateQosZeroLease(
+                bufferPool,
+                "evict/topic",
+                payloadSize);
+            bool firstReleased = false;
+            bool secondReleased = false;
+            try
+            {
+                await broker.RoutePublishLeaseAsync(
+                    publisher,
+                    publisherConnection,
+                    first,
+                    TestContext.Current.CancellationToken);
+                first.Release();
+                firstReleased = true;
+                await broker.RoutePublishLeaseAsync(
+                    publisher,
+                    publisherConnection,
+                    second,
+                    TestContext.Current.CancellationToken);
+                second.Release();
+                secondReleased = true;
+
+                Assert.Equal(1, receiver.PendingMessages.Count);
+                lock (receiver.SyncRoot)
+                {
+                    MqttZeroQueuedMessage queued =
+                        receiver.PendingMessages.Dequeue();
+                    queued.Release();
+                }
+
+                Assert.Equal(0, bufferPool.RentedBytes);
+            }
+            finally
+            {
+                if (!firstReleased)
+                {
+                    first.Release();
+                }
+
+                if (!secondReleased)
+                {
+                    second.Release();
+                }
+
+                await publisherConnection.DisposeAsync();
+            }
+        }
+
+        [Fact]
+        public async Task ConnectionSwapBetweenDeliveriesUsesCurrentMaximumPacketSize()
+        {
+            const int payloadSize = 64 * 1024;
+            MqttZeroOptions options = new()
+            {
+                MaxMessageQueueLength = 4,
+                StoreQos0InQueue = true
+            };
+            await using MqttZeroBroker broker = MqttZeroBroker.Create(
+                options,
+                TimeProvider.System);
+            MqttZeroBufferPool bufferPool = GetBufferPool(broker);
+            MqttZeroSessionState receiver = new(
+                "swapping-qos-zero",
+                options.MaxMessageQueueLength);
+            receiver.Subscriptions.Add(new MqttZeroSubscription(
+                "swap/#"u8.ToArray(),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                false,
+                null));
+            MqttZeroClientConnection firstConnection = new(
+                new TrackingPipeWriter(),
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                2 * payloadSize,
+                TimeProvider.System);
+            MqttZeroClientConnection secondConnection = new(
+                new TrackingPipeWriter(),
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                2 * payloadSize,
+                TimeProvider.System);
+            receiver.Connection = firstConnection;
+            AddSession(broker, receiver);
+            RebuildRoutes(broker);
+            MqttZeroClientConnection publisherConnection = new(
+                new TrackingPipeWriter(),
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                2 * payloadSize,
+                TimeProvider.System);
+            MqttZeroSessionState publisher = new("publisher");
+            MqttZeroMessageLease first = CreateQosZeroLease(
+                bufferPool,
+                "swap/topic",
+                payloadSize);
+            MqttZeroMessageLease second = CreateQosZeroLease(
+                bufferPool,
+                "swap/topic",
+                payloadSize);
+            try
+            {
+                await broker.RoutePublishLeaseAsync(
+                    publisher,
+                    publisherConnection,
+                    first,
+                    TestContext.Current.CancellationToken);
+                lock (receiver.SyncRoot)
+                {
+                    receiver.Connection = secondConnection;
+                }
+
+                await broker.RoutePublishLeaseAsync(
+                    publisher,
+                    publisherConnection,
+                    second,
+                    TestContext.Current.CancellationToken);
+
+                Assert.Equal(2, receiver.PendingMessages.Count);
+                lock (receiver.SyncRoot)
+                {
+                    while (receiver.PendingMessages.Count > 0)
+                    {
+                        MqttZeroQueuedMessage queued =
+                            receiver.PendingMessages.Dequeue();
+                        queued.Release();
+                    }
+                }
+            }
+            finally
+            {
+                first.Release();
+                second.Release();
+                await publisherConnection.DisposeAsync();
+                await firstConnection.DisposeAsync();
+                await secondConnection.DisposeAsync();
+            }
+        }
+
         private static MqttZeroMessageLease CreateQosZeroLease()
         {
             return MqttZeroMessageLease.CopyFrom(
@@ -540,6 +783,30 @@ namespace MqttZero.Tests.Broker
                 false,
                 null,
                 null);
+        }
+
+        private static MqttZeroMessageLease CreateQosZeroLease(
+            MqttZeroBufferPool bufferPool,
+            string topic,
+            int payloadSize)
+        {
+            return MqttZeroMessageLease.CopyFrom(
+                new ReadOnlySequence<byte>(System.Text.Encoding.UTF8.GetBytes(topic)),
+                ReadOnlySequence<byte>.Empty,
+                new ReadOnlySequence<byte>(new byte[payloadSize]),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                null,
+                null,
+                bufferPool);
+        }
+
+        private static MqttZeroBufferPool GetBufferPool(MqttZeroBroker broker)
+        {
+            FieldInfo bufferPoolField = typeof(MqttZeroBroker).GetField(
+                "_bufferPool",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            return (MqttZeroBufferPool)bufferPoolField.GetValue(broker)!;
         }
 
         private static void AddSession(

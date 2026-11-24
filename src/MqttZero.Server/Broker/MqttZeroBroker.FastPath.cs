@@ -170,7 +170,7 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    private async ValueTask DeliverLeaseFastAsync(
+    private ValueTask DeliverLeaseFastAsync(
         MqttZeroSessionState session,
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qos,
@@ -182,71 +182,78 @@ public sealed partial class MqttZeroBroker
         if (expiresAt.HasValue &&
             expiresAt.Value <= _timeProvider.GetUtcNow())
         {
-            return;
+            return ValueTask.CompletedTask;
         }
 
-        MqttZeroQueuedMessage? message = null;
-        MqttZeroClientConnection? connection = null;
-        bool packetTooLarge = false;
-        int encodedLength = 0;
+        MqttZeroClientConnection? connection;
         lock (session.SyncRoot)
         {
             connection = session.Connection;
-            if (connection != null)
-            {
-                encodedLength = connection.GetPublishEncodedLength(
-                    lease,
-                    qos,
-                    retain,
-                    subscriptionIdentifiers);
-                if (encodedLength > connection.MaximumPacketSize)
-                {
-                    packetTooLarge = true;
-                }
-            }
+        }
 
-            if (!packetTooLarge)
+        if (qos == MqttQualityOfServiceLevel.AtMostOnce &&
+            connection == null &&
+            !_options.StoreQos0InQueue)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        int encodedLength = 0;
+        if (connection != null)
+        {
+            encodedLength = connection.GetPublishEncodedLength(
+                lease,
+                qos,
+                retain,
+                subscriptionIdentifiers);
+            if (encodedLength > connection.MaximumPacketSize)
+            {
+                return ValueTask.CompletedTask;
+            }
+        }
+
+        MqttZeroQueuedMessage message = MqttZeroQueuedMessage.RentWithIdentifiers(
+            lease,
+            qos,
+            retain,
+            subscriptionIdentifiers,
+            expiresAt);
+        message.SetMessageId(GetNextMessageId());
+        MqttZeroQueuedMessage? evicted = null;
+        bool enqueued = false;
+        try
+        {
+            lock (session.SyncRoot)
             {
                 if (qos == MqttQualityOfServiceLevel.AtMostOnce &&
-                    connection == null &&
+                    session.Connection == null &&
                     !_options.StoreQos0InQueue)
                 {
-                    return;
+                    return ValueTask.CompletedTask;
                 }
 
-                message = MqttZeroQueuedMessage.RentWithIdentifiers(
-                    lease,
-                    qos,
-                    retain,
-                    subscriptionIdentifiers,
-                    expiresAt);
-                if (connection != null)
+                MqttZeroClientConnection? currentConnection = session.Connection;
+                if (currentConnection != null &&
+                    ReferenceEquals(currentConnection, connection))
                 {
                     message.SetEncodedLength(
                         encodedLength,
-                        connection.MaximumPacketSize);
+                        currentConnection.MaximumPacketSize);
                 }
 
-                message.SetMessageId(GetNextMessageId());
-                MqttZeroQueuedMessage? evicted;
-                try
-                {
-                    evicted = EnqueueMessage(session, message);
-                }
-                catch
-                {
-                    message.Release();
-                    throw;
-                }
-
-                evicted?.Release();
+                evicted = EnqueueMessage(session, message);
+                enqueued = true;
+            }
+        }
+        finally
+        {
+            if (!enqueued)
+            {
+                message.Release();
             }
         }
 
-        if (packetTooLarge)
-        {
-            return;
-        }
-
+        evicted?.Release();
+        return ValueTask.CompletedTask;
     }
 }
