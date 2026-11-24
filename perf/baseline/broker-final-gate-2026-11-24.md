@@ -36,3 +36,27 @@ MQTTnet in every cell. The gate is not met.
 QoS 0 passes throughput comfortably. QoS 1/2 are approximately at parity, but
 do not meet the required lead. QoS 1/64 KiB remains the largest remaining gap.
 No `0.12.0-alpha.1` version bump, merge, or push is performed.
+
+## Key Fanout Matrix
+
+Command:
+
+```powershell
+dotnet run -c Release --project benchmarks/MqttZero.BrokerBenchmarks -- `
+  compare --qos 0,1 --subscribers 100,1000 --payload 8192,65536 `
+  --warmup 2 --seconds 6 --repetitions 3
+```
+
+| QoS | Subscribers | Payload | Throughput ratio | p99 ratio |
+|---:|---:|---:|---:|---:|
+| 0 | 100 | 8 KiB | 1.13x | 0.93x |
+| 0 | 100 | 64 KiB | 1.03x | 1.75x |
+| 0 | 1000 | 8 KiB | 1.09x | 0.65x |
+| 0 | 1000 | 64 KiB | 0.94x | 2.63x |
+| 1 | 100 | 8 KiB | 1.10x | 0.77x |
+| 1 | 100 | 64 KiB | 1.04x | 1.03x |
+| 1 | 1000 | 8 KiB | 1.06x | 0.91x |
+| 1 | 1000 | 64 KiB | 0.55x | 5.22x |
+
+The 1000-subscriber / 64 KiB cases remain the largest scalability gaps. They
+must not be treated as capacity claims for the current alpha.
