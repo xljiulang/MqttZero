@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MQTTnet;
+using MQTTnet.AspNetCore;
 using MQTTnet.Protocol;
 using MQTTnet.Server;
 using MqttZero.AspNetCore;
@@ -99,18 +100,28 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
 
     if (broker == "mqttnet")
     {
-        MqttServerFactory factory = new();
-        MqttServerOptions options = new MqttServerOptionsBuilder()
-            .WithDefaultEndpoint()
-            .WithDefaultEndpointBoundIPAddress(IPAddress.Loopback)
-            .WithDefaultEndpointPort(port)
-            .WithMaxPendingMessagesPerClient(100_000)
-            .Build();
-        using MqttServer server = factory.CreateMqttServer(options);
-        await server.StartAsync();
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.Logging.ClearProviders();
+        builder.Services.AddMqttServer(options =>
+        {
+            options
+                .WithDefaultEndpoint()
+                .WithDefaultEndpointBoundIPAddress(IPAddress.Loopback)
+                .WithDefaultEndpointPort(port)
+                .WithMaxPendingMessagesPerClient(100_000);
+        });
+        builder.WebHost.ConfigureKestrel(kestrel =>
+        {
+            kestrel.Listen(
+                IPAddress.Loopback,
+                port,
+                listen => listen.UseMqtt());
+        });
+        await using WebApplication app = builder.Build();
+        await app.StartAsync(lifetime.Token);
         Console.WriteLine("READY");
         await WaitForCancellationAsync(lifetime.Token);
-        await server.StopAsync();
+        await app.StopAsync(CancellationToken.None);
         return;
     }
 

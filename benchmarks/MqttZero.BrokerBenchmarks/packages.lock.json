@@ -8,6 +8,16 @@
         "resolved": "5.2.0.1603",
         "contentHash": "iNuWVo/568aRo2ExEN2qkC4J5b07ckKqt+9Uok2kIbbK7PMBsXvYiKVENPHmOBWFB5ExhlNQb/qQ8M9/IYRTdQ=="
       },
+      "MQTTnet.AspNetCore": {
+        "type": "Direct",
+        "requested": "[5.2.0.1603, )",
+        "resolved": "5.2.0.1603",
+        "contentHash": "e6oFBGK2SKENTbk5Rfr0oMFYpBGIDjUWZFzL3KQHrfLP64+wmk2EgOKWIPdlQtsmHXPogb/3unwppU9uoc+0tA==",
+        "dependencies": {
+          "MQTTnet": "5.2.0.1603",
+          "MQTTnet.Server": "5.2.0.1603"
+        }
+      },
       "MQTTnet.Server": {
         "type": "Direct",
         "requested": "[5.2.0.1603, )",

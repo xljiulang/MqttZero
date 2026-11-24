@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="MQTTnet" />
+    <PackageReference Include="MQTTnet.AspNetCore" />
     <PackageReference Include="MQTTnet.Server" />
   </ItemGroup>
 

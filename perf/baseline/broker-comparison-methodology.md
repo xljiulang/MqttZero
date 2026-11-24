@@ -6,6 +6,7 @@
 
 - Broker 在独立子进程中启动；客户端负载生成器不与被测 Broker 共享进程。
 - 两个 Broker 均绑定 `127.0.0.1`，关闭日志，使用 MQTT 5 客户端。
+- 两个 Broker 均通过 Kestrel 承载；MQTTZero 使用 `UseMqttZero`，MQTTnet 使用 `MQTTnet.AspNetCore` 的 `UseMqtt`。
 - 客户端 clean start，Topic 固定为 `bench/topic`，不启用 TLS、Retained、共享订阅或会话恢复。
 - MQTTZero `MaxMessageQueueLength` 与 MQTTnet `MaxPendingMessagesPerClient` 均设为 100,000。
 - 所有 QoS 都使用最多约 1,024 条未消费消息的闭环限制，避免只因负载生成器压垮服务端队列而失去可比性。
