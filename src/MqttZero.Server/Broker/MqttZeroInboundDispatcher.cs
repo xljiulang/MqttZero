@@ -91,6 +91,27 @@ internal sealed class MqttZeroInboundDispatcher
         }
     }
 
+    public TimeSpan OldestWorkAge
+    {
+        get
+        {
+            long oldest = long.MaxValue;
+            for (int index = 0; index < _channels.Length; index++)
+            {
+                if (_channels[index].Reader.TryPeek(
+                    out MqttZeroInboundWork? work) &&
+                    work.CreatedTimestamp < oldest)
+                {
+                    oldest = work.CreatedTimestamp;
+                }
+            }
+
+            return oldest == long.MaxValue
+                ? TimeSpan.Zero
+                : System.Diagnostics.Stopwatch.GetElapsedTime(oldest);
+        }
+    }
+
     public async ValueTask StopAsync()
     {
         if (Interlocked.Exchange(ref _stopped, 1) != 0)

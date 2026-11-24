@@ -18,6 +18,7 @@ internal sealed class MqttZeroBufferPool : IDisposable
     private readonly SemaphoreSlim _capacityReleased = new(0, int.MaxValue);
     private readonly long _maximumBytes;
     private readonly ArrayPool<byte> _source;
+    private int _capacityWaiters;
     private long _rentedBytes;
     private int _disposed;
 
@@ -115,7 +116,11 @@ internal sealed class MqttZeroBufferPool : IDisposable
         }
 
         Interlocked.Add(ref _rentedBytes, -buffer.Length);
-        _capacityReleased.Release();
+        if (Volatile.Read(ref _capacityWaiters) > 0)
+        {
+            _capacityReleased.Release();
+        }
+
         int bucketIndex = GetBucketIndex(buffer.Length);
         if (Volatile.Read(ref _disposed) == 0 &&
             Interlocked.Increment(ref _cachedCounts[bucketIndex]) <=
@@ -150,7 +155,15 @@ internal sealed class MqttZeroBufferPool : IDisposable
 
     public async ValueTask WaitForCapacityAsync(CancellationToken cancellationToken)
     {
-        await _capacityReleased.WaitAsync(cancellationToken).ConfigureAwait(false);
+        Interlocked.Increment(ref _capacityWaiters);
+        try
+        {
+            await _capacityReleased.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _capacityWaiters);
+        }
     }
 
     private static int[] CreateBucketSizes()
