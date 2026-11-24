@@ -1035,8 +1035,6 @@ public sealed partial class MqttZeroBroker
                 !_messageStore.IsEnabled &&
                 !_retainedMessageStore.IsEnabled &&
                 _publishInterceptors.Length == 0 &&
-                _enqueueInterceptors.Length == 0 &&
-                _deliveryObservers.Length == 0 &&
                 _inboundDispatcher != null;
         }
     }
