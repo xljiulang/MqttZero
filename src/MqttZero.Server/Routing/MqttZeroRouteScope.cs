@@ -248,9 +248,7 @@ internal sealed class MqttZeroRouteScope : IDisposable
     private static ReadOnlyMemory<uint> ToIdentifiers(
         MqttZeroSubscription subscription)
     {
-        return subscription.SubscriptionIdentifier.HasValue
-            ? new[] { subscription.SubscriptionIdentifier.Value }
-            : ReadOnlyMemory<uint>.Empty;
+        return subscription.SubscriptionIdentifiers;
     }
 
     private static ReadOnlyMemory<uint> AppendIdentifier(

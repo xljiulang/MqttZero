@@ -104,9 +104,9 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection? senderConnection,
         CancellationToken cancellationToken)
     {
-        DateTimeOffset now = _timeProvider.GetUtcNow();
         DateTimeOffset? expiresAt = lease.ExpiresAt;
-        if (expiresAt <= now)
+        if (expiresAt.HasValue &&
+            expiresAt.Value <= _timeProvider.GetUtcNow())
         {
             await NotifyDroppedAsync(
                 senderConnection?.ConnectedClient,
@@ -330,17 +330,25 @@ public sealed partial class MqttZeroBroker
         MqttZeroQueuedMessage? evicted = null;
         if (session.PendingMessages.Count >= _options.MaxMessageQueueLength)
         {
-            int oldestQos0Index = session.PendingMessages.FindIndex(
-                item => item.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtMostOnce);
-            if (oldestQos0Index >= 0)
+            if (session.PendingMessages[0].QualityOfServiceLevel ==
+                MqttQualityOfServiceLevel.AtMostOnce)
             {
-                evicted = session.PendingMessages[oldestQos0Index];
-                session.PendingMessages.RemoveAt(oldestQos0Index);
+                evicted = session.PendingMessages.Dequeue();
             }
-            else if (session.PendingMessages.Count > 0)
+            else
             {
-                evicted = session.PendingMessages[0];
-                session.PendingMessages.RemoveAt(0);
+                int oldestQos0Index = session.PendingMessages.FindIndex(
+                    item => item.QualityOfServiceLevel ==
+                        MqttQualityOfServiceLevel.AtMostOnce);
+                if (oldestQos0Index > 0)
+                {
+                    evicted = session.PendingMessages[oldestQos0Index];
+                    session.PendingMessages.RemoveAt(oldestQos0Index);
+                }
+                else
+                {
+                    evicted = session.PendingMessages.Dequeue();
+                }
             }
         }
 
@@ -734,15 +742,19 @@ public sealed partial class MqttZeroBroker
         while (true)
         {
             MqttZeroQueuedMessage? next = null;
-            bool nextHeld = false;
             bool hasNext = false;
             bool nextTooLarge = false;
             List<MqttZeroQueuedMessage> expired = session.ExpiredMessages;
+            List<MqttZeroQueuedMessage> batch = session.OutboundBatch;
             lock (session.SyncRoot)
             {
                 expired.Clear();
-                DateTimeOffset now = _timeProvider.GetUtcNow();
-                session.PendingMessages.RemoveExpired(now, expired);
+                batch.Clear();
+                if (session.PendingMessages.HasExpiringMessages)
+                {
+                    DateTimeOffset now = _timeProvider.GetUtcNow();
+                    session.PendingMessages.RemoveExpired(now, expired);
+                }
                 hasNext = session.PendingMessages.Count > 0 &&
                     (session.PendingMessages[0].QualityOfServiceLevel ==
                         MqttQualityOfServiceLevel.AtMostOnce ||
@@ -755,12 +767,55 @@ public sealed partial class MqttZeroBroker
                         next.QualityOfServiceLevel,
                         next.Retain,
                         next.SubscriptionIdentifiers);
-                    if (!nextTooLarge &&
-                        next.QualityOfServiceLevel != MqttQualityOfServiceLevel.AtMostOnce)
+                    if (!nextTooLarge)
                     {
-                        next.PacketIdentifier = session.GetNextPacketIdentifier();
-                        session.InflightMessages[next.PacketIdentifier] = next;
-                        nextHeld = true;
+                        batch.Add(next);
+                        if (next.QualityOfServiceLevel !=
+                            MqttQualityOfServiceLevel.AtMostOnce)
+                        {
+                            next.PacketIdentifier = session.GetNextPacketIdentifier();
+                            session.InflightMessages[next.PacketIdentifier] = next;
+                        }
+
+                        long batchBytes = next.Lease.Payload.Length + 32;
+                        while (batch.Count < 128 &&
+                            batchBytes < 1024 * 1024 &&
+                            session.PendingMessages.Count > 0)
+                        {
+                            MqttZeroQueuedMessage head =
+                                session.PendingMessages[0];
+                            if (head.QualityOfServiceLevel !=
+                                    MqttQualityOfServiceLevel.AtMostOnce &&
+                                session.InflightMessages.Count >=
+                                    GetInflightLimit(connection))
+                            {
+                                break;
+                            }
+
+                            MqttZeroQueuedMessage candidate =
+                                session.PendingMessages.Dequeue();
+                            if (connection.IsPublishTooLarge(
+                                candidate.Lease,
+                                candidate.QualityOfServiceLevel,
+                                candidate.Retain,
+                                candidate.SubscriptionIdentifiers))
+                            {
+                                session.PendingMessages.Prepend(candidate);
+                                break;
+                            }
+
+                            batch.Add(candidate);
+                            if (candidate.QualityOfServiceLevel !=
+                                MqttQualityOfServiceLevel.AtMostOnce)
+                            {
+                                candidate.PacketIdentifier =
+                                    session.GetNextPacketIdentifier();
+                                session.InflightMessages[candidate.PacketIdentifier] =
+                                    candidate;
+                            }
+
+                            batchBytes += candidate.Lease.Payload.Length + 32;
+                        }
                     }
                 }
             }
@@ -832,32 +887,84 @@ public sealed partial class MqttZeroBroker
                 break;
             }
 
-            if (nextHeld)
+            if (batch.Count > 0)
             {
+                for (int index = 0; index < batch.Count; index++)
+                {
+                    MqttZeroQueuedMessage message = batch[index];
+                    if (message.QualityOfServiceLevel ==
+                        MqttQualityOfServiceLevel.AtMostOnce)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        await TransitionQueuedToOutboundAsync(
+                            message,
+                            session.ClientId,
+                            cancellationToken).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        lock (session.SyncRoot)
+                        {
+                            for (int restore = batch.Count - 1;
+                                restore >= index;
+                                restore--)
+                            {
+                                MqttZeroQueuedMessage restoreMessage =
+                                    batch[restore];
+                                if (restoreMessage.QualityOfServiceLevel !=
+                                    MqttQualityOfServiceLevel.AtMostOnce)
+                                {
+                                    session.InflightMessages.Remove(
+                                        restoreMessage.PacketIdentifier);
+                                }
+
+                                session.PendingMessages.Prepend(restoreMessage);
+                            }
+                        }
+
+                        batch.Clear();
+                        throw;
+                    }
+                }
+
                 try
                 {
-                    await TransitionQueuedToOutboundAsync(
-                        next!,
-                        session.ClientId,
+                    await connection.SendPublishBatchAsync(
+                        batch,
                         cancellationToken).ConfigureAwait(false);
                 }
                 catch
                 {
-                    lock (session.SyncRoot)
+                    for (int index = 0; index < batch.Count; index++)
                     {
-                        session.InflightMessages.Remove(next!.PacketIdentifier);
-                        session.PendingMessages.Prepend(next);
+                        MqttZeroQueuedMessage message = batch[index];
+                        if (message.QualityOfServiceLevel ==
+                            MqttQualityOfServiceLevel.AtMostOnce)
+                        {
+                            message.Release();
+                        }
                     }
 
+                    batch.Clear();
                     throw;
                 }
-            }
 
-            await connection.SendPublishAsync(next!, false, cancellationToken)
-                .ConfigureAwait(false);
-            if (!nextHeld)
-            {
-                next!.Release();
+                for (int index = 0; index < batch.Count; index++)
+                {
+                    MqttZeroQueuedMessage message = batch[index];
+                    if (message.QualityOfServiceLevel ==
+                        MqttQualityOfServiceLevel.AtMostOnce)
+                    {
+                        message.Release();
+                    }
+                }
+
+                batch.Clear();
+                continue;
             }
         }
     }

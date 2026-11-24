@@ -20,6 +20,9 @@ internal sealed class MqttZeroSubscription
         NoLocal = noLocal;
         RetainAsPublished = retainAsPublished;
         SubscriptionIdentifier = subscriptionIdentifier;
+        SubscriptionIdentifiers = subscriptionIdentifier.HasValue
+            ? new[] { subscriptionIdentifier.Value }
+            : ReadOnlyMemory<uint>.Empty;
 
         if (topicFilter.AsSpan().StartsWith(SharedPrefix))
         {
@@ -46,6 +49,8 @@ internal sealed class MqttZeroSubscription
     public bool RetainAsPublished { get; }
 
     public uint? SubscriptionIdentifier { get; }
+
+    public ReadOnlyMemory<uint> SubscriptionIdentifiers { get; }
 
     public bool IsShared { get; }
 

@@ -238,6 +238,69 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    internal async ValueTask SendPublishBatchAsync(
+        IReadOnlyList<MqttZeroQueuedMessage> messages,
+        CancellationToken cancellationToken)
+    {
+        if (messages.Count == 0)
+        {
+            return;
+        }
+
+        if (!AllowPacketFragmentation)
+        {
+            for (int index = 0; index < messages.Count; index++)
+            {
+                await SendPublishAsync(
+                    messages[index],
+                    false,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            return;
+        }
+
+        int encodedBytes = 0;
+        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            for (int index = 0; index < messages.Count; index++)
+            {
+                MqttZeroQueuedMessage message = messages[index];
+                MqttZeroPublishView view = new(
+                    message.Lease.TopicSequence,
+                    message.Lease.PropertiesSequence,
+                    message.Lease.PayloadSequence,
+                    message.QualityOfServiceLevel,
+                    message.PacketIdentifier,
+                    false,
+                    message.Retain,
+                    GetRemainingMessageExpiry(message.ExpiresAt),
+                    null,
+                    message.SubscriptionIdentifiers,
+                    null);
+                int encodedLength = MqttPublishPacketCodec.GetEncodedLength(view);
+                if (encodedLength > MaximumPacketSize)
+                {
+                    throw new InvalidOperationException(
+                        "The outbound MQTT packet exceeds the client maximum packet size.");
+                }
+
+                MqttPublishPacketCodec.Encode(view, _writer);
+                encodedBytes += encodedLength;
+            }
+
+            _ = await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+            Interlocked.Add(ref _packetsSent, messages.Count);
+            Interlocked.Add(ref _bytesSent, encodedBytes);
+            Interlocked.Add(ref _messagesSent, messages.Count);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
     public async ValueTask SendPublishAsync(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -353,12 +416,10 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken)
     {
-        return SendAsync(
-            new MqttPubRecPacket
-            {
-                PacketIdentifier = packetIdentifier,
-                ReasonCode = reasonCode
-            },
+        return SendAckDirectAsync(
+            0x50,
+            packetIdentifier,
+            reasonCode,
             cancellationToken);
     }
 
@@ -367,12 +428,10 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken)
     {
-        return SendAsync(
-            new MqttPubRelPacket
-            {
-                PacketIdentifier = packetIdentifier,
-                ReasonCode = reasonCode
-            },
+        return SendAckDirectAsync(
+            0x62,
+            packetIdentifier,
+            reasonCode,
             cancellationToken);
     }
 
@@ -381,12 +440,10 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken)
     {
-        return SendAsync(
-            new MqttPubCompPacket
-            {
-                PacketIdentifier = packetIdentifier,
-                ReasonCode = reasonCode
-            },
+        return SendAckDirectAsync(
+            0x70,
+            packetIdentifier,
+            reasonCode,
             cancellationToken);
     }
 
@@ -732,10 +789,54 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    private async ValueTask SendAckDirectAsync(
+        byte firstByte,
+        ushort packetIdentifier,
+        MqttReasonCode reasonCode,
+        CancellationToken cancellationToken)
+    {
+        bool includeReason = reasonCode != MqttReasonCode.Success;
+        int encodedLength = includeReason ? 6 : 4;
+        if (encodedLength > MaximumPacketSize)
+        {
+            throw new InvalidOperationException(
+                "The outbound MQTT packet exceeds the client maximum packet size.");
+        }
+
+        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            Span<byte> destination = _writer.GetSpan(encodedLength);
+            destination[0] = firstByte;
+            destination[1] = includeReason ? (byte)4 : (byte)2;
+            BinaryPrimitives.WriteUInt16BigEndian(
+                destination[2..],
+                packetIdentifier);
+            if (includeReason)
+            {
+                destination[4] = (byte)reasonCode;
+                destination[5] = 0;
+            }
+
+            _writer.Advance(encodedLength);
+            _ = await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+            MarkPacketSent(encodedLength, false);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
     public async ValueTask CloseAsync(
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken)
     {
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            return;
+        }
+
         CloseReasonCode = reasonCode;
         DisconnectType = reasonCode switch
         {
@@ -753,9 +854,18 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 },
                 cancellationToken).ConfigureAwait(false);
         }
+        catch (ObjectDisposedException)
+        {
+        }
         finally
         {
-            _closed.Cancel();
+            try
+            {
+                _closed.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
     }
 
@@ -811,6 +921,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
 
         _closed.Cancel();
+        await _writeLock.WaitAsync().ConfigureAwait(false);
         _writeLock.Dispose();
         _closed.Dispose();
         foreach (MqttZeroPooledTopicAlias alias in _inboundTopicAliases.Values)

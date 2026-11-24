@@ -379,7 +379,8 @@ public sealed partial class MqttZeroBroker
     {
         MqttZeroMessageLease effectiveLease = lease;
         bool ownsEffectiveLease = false;
-        if (lease.ExpiresAt <= _timeProvider.GetUtcNow())
+        if (lease.ExpiresAt.HasValue &&
+            lease.ExpiresAt.Value <= _timeProvider.GetUtcNow())
         {
             if (lease.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtLeastOnce)
             {

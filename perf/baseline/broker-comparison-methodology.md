@@ -9,7 +9,9 @@
 - 客户端 clean start，Topic 固定为 `bench/topic`，不启用 TLS、Retained、共享订阅或会话恢复。
 - MQTTZero `MaxMessageQueueLength` 与 MQTTnet `MaxPendingMessagesPerClient` 均设为 100,000。
 - QoS 0 使用最多约 1,024 条未消费消息的闭环限制，避免仅因负载生成器压垮服务端队列而失去可比性。
+- QoS 0 的在途消息窗口可通过 `--max-pending` 调整；不同 Payload 的结果必须同时记录窗口大小。
 - 默认预热 15 秒、测量 60 秒；每个矩阵单元独立启动和关闭 Broker。
+- 容量门禁默认执行三次，以每个 Broker 独立结果的中位数计算吞吐和 p99 比值。
 
 ## 默认矩阵
 
@@ -33,6 +35,24 @@ dotnet run -c Release --project benchmarks/MqttZero.BrokerBenchmarks -- `
 dotnet run -c Release --project benchmarks/MqttZero.BrokerBenchmarks -- `
   compare --qos 1 --subscribers 10 --payload 1024 --warmup 2 --seconds 10
 ```
+
+三次中位数、固定 8 MiB 在途窗口：
+
+```powershell
+dotnet run -c Release --project benchmarks/MqttZero.BrokerBenchmarks -- `
+  compare --qos 0,1 --subscribers 1 --payload 8192 --repetitions 3 `
+  --max-pending 1024 --warmup 3 --seconds 10
+```
+
+Broker API 出站诊断：
+
+```powershell
+dotnet run -c Release --project benchmarks/MqttZero.BrokerBenchmarks -- `
+  outbound --qos 0 --payload 8192 --warmup 3 --seconds 10
+```
+
+`--fragmentation false` 可用于比较 PipeWriter 分段写入和整包写入。`outbound`
+模式绕过发布者网络连接，仅用于定位订阅者输出路径。
 
 输出为 JSON，包含发布数、接收数、失败数、每秒吞吐以及延迟 p50/p95/p99。
 

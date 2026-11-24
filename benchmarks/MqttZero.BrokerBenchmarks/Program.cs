@@ -8,6 +8,10 @@ using MQTTnet;
 using MQTTnet.Protocol;
 using MQTTnet.Server;
 using MqttZero.AspNetCore;
+using MqttZero.BrokerBenchmarks;
+using MqttZero.Publishing;
+using MqttZero.Server.Broker;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
@@ -31,12 +35,17 @@ else if (mode == "load")
         GetInt(arguments, "qos", 0),
         GetInt(arguments, "payload", 1024),
         GetInt(arguments, "warmup", 2),
-        GetInt(arguments, "seconds", 10));
+        GetInt(arguments, "seconds", 10),
+        GetInt(arguments, "max-pending", 1024));
     Console.WriteLine(JsonSerializer.Serialize(result));
 }
 else if (mode == "compare")
 {
     await CompareAsync(arguments);
+}
+else if (mode == "outbound")
+{
+    await RunOutboundAsync(arguments);
 }
 else
 {
@@ -47,6 +56,10 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
 {
     string broker = GetValue(arguments, "broker", "mqttzero");
     int port = GetInt(arguments, "port", 1883);
+    bool allowPacketFragmentation = GetBool(
+        arguments,
+        "fragmentation",
+        true);
     CancellationTokenSource lifetime = new();
     Console.CancelKeyPress += (_, eventArgs) =>
     {
@@ -63,7 +76,11 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
             kestrel.Listen(
                 IPAddress.Loopback,
                 port,
-                listen => listen.UseMqttZero());
+                listen => listen.UseMqttZero(options =>
+                {
+                    options.AllowPacketFragmentationSelector =
+                        _ => allowPacketFragmentation;
+                }));
         });
         builder.Services.AddMqttZero(options =>
         {
@@ -106,48 +123,63 @@ static async Task CompareAsync(Dictionary<string, string> arguments)
     int warmup = GetInt(arguments, "warmup", 15);
     int seconds = GetInt(arguments, "seconds", 60);
     int publishers = GetInt(arguments, "publishers", 1);
-    List<object> results = [];
+    int repetitions = GetInt(arguments, "repetitions", 1);
+    int maxPendingMessages = GetInt(
+        arguments,
+        "max-pending",
+        1024);
+    bool allowPacketFragmentation = GetBool(
+        arguments,
+        "fragmentation",
+        true);
+    List<BrokerComparisonResult> results = [];
     string assemblyPath = Assembly.GetEntryAssembly()!.Location;
     int port = GetInt(arguments, "start-port", 19000);
 
-    foreach (string broker in brokers)
+    for (int repetition = 1; repetition <= repetitions; repetition++)
     {
-        foreach (int qos in qosLevels)
+        foreach (string broker in brokers)
         {
-            foreach (int subscribers in subscriberCounts)
+            foreach (int qos in qosLevels)
             {
-                foreach (int payloadSize in payloadSizes)
+                foreach (int subscribers in subscriberCounts)
                 {
-                    port++;
-                    using Process serverProcess = StartServerProcess(
-                        assemblyPath,
-                        broker,
-                        port);
-                    await WaitForReadyAsync(serverProcess);
-                    try
+                    foreach (int payloadSize in payloadSizes)
                     {
-                        object result = await RunLoadAsync(
+                        port++;
+                        using Process serverProcess = StartServerProcess(
+                            assemblyPath,
+                            broker,
                             port,
-                            subscribers,
-                            publishers,
-                            qos,
-                            payloadSize,
-                            warmup,
-                            seconds);
-                        results.Add(new
+                            allowPacketFragmentation);
+                        await WaitForReadyAsync(serverProcess);
+                        try
                         {
-                            Broker = broker,
-                            Qos = qos,
-                            Subscribers = subscribers,
-                            PayloadSize = payloadSize,
-                            Result = result
-                        });
-                    }
-                    finally
-                    {
-                        if (!serverProcess.HasExited)
+                            BrokerBenchmarkResult result = await RunLoadAsync(
+                                port,
+                                subscribers,
+                                publishers,
+                                qos,
+                                payloadSize,
+                                warmup,
+                                seconds,
+                                maxPendingMessages);
+                            results.Add(new BrokerComparisonResult
+                            {
+                                Broker = broker,
+                                Qos = qos,
+                                Subscribers = subscribers,
+                                PayloadSize = payloadSize,
+                                Repetition = repetition,
+                                Result = result
+                            });
+                        }
+                        finally
                         {
-                            serverProcess.Kill(entireProcessTree: true);
+                            if (!serverProcess.HasExited)
+                            {
+                                serverProcess.Kill(entireProcessTree: true);
+                            }
                         }
                     }
                 }
@@ -155,13 +187,150 @@ static async Task CompareAsync(Dictionary<string, string> arguments)
         }
     }
 
-    Console.WriteLine(JsonSerializer.Serialize(results, new JsonSerializerOptions
+    Console.WriteLine(JsonSerializer.Serialize(new
+    {
+        Results = results,
+        Summary = Summarize(results)
+    }, new JsonSerializerOptions
     {
         WriteIndented = true
     }));
 }
 
-static Process StartServerProcess(string assemblyPath, string broker, int port)
+static async Task RunOutboundAsync(Dictionary<string, string> arguments)
+{
+    int port = GetInt(arguments, "port", 19300);
+    int qos = GetInt(arguments, "qos", 0);
+    int payloadSize = GetInt(arguments, "payload", 8192);
+    int warmupSeconds = GetInt(arguments, "warmup", 3);
+    int measurementSeconds = GetInt(arguments, "seconds", 10);
+    int maxPendingMessages = GetInt(
+        arguments,
+        "max-pending",
+        1024);
+    MqttZero.Protocol.MqttQualityOfServiceLevel qualityOfServiceLevel = qos switch
+    {
+        0 => MqttZero.Protocol.MqttQualityOfServiceLevel.AtMostOnce,
+        1 => MqttZero.Protocol.MqttQualityOfServiceLevel.AtLeastOnce,
+        2 => MqttZero.Protocol.MqttQualityOfServiceLevel.ExactlyOnce,
+        _ => throw new InvalidOperationException(
+            $"Unsupported QoS value: {qos}.")
+    };
+    WebApplicationBuilder builder = WebApplication.CreateBuilder();
+    builder.Logging.ClearProviders();
+    builder.WebHost.ConfigureKestrel(kestrel =>
+    {
+        kestrel.Listen(
+            IPAddress.Loopback,
+            port,
+            listen => listen.UseMqttZero());
+    });
+    builder.Services.AddMqttZero(options =>
+    {
+        options.MaxMessageQueueLength = 100_000;
+    });
+    await using WebApplication app = builder.Build();
+    await app.StartAsync();
+    MqttZeroBroker broker = app.Services.GetRequiredService<MqttZeroBroker>();
+    MqttClientFactory factory = new();
+    using IMqttClient subscriber = factory.CreateMqttClient();
+    long receivedMessages = 0;
+    subscriber.ApplicationMessageReceivedAsync += _ =>
+    {
+        Interlocked.Increment(ref receivedMessages);
+        return Task.CompletedTask;
+    };
+    await subscriber.ConnectAsync(
+        CreateClientOptions(port, "outbound-subscriber"),
+        CancellationToken.None);
+    await subscriber.SubscribeAsync(
+        new MqttClientSubscribeOptionsBuilder()
+            .WithTopicFilter(
+                "bench/topic",
+                qos switch
+                {
+                    0 => MqttQualityOfServiceLevel.AtMostOnce,
+                    1 => MqttQualityOfServiceLevel.AtLeastOnce,
+                    2 => MqttQualityOfServiceLevel.ExactlyOnce,
+                    _ => throw new InvalidOperationException(
+                        $"Unsupported QoS value: {qos}.")
+                })
+            .Build(),
+        CancellationToken.None);
+    MqttZeroPublishMessage message = new()
+    {
+        Topic = "bench/topic",
+        Payload = new ReadOnlySequence<byte>(new byte[payloadSize]),
+        QualityOfServiceLevel = qualityOfServiceLevel
+    };
+    using CancellationTokenSource warmup = new(
+        TimeSpan.FromSeconds(warmupSeconds));
+    _ = await RunOutboundPublishLoopAsync(
+        broker,
+        message,
+        maxPendingMessages,
+        warmup.Token,
+        () => Interlocked.Read(ref receivedMessages));
+    Interlocked.Exchange(ref receivedMessages, 0);
+    Stopwatch stopwatch = Stopwatch.StartNew();
+    using CancellationTokenSource measurement = new(
+        TimeSpan.FromSeconds(measurementSeconds));
+    long measuredPublishes = await RunOutboundPublishLoopAsync(
+        broker,
+        message,
+        maxPendingMessages,
+        measurement.Token,
+        () => Interlocked.Read(ref receivedMessages));
+    stopwatch.Stop();
+    Console.WriteLine(JsonSerializer.Serialize(new BrokerBenchmarkResult
+    {
+        PublishedMessages = measuredPublishes,
+        ReceivedMessages = Interlocked.Read(ref receivedMessages),
+        FailedOperations = 0,
+        ThroughputPerSecond =
+            measuredPublishes / stopwatch.Elapsed.TotalSeconds,
+        FirstError = null
+    }));
+    await subscriber.DisconnectAsync();
+    await app.StopAsync();
+}
+
+static async Task<long> RunOutboundPublishLoopAsync(
+    MqttZeroBroker broker,
+    MqttZeroPublishMessage message,
+    int maxPendingMessages,
+    CancellationToken cancellationToken,
+    Func<long> getReceivedMessages)
+{
+    long publishedMessages = 0;
+    try
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            while (publishedMessages - getReceivedMessages() >
+                maxPendingMessages)
+            {
+                await Task.Delay(
+                    TimeSpan.FromMilliseconds(1),
+                    cancellationToken);
+            }
+
+            await broker.PublishAsync(message, cancellationToken);
+            publishedMessages++;
+        }
+    }
+    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+    {
+    }
+
+    return publishedMessages;
+}
+
+static Process StartServerProcess(
+    string assemblyPath,
+    string broker,
+    int port,
+    bool allowPacketFragmentation)
 {
     ProcessStartInfo startInfo = new()
     {
@@ -177,6 +346,9 @@ static Process StartServerProcess(string assemblyPath, string broker, int port)
     startInfo.ArgumentList.Add(broker);
     startInfo.ArgumentList.Add("--port");
     startInfo.ArgumentList.Add(port.ToString(CultureInfo.InvariantCulture));
+    startInfo.ArgumentList.Add("--fragmentation");
+    startInfo.ArgumentList.Add(
+        allowPacketFragmentation ? "true" : "false");
     return Process.Start(startInfo) ??
         throw new InvalidOperationException("Could not start the broker process.");
 }
@@ -195,14 +367,15 @@ static async Task WaitForReadyAsync(Process process)
         $"Broker process did not become ready. Output: {line}. Error: {error}");
 }
 
-static async Task<object> RunLoadAsync(
+static async Task<BrokerBenchmarkResult> RunLoadAsync(
     int port,
     int subscribers,
     int publishers,
     int qos,
     int payloadSize,
     int warmupSeconds,
-    int measurementSeconds)
+    int measurementSeconds,
+    int maxPendingMessages)
 {
     MqttClientFactory factory = new();
     MqttQualityOfServiceLevel qualityOfServiceLevel = qos switch
@@ -210,7 +383,8 @@ static async Task<object> RunLoadAsync(
         0 => MqttQualityOfServiceLevel.AtMostOnce,
         1 => MqttQualityOfServiceLevel.AtLeastOnce,
         2 => MqttQualityOfServiceLevel.ExactlyOnce,
-        _ => throw new ArgumentOutOfRangeException(nameof(qos))
+        _ => throw new InvalidOperationException(
+            $"Unsupported QoS value: {qos}.")
     };
     List<IMqttClient> subscriberClients = [];
     List<IMqttClient> publisherClients = [];
@@ -262,7 +436,7 @@ static async Task<object> RunLoadAsync(
             qualityOfServiceLevel == MqttQualityOfServiceLevel.AtMostOnce
                 ? () =>
                     Interlocked.Read(ref publishedMessages) * subscribers >
-                    Interlocked.Read(ref receivedMessages) + 1024
+                    Interlocked.Read(ref receivedMessages) + maxPendingMessages
                 : null,
             null,
             exception =>
@@ -286,7 +460,7 @@ static async Task<object> RunLoadAsync(
             qualityOfServiceLevel == MqttQualityOfServiceLevel.AtMostOnce
                 ? () =>
                     Interlocked.Read(ref publishedMessages) * subscribers >
-                    Interlocked.Read(ref receivedMessages) + 1024
+                    Interlocked.Read(ref receivedMessages) + maxPendingMessages
                 : null,
             elapsedTicks =>
             {
@@ -310,7 +484,7 @@ static async Task<object> RunLoadAsync(
 
         Array.Sort(latencySamples, 0, Math.Min(latencySampleCount, latencySamples.Length));
         int sampleCount = Math.Min(latencySampleCount, latencySamples.Length);
-        return new
+        return new BrokerBenchmarkResult
         {
             PublishedMessages = measuredPublishes,
             ReceivedMessages = Interlocked.Read(ref receivedMessages),
@@ -334,6 +508,66 @@ static async Task<object> RunLoadAsync(
             client.Dispose();
         }
     }
+}
+
+static IReadOnlyList<object> Summarize(
+    IReadOnlyList<BrokerComparisonResult> results)
+{
+    List<object> summaries = [];
+    foreach (IGrouping<(int Qos, int Subscribers, int PayloadSize), BrokerComparisonResult> group in
+        results.GroupBy(static result => (
+            result.Qos,
+            result.Subscribers,
+            result.PayloadSize)))
+    {
+        BrokerComparisonResult[] mqttZero = group
+            .Where(static result => result.Broker == "mqttzero")
+            .ToArray();
+        BrokerComparisonResult[] mqttNet = group
+            .Where(static result => result.Broker == "mqttnet")
+            .ToArray();
+        if (mqttZero.Length == 0 || mqttNet.Length == 0)
+        {
+            continue;
+        }
+
+        double mqttZeroThroughput = Median(
+            mqttZero.Select(static result => result.Result.ThroughputPerSecond));
+        double mqttNetThroughput = Median(
+            mqttNet.Select(static result => result.Result.ThroughputPerSecond));
+        double mqttZeroP99 = Median(
+            mqttZero.Select(static result => result.Result.LatencyP99Microseconds));
+        double mqttNetP99 = Median(
+            mqttNet.Select(static result => result.Result.LatencyP99Microseconds));
+        summaries.Add(new
+        {
+            group.Key.Qos,
+            group.Key.Subscribers,
+            group.Key.PayloadSize,
+            MqttZeroThroughput = mqttZeroThroughput,
+            MqttNetThroughput = mqttNetThroughput,
+            ThroughputRatio = mqttZeroThroughput / mqttNetThroughput,
+            MqttZeroP99Microseconds = mqttZeroP99,
+            MqttNetP99Microseconds = mqttNetP99,
+            P99Ratio = mqttZeroP99 / mqttNetP99
+        });
+    }
+
+    return summaries;
+}
+
+static double Median(IEnumerable<double> values)
+{
+    double[] ordered = values.Order().ToArray();
+    if (ordered.Length == 0)
+    {
+        return 0;
+    }
+
+    int middle = ordered.Length / 2;
+    return ordered.Length % 2 == 0
+        ? (ordered[middle - 1] + ordered[middle]) / 2
+        : ordered[middle];
 }
 
 static MqttClientOptions CreateClientOptions(int port, string clientId)
@@ -457,6 +691,16 @@ static int GetInt(
 {
     return arguments.TryGetValue(name, out string? value)
         ? int.Parse(value, CultureInfo.InvariantCulture)
+        : defaultValue;
+}
+
+static bool GetBool(
+    IReadOnlyDictionary<string, string> arguments,
+    string name,
+    bool defaultValue)
+{
+    return arguments.TryGetValue(name, out string? value)
+        ? bool.Parse(value)
         : defaultValue;
 }
 

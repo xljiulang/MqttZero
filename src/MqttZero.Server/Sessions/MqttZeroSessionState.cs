@@ -33,6 +33,8 @@ internal sealed class MqttZeroSessionState
 
     public List<MqttZeroQueuedMessage> ExpiredMessages { get; } = [];
 
+    public List<MqttZeroQueuedMessage> OutboundBatch { get; } = [];
+
     public Dictionary<ushort, MqttZeroQueuedMessage> InflightMessages { get; } = [];
 
     public Dictionary<ushort, MqttZeroMessageLease> InboundQos2Messages { get; } = [];
