@@ -11,6 +11,7 @@ namespace MqttZero.Server.Clients;
 
 internal sealed class MqttZeroClientConnection : IAsyncDisposable
 {
+    private static long NextConnectionId;
     private readonly MqttZeroPacketWriter _bufferWriter = new();
     private readonly MqttZeroBufferPool _bufferPool;
     private readonly CancellationTokenSource _closed = new();
@@ -43,6 +44,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         bool requestResponseInformation = false)
     {
         _bufferPool = bufferPool ?? MqttZeroBufferPool.Shared;
+        ConnectionId = Interlocked.Increment(ref NextConnectionId);
         _writer = writer;
         _timeProvider = timeProvider;
         RemoteEndPoint = remoteEndPoint;
@@ -59,6 +61,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     }
 
     public EndPoint? RemoteEndPoint { get; }
+
+    internal long ConnectionId { get; }
 
     public bool IsSecure { get; }
 

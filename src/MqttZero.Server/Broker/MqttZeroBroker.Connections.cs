@@ -239,6 +239,22 @@ public sealed partial class MqttZeroBroker
                                         publishView.PacketIdentifier,
                                         connectionLifetime.Token).ConfigureAwait(false);
                                 }
+                                else if (lease.QualityOfServiceLevel ==
+                                        MqttQualityOfServiceLevel.AtLeastOnce &&
+                                    CanDispatchInbound)
+                                {
+                                    lease.EnsureOwned();
+                                    await EnqueueInboundAsync(
+                                        lease,
+                                        session,
+                                        connection,
+                                        connectionLifetime.Token).ConfigureAwait(false);
+                                    transferred = true;
+                                    await connection.SendPubAckAsync(
+                                        lease.PacketIdentifier,
+                                        MqttReasonCode.Success,
+                                        connectionLifetime.Token).ConfigureAwait(false);
+                                }
                                 else
                                 {
                                     await RoutePublishLeaseAsync(

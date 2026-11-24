@@ -331,7 +331,8 @@ public sealed partial class MqttZeroBroker
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,
         MqttZeroMessageLease lease,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool suppressPublisherAck = false)
     {
         if (!_sessionStore.IsEnabled &&
             !_messageStore.IsEnabled &&
@@ -343,6 +344,7 @@ public sealed partial class MqttZeroBroker
                 sender,
                 senderConnection,
                 lease,
+                suppressPublisherAck,
                 cancellationToken);
         }
 

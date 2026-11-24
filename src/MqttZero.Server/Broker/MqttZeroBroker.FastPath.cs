@@ -14,6 +14,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,
         MqttZeroMessageLease lease,
+        bool suppressPublisherAck,
         CancellationToken cancellationToken)
     {
         MqttZeroMessageLease effectiveLease = lease;
@@ -21,7 +22,8 @@ public sealed partial class MqttZeroBroker
         if (lease.ExpiresAt.HasValue &&
             lease.ExpiresAt.Value <= _timeProvider.GetUtcNow())
         {
-            if (lease.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtLeastOnce)
+            if (!suppressPublisherAck &&
+                lease.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtLeastOnce)
             {
                 await senderConnection.SendPubAckAsync(
                     lease.PacketIdentifier,
@@ -71,7 +73,8 @@ public sealed partial class MqttZeroBroker
                                     : context.ResultReasonCode,
                                 cancellationToken).ConfigureAwait(false);
                         }
-                        else if (lease.QualityOfServiceLevel ==
+                        else if (!suppressPublisherAck &&
+                            lease.QualityOfServiceLevel ==
                             MqttQualityOfServiceLevel.AtLeastOnce)
                         {
                             await senderConnection.SendPubAckAsync(
@@ -139,7 +142,8 @@ public sealed partial class MqttZeroBroker
                     cancellationToken).ConfigureAwait(false);
             }
 
-            if (effectiveLease.QualityOfServiceLevel ==
+            if (!suppressPublisherAck &&
+                effectiveLease.QualityOfServiceLevel ==
                 MqttQualityOfServiceLevel.AtLeastOnce)
             {
                 await senderConnection.SendPubAckAsync(

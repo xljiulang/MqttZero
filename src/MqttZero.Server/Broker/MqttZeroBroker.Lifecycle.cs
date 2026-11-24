@@ -44,6 +44,20 @@ public sealed partial class MqttZeroBroker
             Volatile.Write(ref _state, (int)MqttZeroBrokerState.Running);
             _maintenanceCancellation = new CancellationTokenSource();
             _maintenanceTask = RunMaintenanceAsync(_maintenanceCancellation.Token);
+            int workerCount = Math.Clamp(
+                Environment.ProcessorCount / 2,
+                1,
+                8);
+            _inboundDispatcher = new MqttZeroInboundDispatcher(
+                workerCount,
+                Math.Max(
+                    1024,
+                    _options.MaxMessageQueueLength / workerCount),
+                DispatchInboundWorkAsync,
+                exception => MqttZeroBrokerLogging.LogInboundDispatcherFailure(
+                    _logger,
+                    exception),
+                _maintenanceCancellation.Token);
         }
         finally
         {
@@ -68,6 +82,12 @@ public sealed partial class MqttZeroBroker
 
             Volatile.Write(ref _stopping, 1);
             Volatile.Write(ref _state, (int)MqttZeroBrokerState.Stopping);
+            if (_inboundDispatcher != null)
+            {
+                await _inboundDispatcher.StopAsync().ConfigureAwait(false);
+                _inboundDispatcher = null;
+            }
+
             CancellationTokenSource[] acceptedConnections;
             lock (_sessionGate)
             {

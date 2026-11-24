@@ -591,6 +591,26 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
+        if (!routeCompleted && CanDispatchInbound)
+        {
+            await EnqueueInboundAsync(
+                lease,
+                session,
+                connection,
+                cancellationToken).ConfigureAwait(false);
+            lock (session.SyncRoot)
+            {
+                session.InboundQos2Messages.Remove(packet.PacketIdentifier);
+                session.RoutedInboundQos2Messages.Remove(packet.PacketIdentifier);
+            }
+
+            await connection.SendPubCompAsync(
+                packet.PacketIdentifier,
+                MqttReasonCode.Success,
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         try
         {
             if (!routeCompleted)
@@ -997,6 +1017,58 @@ public sealed partial class MqttZeroBroker
         }
 
         tooLarge = message.EncodedLength > connection.MaximumPacketSize;
+    }
+
+    internal bool CanDispatchInbound
+    {
+        get
+        {
+            return !_sessionStore.IsEnabled &&
+                !_messageStore.IsEnabled &&
+                !_retainedMessageStore.IsEnabled &&
+                _publishInterceptors.Length == 0 &&
+                _enqueueInterceptors.Length == 0 &&
+                _deliveryObservers.Length == 0 &&
+                _inboundDispatcher != null;
+        }
+    }
+
+    internal async ValueTask EnqueueInboundAsync(
+        MqttZeroMessageLease lease,
+        MqttZeroSessionState sender,
+        MqttZeroClientConnection senderConnection,
+        CancellationToken cancellationToken)
+    {
+        MqttZeroInboundDispatcher dispatcher = _inboundDispatcher ??
+            throw new InvalidOperationException("The inbound dispatcher is not running.");
+        MqttZeroInboundWork work = MqttZeroInboundWork.Rent(
+            lease,
+            sender,
+            senderConnection);
+        try
+        {
+            await dispatcher.EnqueueAsync(
+                senderConnection.ConnectionId,
+                work,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            work.Release();
+            throw;
+        }
+    }
+
+    private async ValueTask DispatchInboundWorkAsync(
+        MqttZeroInboundWork work,
+        CancellationToken cancellationToken)
+    {
+        await RoutePublishLeaseAsync(
+            work.Sender,
+            work.SenderConnection,
+            work.Lease,
+            cancellationToken,
+            suppressPublisherAck: true).ConfigureAwait(false);
     }
 
     private static void ReleaseSessionMessages(MqttZeroSessionState session)

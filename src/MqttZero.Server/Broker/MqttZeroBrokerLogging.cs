@@ -46,4 +46,12 @@ internal static partial class MqttZeroBrokerLogging
         ILogger<MqttZeroBroker> logger,
         string clientId,
         Exception exception);
+
+    [LoggerMessage(
+        EventId = 1005,
+        Level = LogLevel.Error,
+        Message = "MQTTZero inbound dispatcher failed.")]
+    public static partial void LogInboundDispatcherFailure(
+        ILogger<MqttZeroBroker> logger,
+        Exception exception);
 }
