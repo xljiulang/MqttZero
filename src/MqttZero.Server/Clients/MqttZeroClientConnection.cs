@@ -22,6 +22,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     private readonly DateTimeOffset _connectedAt;
     private readonly TimeProvider _timeProvider;
     private int _disposed;
+    private int _pendingControlWrites;
     private long _packetsReceived;
     private long _packetsSent;
     private long _bytesReceived;
@@ -81,6 +82,14 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     public bool RequestResponseInformation { get; }
 
     public MqttZeroClientConnectionInfo ClientInfo { get; set; } = null!;
+
+    internal bool HasPendingControlWrites
+    {
+        get
+        {
+            return Volatile.Read(ref _pendingControlWrites) > 0;
+        }
+    }
 
     public bool IsConnectedClientCounted { get; set; }
 
@@ -193,7 +202,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
 
     public async ValueTask SendAsync(MqttPacket packet, CancellationToken cancellationToken)
     {
-        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await WaitForWriteLockAsync(true, cancellationToken).ConfigureAwait(false);
         try
         {
             _bufferWriter.Clear();
@@ -212,7 +221,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
         finally
         {
-            _writeLock.Release();
+            ReleaseWriteLock(true);
         }
     }
 
@@ -416,7 +425,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 "The outbound MQTT packet exceeds the client maximum packet size.");
         }
 
-        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await WaitForWriteLockAsync(true, cancellationToken).ConfigureAwait(false);
         try
         {
             bool includeReason = reasonCode != MqttReasonCode.Success;
@@ -438,7 +447,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
         finally
         {
-            _writeLock.Release();
+            ReleaseWriteLock(true);
         }
     }
 
@@ -486,7 +495,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 "The outbound MQTT packet exceeds the client maximum packet size.");
         }
 
-        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await WaitForWriteLockAsync(true, cancellationToken).ConfigureAwait(false);
         try
         {
             Span<byte> header = _writer.GetSpan(2);
@@ -498,7 +507,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
         finally
         {
-            _writeLock.Release();
+            ReleaseWriteLock(true);
         }
     }
 
@@ -605,7 +614,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 "The outbound MQTT packet exceeds the client maximum packet size.");
         }
 
-        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await WaitForWriteLockAsync(true, cancellationToken).ConfigureAwait(false);
         try
         {
             Span<byte> fixedHeader = _writer.GetSpan(5);
@@ -624,7 +633,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
         finally
         {
-            _writeLock.Release();
+            ReleaseWriteLock(true);
         }
     }
 
@@ -683,7 +692,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 "The outbound MQTT packet exceeds the client maximum packet size.");
         }
 
-        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await WaitForWriteLockAsync(true, cancellationToken).ConfigureAwait(false);
         try
         {
             Span<byte> fixedHeader = _writer.GetSpan(5);
@@ -704,7 +713,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
         finally
         {
-            _writeLock.Release();
+            ReleaseWriteLock(true);
         }
     }
 
@@ -768,6 +777,39 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    private async ValueTask WaitForWriteLockAsync(
+        bool controlPacket,
+        CancellationToken cancellationToken)
+    {
+        if (controlPacket)
+        {
+            Interlocked.Increment(ref _pendingControlWrites);
+        }
+
+        try
+        {
+            await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            if (controlPacket)
+            {
+                Interlocked.Decrement(ref _pendingControlWrites);
+            }
+
+            throw;
+        }
+    }
+
+    private void ReleaseWriteLock(bool controlPacket)
+    {
+        _writeLock.Release();
+        if (controlPacket)
+        {
+            Interlocked.Decrement(ref _pendingControlWrites);
+        }
+    }
+
     private uint? GetRemainingMessageExpiry(DateTimeOffset? expiresAt)
     {
         if (!expiresAt.HasValue)
@@ -807,7 +849,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 "The outbound MQTT packet exceeds the client maximum packet size.");
         }
 
-        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await WaitForWriteLockAsync(true, cancellationToken).ConfigureAwait(false);
         try
         {
             MqttPacketCodec.Encode(packet, _writer);
@@ -816,7 +858,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
         finally
         {
-            _writeLock.Release();
+            ReleaseWriteLock(true);
         }
     }
 
@@ -834,7 +876,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 "The outbound MQTT packet exceeds the client maximum packet size.");
         }
 
-        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        await WaitForWriteLockAsync(true, cancellationToken).ConfigureAwait(false);
         try
         {
             Span<byte> destination = _writer.GetSpan(encodedLength);
@@ -855,7 +897,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
         finally
         {
-            _writeLock.Release();
+            ReleaseWriteLock(true);
         }
     }
 

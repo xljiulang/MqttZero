@@ -111,6 +111,7 @@ public sealed partial class MqttZeroBroker
             }
         }
 
+        MqttZeroRouteScope? deliveries = null;
         try
         {
             if (effectiveLease.RetainFlag)
@@ -120,7 +121,7 @@ public sealed partial class MqttZeroBroker
 
             MqttZeroSubscriptionRouteSnapshot routeSnapshot =
                 Volatile.Read(ref _subscriptionRouteSnapshot);
-            using MqttZeroRouteScope deliveries = MqttZeroRouteSelector.Select(
+            deliveries = MqttZeroRouteSelector.Select(
                 routeSnapshot,
                 effectiveLease.Topic.Span,
                 sender,
@@ -153,6 +154,15 @@ public sealed partial class MqttZeroBroker
         }
         finally
         {
+            if (deliveries != null)
+            {
+                for (int index = 0; index < deliveries.Count; index++)
+                {
+                    deliveries[index].Session.OutboundPump?.Signal();
+                }
+            }
+
+            deliveries?.Dispose();
             if (ownsEffectiveLease)
             {
                 effectiveLease.Release();
@@ -179,7 +189,6 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection? connection = null;
         bool packetTooLarge = false;
         int encodedLength = 0;
-        bool messageHeld = false;
         lock (session.SyncRoot)
         {
             connection = session.Connection;
@@ -219,9 +228,18 @@ public sealed partial class MqttZeroBroker
                 }
 
                 message.SetMessageId(GetNextMessageId());
-                MqttZeroQueuedMessage? evicted = EnqueueMessage(session, message);
+                MqttZeroQueuedMessage? evicted;
+                try
+                {
+                    evicted = EnqueueMessage(session, message);
+                }
+                catch
+                {
+                    message.Release();
+                    throw;
+                }
+
                 evicted?.Release();
-                messageHeld = true;
             }
         }
 
@@ -230,19 +248,5 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
-        {
-            if (messageHeld)
-            {
-                session.OutboundPump?.Signal();
-            }
-        }
-        finally
-        {
-            if (message != null && !messageHeld)
-            {
-                message.Release();
-            }
-        }
     }
 }

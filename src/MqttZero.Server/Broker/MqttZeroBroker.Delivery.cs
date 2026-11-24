@@ -805,6 +805,12 @@ public sealed partial class MqttZeroBroker
                                     ? 4
                                     : 1
                                 : 128;
+                        if (connection.HasPendingControlWrites)
+                        {
+                            maximumBatchBytes = 64 * 1024;
+                            maximumBatchMessages = 1;
+                        }
+
                         while (batch.Count < maximumBatchMessages &&
                             batchBytes < maximumBatchBytes &&
                             session.PendingMessages.Count > 0)

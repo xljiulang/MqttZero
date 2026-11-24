@@ -468,6 +468,68 @@ namespace MqttZero.Tests.Broker
             }
         }
 
+        [Fact(Timeout = 5_000)]
+        public async Task ConcurrentControlPacketRegistersPriorityWaiter()
+        {
+            BlockingPipeWriter writer = new();
+            MqttZeroClientConnection connection = new(
+                writer,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                1024 * 1024,
+                TimeProvider.System);
+            MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                new ReadOnlySequence<byte>("priority/topic"u8.ToArray()),
+                ReadOnlySequence<byte>.Empty,
+                new ReadOnlySequence<byte>(new byte[1024]),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                null,
+                null);
+            MqttZeroQueuedMessage message = MqttZeroQueuedMessage.Rent(
+                lease,
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                null,
+                null);
+            try
+            {
+                Task publish = connection.SendPublishAsync(
+                    message,
+                    false,
+                    TestContext.Current.CancellationToken).AsTask();
+                await writer.FlushStarted.WaitAsync(
+                    TimeSpan.FromSeconds(2),
+                    TestContext.Current.CancellationToken);
+                Task subAck = connection.SendSubAckAsync(
+                    new MqttSubAckPacket
+                    {
+                        PacketIdentifier = 1,
+                        ReasonCodes = new byte[] { 0 }
+                    },
+                    TestContext.Current.CancellationToken).AsTask();
+                await Task.Delay(
+                    TimeSpan.FromMilliseconds(50),
+                    TestContext.Current.CancellationToken);
+                Assert.True(connection.HasPendingControlWrites);
+                writer.ReleaseFlush();
+                await Task.WhenAll(publish, subAck).WaitAsync(
+                    TimeSpan.FromSeconds(2),
+                    TestContext.Current.CancellationToken);
+                Assert.False(connection.HasPendingControlWrites);
+            }
+            finally
+            {
+                writer.ReleaseFlush();
+                message.Release();
+                lease.Release();
+                await connection.DisposeAsync();
+            }
+        }
+
         private static MqttZeroMessageLease CreateQosZeroLease()
         {
             return MqttZeroMessageLease.CopyFrom(
