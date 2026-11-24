@@ -8,6 +8,9 @@ internal sealed class MqttZeroInboundDispatcher
     private readonly Func<MqttZeroInboundWork, CancellationToken, ValueTask> _route;
     private readonly Action<Exception> _faulted;
     private readonly Task[] _workers;
+    private long _completedCount;
+    private long _failedCount;
+    private long _queuedCount;
     private int _stopped;
 
     public MqttZeroInboundDispatcher(
@@ -42,15 +45,50 @@ internal sealed class MqttZeroInboundDispatcher
         }
     }
 
-    public ValueTask EnqueueAsync(
+    public async ValueTask EnqueueAsync(
         long connectionId,
         MqttZeroInboundWork work,
         CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _stopped) != 0, this);
         ArgumentNullException.ThrowIfNull(work);
+        Interlocked.Increment(ref _queuedCount);
         int shard = (int)(connectionId % _channels.Length);
-        return _channels[shard].Writer.WriteAsync(work, cancellationToken);
+        try
+        {
+            await _channels[shard].Writer.WriteAsync(
+                work,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            Interlocked.Decrement(ref _queuedCount);
+            throw;
+        }
+    }
+
+    public long QueuedCount
+    {
+        get
+        {
+            return Interlocked.Read(ref _queuedCount);
+        }
+    }
+
+    public long CompletedCount
+    {
+        get
+        {
+            return Interlocked.Read(ref _completedCount);
+        }
+    }
+
+    public long FailedCount
+    {
+        get
+        {
+            return Interlocked.Read(ref _failedCount);
+        }
     }
 
     public async ValueTask StopAsync()
@@ -80,6 +118,7 @@ internal sealed class MqttZeroInboundDispatcher
                 try
                 {
                     await _route(work, cancellationToken).ConfigureAwait(false);
+                    Interlocked.Increment(ref _completedCount);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -87,10 +126,12 @@ internal sealed class MqttZeroInboundDispatcher
                 }
                 catch (Exception exception)
                 {
+                    Interlocked.Increment(ref _failedCount);
                     _faulted(exception);
                 }
                 finally
                 {
+                    Interlocked.Decrement(ref _queuedCount);
                     work.Release();
                 }
             }

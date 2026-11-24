@@ -19,6 +19,8 @@ internal sealed class MqttZeroInboundWork
 
     public MqttZeroClientConnection SenderConnection { get; private set; } = null!;
 
+    public long CreatedTimestamp { get; private set; }
+
     public static MqttZeroInboundWork Rent(
         MqttZeroMessageLease lease,
         MqttZeroSessionState sender,
@@ -32,6 +34,7 @@ internal sealed class MqttZeroInboundWork
         work.Lease = lease;
         work.Sender = sender;
         work.SenderConnection = senderConnection;
+        work.CreatedTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
         return work;
     }
 

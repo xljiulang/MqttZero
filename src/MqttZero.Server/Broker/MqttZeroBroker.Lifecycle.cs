@@ -54,9 +54,14 @@ public sealed partial class MqttZeroBroker
                     1024,
                     _options.MaxMessageQueueLength / workerCount),
                 DispatchInboundWorkAsync,
-                exception => MqttZeroBrokerLogging.LogInboundDispatcherFailure(
-                    _logger,
-                    exception),
+                exception =>
+                {
+                    MqttZeroBrokerLogging.LogInboundDispatcherFailure(
+                        _logger,
+                        exception);
+                    Volatile.Write(ref _stopping, 1);
+                    Volatile.Write(ref _state, (int)MqttZeroBrokerState.Stopping);
+                },
                 _maintenanceCancellation.Token);
         }
         finally
@@ -84,7 +89,24 @@ public sealed partial class MqttZeroBroker
             Volatile.Write(ref _state, (int)MqttZeroBrokerState.Stopping);
             if (_inboundDispatcher != null)
             {
-                await _inboundDispatcher.StopAsync().ConfigureAwait(false);
+                Task dispatcherDrain = _inboundDispatcher.StopAsync().AsTask();
+                try
+                {
+                    await dispatcherDrain.WaitAsync(
+                        TimeSpan.FromSeconds(5),
+                        cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception exception) when (
+                    exception is TimeoutException or OperationCanceledException)
+                {
+                    if (_maintenanceCancellation != null)
+                    {
+                        await _maintenanceCancellation.CancelAsync().ConfigureAwait(false);
+                    }
+
+                    await dispatcherDrain.ConfigureAwait(false);
+                }
+
                 _inboundDispatcher = null;
             }
 

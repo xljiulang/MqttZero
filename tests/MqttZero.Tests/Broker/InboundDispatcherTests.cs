@@ -56,6 +56,47 @@ namespace MqttZero.Tests.Broker
                 TestContext.Current.CancellationToken);
             await dispatcher.StopAsync();
             Assert.Equal([1, 2, 3], order);
+            Assert.Equal(3, dispatcher.CompletedCount);
+            Assert.Equal(0, dispatcher.FailedCount);
+            Assert.Equal(0, dispatcher.QueuedCount);
+        }
+
+        [Fact(Timeout = 5_000)]
+        public async Task WorkerFailureIsCountedAndInvokesFaultCallback()
+        {
+            InvalidOperationException expected = new("dispatch failed");
+            TaskCompletionSource<Exception> faulted = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            MqttZeroInboundDispatcher dispatcher = new(
+                1,
+                8,
+                (_, _) => throw expected,
+                exception => faulted.TrySetResult(exception),
+                TestContext.Current.CancellationToken);
+            MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                new ReadOnlySequence<byte>("fail/topic"u8.ToArray()),
+                ReadOnlySequence<byte>.Empty,
+                new ReadOnlySequence<byte>(new byte[8]),
+                MqttQualityOfServiceLevel.AtLeastOnce,
+                false,
+                null,
+                null);
+            await dispatcher.EnqueueAsync(
+                1,
+                MqttZeroInboundWork.Rent(
+                    lease,
+                    new MqttZeroSessionState("sender"),
+                    null!),
+                TestContext.Current.CancellationToken);
+
+            Assert.Same(
+                expected,
+                await faulted.Task.WaitAsync(
+                    TimeSpan.FromSeconds(2),
+                    TestContext.Current.CancellationToken));
+            await dispatcher.StopAsync();
+            Assert.Equal(1, dispatcher.FailedCount);
+            Assert.Equal(0, dispatcher.CompletedCount);
         }
     }
 }
