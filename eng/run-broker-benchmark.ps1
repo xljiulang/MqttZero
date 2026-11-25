@@ -3,12 +3,12 @@ param(
     [string] $Client = 'mqttnet',
     [string] $OutputPath = 'artifacts/broker-baseline.json',
     [int] $StartPort = 30000,
-    [string] $Qos = '0,1,2',
+    [string] $Qos = '0,1',
     [string] $Subscribers = '1,100',
     [string] $PayloadSizes = '32,8192,65536',
-    [int] $WarmupSeconds = 5,
-    [int] $MeasurementSeconds = 20,
-    [int] $Repetitions = 3
+    [int] $WarmupSeconds = 2,
+    [int] $MeasurementSeconds = 6,
+    [int] $Repetitions = 1
 )
 
 $ErrorActionPreference = 'Stop'

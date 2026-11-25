@@ -4,7 +4,7 @@
 
 **Goal:** 建立可重复、可归因、Windows/Linux 可执行的 MQTTZero 与 MQTTnet Broker 性能基线工具链。
 
-**Architecture:** 保留现有 MQTTnet Client 正式门禁，新增原始 MQTT 5 QoS 0/1 诊断客户端；显式固定运行时配置，并记录环境、GC、ThreadPool、进程资源和阶段耗时。PR 只跑 smoke，夜间运行完整 27 单元格严格矩阵并上传 JSON。
+**Architecture:** 保留现有 MQTTnet Client 正式门禁，新增原始 MQTT 5 QoS 0/1 诊断客户端；显式固定运行时配置，并记录环境、GC、ThreadPool、进程资源和阶段耗时。PR 只跑 smoke，夜间运行 18 单元格严格矩阵并上传 JSON。
 
 **Tech Stack:** .NET 10、Benchmark Broker 控制台项目、xUnit v3、Microsoft Testing Platform、MQTTnet 5.2.0.1603、Kestrel、PowerShell 7、GitHub Actions。
 
@@ -16,9 +16,11 @@
 - Phase 0 不修改 `src/` 下的生产 Broker 实现。
 - 正式比较继续使用 MQTTnet 5.2.0.1603 Client。
 - 原始 MQTT Client 本轮只支持明文 TCP、QoS 0/1，不能替代正式门禁。
-- Phase 0 开发矩阵固定 QoS `0/1/2`、订阅者 `1/100`、Payload `32/8192/65536`。
+- Phase 0 本地开发矩阵固定 QoS `0/1`、订阅者 `1/100`、Payload `32/8192/65536`、预热 `2s`、测量 `6s`、重复 `1` 次。
+- 夜间稳定矩阵使用 QoS `0/1/2`、订阅者 `1/100`、Payload `32/8192/65536`、预热 `5s`、测量 `20s`、重复 `3` 次。
 - `1000` 订阅者场景从 Phase 0 开发基线中移除，保留到后续最终性能门禁重新启用。
-- 正式基线固定预热 `5s`、测量 `20s`、重复 `3` 次。
+- 本地开发基线固定预热 `2s`、测量 `6s`、重复 `1` 次。
+- 夜间稳定基线固定预热 `5s`、测量 `20s`、重复 `3` 次。
 - 每个单元格必须满足吞吐比 `> 1.00`、p99 比 `< 1.00`，且两个 Broker 的失败操作数均为 `0`。
 - 容器和 Shard 数不是 Phase 0 验收项；100,000 连接验证继续延后。
 - Benchmark Broker 必须位于独立子进程，日志关闭，预热排空后清零计数器。
@@ -33,7 +35,7 @@
 - `tests/MqttZero.BrokerBenchmarks.Tests/`：Benchmark 配置、门禁、观测和原始客户端测试。
 - `eng/`：smoke 与 baseline PowerShell 入口。
 - `.github/workflows/`：PR smoke 与 Windows/Linux nightly performance。
-- `perf/baseline/`：Phase 0 Windows 正式基线和说明。
+- `perf/baseline/`：Phase 0 Windows 开发基线和说明。
 
 ---
 
@@ -335,7 +337,7 @@ git commit -m "perf: add raw benchmark runner and stage timings"
 
 - [ ] **Step 2: 写正式 Benchmark 脚本**
 
-执行完整 18 单元格，预热 5 秒、测量 20 秒、重复 3 次，保存 JSON 后透传严格门禁退出码。
+本地入口默认执行 12 单元格开发矩阵；夜间 workflow 显式覆盖为 18 单元格稳定矩阵，保存 JSON 后透传严格门禁退出码。
 
 - [ ] **Step 3: 添加 PR smoke**
 
@@ -356,14 +358,14 @@ git commit -m "perf: add benchmark smoke and nightly workflows"
 
 ---
 
-### Task 7: Windows 正式基线与 Linux 证据入口
+### Task 7: Windows 开发基线与 Linux 证据入口
 
 **Files:**
 - Create: `perf/baseline/broker-phase0-2026-11-25.json`
 - Create: `perf/baseline/broker-phase0-2026-11-25.md`
 - Modify: `perf/baseline/README.md`
 
-- [ ] **Step 1: 运行 Windows 正式基线**
+- [ ] **Step 1: 运行 Windows 开发基线**
 
 ```powershell
 ./eng/run-broker-benchmark.ps1 -Client mqttnet -OutputPath perf/baseline/broker-phase0-2026-11-25.json -StartPort 30000
@@ -379,7 +381,7 @@ git commit -m "perf: add benchmark smoke and nightly workflows"
 
 - [ ] **Step 3: 写 Markdown 基线**
 
-记录环境、运行时配置、18 单元格结果、失败数、CPU、Working Set、GC、ThreadPool、原始客户端对比、未通过单元格和 Linux pending 状态。
+记录环境、运行时配置、12 单元格开发结果、失败数、CPU、Working Set、GC、ThreadPool、原始客户端对比、未通过单元格和 Linux pending 状态。
 
 - [ ] **Step 4: 更新 baseline 索引**
 
@@ -407,17 +409,17 @@ git commit -m "docs: record phase zero broker baseline"
 ## Phase 0 Acceptance
 
 - Benchmark 测试项目与全部新测试通过。
-- MQTTnet Client 的开发矩阵收缩为 18 单元格，1000 订阅者最终门禁延后。
+- MQTTnet Client 的本地开发矩阵为 12 单元格，夜间稳定矩阵为 18 单元格；1000 订阅者最终门禁延后。
 - Raw MQTT 5 Client 可完成明文 TCP QoS 0/1 连接、订阅、发布、PUBACK 和接收统计。
 - 输出包含环境、Broker/Load 观测、阶段耗时、失败数和严格门禁。
 - PR smoke 在 Windows/Linux 运行且不因性能波动误报。
-- Nightly workflow 在 Windows/Linux 执行 18 单元格开发矩阵，严格失败并上传 JSON。
-- Windows 正式 3×20 秒基线 artifact 和 Markdown 报告存在。
+- Nightly workflow 在 Windows/Linux 执行 18 单元格稳定矩阵，严格失败并上传 JSON。
+- Windows 开发 2×6 秒、单次基线 artifact 和 Markdown 报告存在。
 - 当前分支若尚未优于 MQTTnet，Phase 0 仍可完成，但必须明确记录红色门禁，不能宣称性能目标通过。
 
 ## Assumptions
 
-- Linux 正式基线需要 nightly workflow 在环境实际运行后才能补齐；离线执行时标记 `pending`。
+- Linux 稳定基线需要 nightly workflow 在环境实际运行后才能补齐；离线执行时标记 `pending`。
 - 原始客户端只用于诊断 QoS 0/1，不作为正式性能门禁。
 - GitHub-hosted runner 只用于建立自动化入口；正式容量声明后续仍需专用同机或同规格性能机。
 - Phase 0 不修改生产 Broker，也不开始 Event Loop Shard、Egress Actor 或路由重构。

@@ -36,6 +36,12 @@ jobs:
           -Client mqttnet
           -OutputPath artifacts/broker-performance-${{ matrix.os }}.json
           -StartPort 30000
+          -Qos 0,1,2
+          -Subscribers 1,100
+          -PayloadSizes 32,8192,65536
+          -WarmupSeconds 5
+          -MeasurementSeconds 20
+          -Repetitions 3
       - name: Upload benchmark result
         if: always()
         uses: actions/upload-artifact@v4
