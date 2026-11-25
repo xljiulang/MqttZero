@@ -11,6 +11,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="MqttZero.BrokerBenchmarks.Tests" />
+    <RuntimeHostConfigurationOption Include="System.GC.Server" Value="true" />
+    <RuntimeHostConfigurationOption Include="System.GC.Concurrent" Value="true" />
+    <RuntimeHostConfigurationOption Include="System.Runtime.TieredPGO" Value="true" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\MqttZero.AspNetCore\MqttZero.AspNetCore.csproj" />
   </ItemGroup>
 </Project>

@@ -13,6 +13,7 @@
     <Project Path="src/MqttZero.Server/MqttZero.Server.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Tests.csproj" />
     <Project Path="tests/MqttZero.Dashboard.Tests/MqttZero.Dashboard.Tests.csproj" />
     <Project Path="tests/MqttZero.Tests/MqttZero.Tests.csproj" />
   </Folder>
