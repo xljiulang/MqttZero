@@ -25,6 +25,11 @@ internal sealed class MqttZeroFanoutDiagnostics
     private long _egressBatchMessageCount;
     private long _egressBatchByteCount;
     private long _egressFlushStartCount;
+    private long _fanoutSchedulerBatchCount;
+    private long _fanoutSchedulerEnqueueCount;
+    private long _fanoutSchedulerFailureCount;
+    private long _fanoutSchedulerPassCount;
+    private long _maxFanoutSchedulerWaitTicks;
     private long _totalFanoutTicks;
     private long _totalEgressSchedulerTicks;
 
@@ -71,7 +76,14 @@ internal sealed class MqttZeroFanoutDiagnostics
             Interlocked.Read(ref _egressDataBatchCount),
             Interlocked.Read(ref _egressBatchMessageCount),
             Interlocked.Read(ref _egressBatchByteCount),
-            Interlocked.Read(ref _egressFlushStartCount));
+            Interlocked.Read(ref _egressFlushStartCount),
+            Interlocked.Read(ref _fanoutSchedulerEnqueueCount),
+            Interlocked.Read(ref _fanoutSchedulerPassCount),
+            Interlocked.Read(ref _fanoutSchedulerBatchCount),
+            Interlocked.Read(ref _fanoutSchedulerFailureCount),
+            Interlocked.Read(ref _maxFanoutSchedulerWaitTicks) *
+                1_000_000d /
+                System.Diagnostics.Stopwatch.Frequency);
     }
 
     public void RecordEgressDrain()
@@ -161,6 +173,36 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    public void RecordFanoutSchedulerEnqueue(long elapsedTicks)
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref _fanoutSchedulerEnqueueCount);
+        InterlockedMax(ref _maxFanoutSchedulerWaitTicks, elapsedTicks);
+    }
+
+    public void RecordFanoutSchedulerPass(int batchCount)
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref _fanoutSchedulerPassCount);
+        Interlocked.Add(ref _fanoutSchedulerBatchCount, batchCount);
+    }
+
+    public void RecordFanoutSchedulerFailure()
+    {
+        if (_enabled)
+        {
+            Interlocked.Increment(ref _fanoutSchedulerFailureCount);
+        }
+    }
+
     public void RecordPendingQueueDepth(int depth)
     {
         if (!_enabled)
@@ -212,6 +254,11 @@ internal sealed class MqttZeroFanoutDiagnostics
         Interlocked.Exchange(ref _egressBatchMessageCount, 0);
         Interlocked.Exchange(ref _egressBatchByteCount, 0);
         Interlocked.Exchange(ref _egressFlushStartCount, 0);
+        Interlocked.Exchange(ref _fanoutSchedulerEnqueueCount, 0);
+        Interlocked.Exchange(ref _fanoutSchedulerPassCount, 0);
+        Interlocked.Exchange(ref _fanoutSchedulerBatchCount, 0);
+        Interlocked.Exchange(ref _fanoutSchedulerFailureCount, 0);
+        Interlocked.Exchange(ref _maxFanoutSchedulerWaitTicks, 0);
     }
 
     public void RecordPublish(

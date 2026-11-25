@@ -6,6 +6,7 @@ using MqttZero.Server.Interceptors;
 using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Routing;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -239,6 +240,13 @@ namespace MqttZero.Tests.Broker
                 (ConcurrentDictionary<string, MqttZeroSessionState>)sessionsField.GetValue(broker)!;
             Assert.True(sessions.TryAdd(receiver.ClientId, receiver));
             broker.ResetRouteEpochFromSessions();
+            FieldInfo shardSetField = typeof(MqttZeroBroker).GetField(
+                "_shardSet",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            MqttZeroShardSet shardSet =
+                (MqttZeroShardSet)shardSetField.GetValue(broker)!;
+            MqttZeroFanoutScheduler fanoutScheduler =
+                shardSet.GetFanoutScheduler(0);
 
             AllocationPipeWriter senderWriter = new(16 * 1024);
             MqttZeroClientConnection senderConnection = new(
@@ -276,9 +284,11 @@ namespace MqttZero.Tests.Broker
                     senderWriter,
                     receiverWriter,
                     bufferPool,
+                    fanoutScheduler,
                     cancellationToken);
             }
 
+            WaitForFanoutSchedulerIdle(fanoutScheduler);
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int index = 0; index < 1000; index++)
             {
@@ -292,6 +302,7 @@ namespace MqttZero.Tests.Broker
                     senderWriter,
                     receiverWriter,
                     bufferPool,
+                    fanoutScheduler,
                     cancellationToken);
             }
 
@@ -310,6 +321,7 @@ namespace MqttZero.Tests.Broker
             AllocationPipeWriter senderWriter,
             AllocationPipeWriter receiverWriter,
             MqttZeroBufferPool bufferPool,
+            MqttZeroFanoutScheduler fanoutScheduler,
             CancellationToken cancellationToken)
         {
             if (!MqttPublishPacketCodec.TryDecode(
@@ -345,6 +357,7 @@ namespace MqttZero.Tests.Broker
             }
 
             WaitForPoolIdle(bufferPool);
+            WaitForFanoutSchedulerIdle(fanoutScheduler);
         }
 
         private static void WaitForPoolIdle(
@@ -358,6 +371,23 @@ namespace MqttZero.Tests.Broker
                 {
                     throw new TimeoutException(
                         "The fanout lease did not return to the buffer pool.");
+                }
+
+                Thread.Yield();
+            }
+        }
+
+        private static void WaitForFanoutSchedulerIdle(
+            MqttZeroFanoutScheduler fanoutScheduler)
+        {
+            long deadline = Stopwatch.GetTimestamp() +
+                (Stopwatch.Frequency * 5);
+            while (!fanoutScheduler.IsIdle)
+            {
+                if (Stopwatch.GetTimestamp() >= deadline)
+                {
+                    throw new TimeoutException(
+                        "The fanout scheduler did not become idle.");
                 }
 
                 Thread.Yield();

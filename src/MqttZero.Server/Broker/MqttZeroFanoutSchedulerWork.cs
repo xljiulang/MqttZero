@@ -16,7 +16,7 @@ internal sealed class MqttZeroFanoutSchedulerWork : MqttZeroShardWork
     {
         get
         {
-            return true;
+            return false;
         }
     }
 

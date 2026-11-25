@@ -197,6 +197,56 @@ public sealed class FanoutDispatcherTests
     }
 
     [Fact(Timeout = 10_000)]
+    public async Task ScheduledDispatchQueuesOneBatchPerTargetShard()
+    {
+        const int shardCount = 8;
+        await using MqttZeroShardSet shards = new(
+            shardCount,
+            4096);
+        using MqttZeroRoutePlannerLanes lanes = new(shardCount);
+        MqttZeroRouteEpoch epoch = CreateFanoutEpoch(
+            sessions: 1_000,
+            shardCount);
+        using MqttZeroBufferPool bufferPool = new(64 * 1024 * 1024);
+        MqttZeroMessageLease lease = CreateLease(bufferPool);
+        MqttZeroFanoutDispatcher dispatcher = new(
+            shards,
+            (_, _, _, _) => ValueTask.CompletedTask,
+            _ => { });
+
+        try
+        {
+            long before = GetFanoutEnqueuedCount(shards);
+            MqttZeroRoutePlan plan = MqttZeroRoutePlanner.Plan(
+                epoch,
+                "fanout/topic"u8,
+                null,
+                new MqttZeroSharedGroupCursors(),
+                shardCount,
+                lanes[0]);
+            await dispatcher.DispatchScheduledAsync(
+                plan,
+                lanes[0],
+                lease,
+                null,
+                0,
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(
+                shardCount,
+                GetFanoutEnqueuedCount(shards) - before);
+        }
+        finally
+        {
+            lease.Release();
+        }
+
+        await WaitUntilAsync(
+            () => bufferPool.RentedBytes == 0,
+            TestContext.Current.CancellationToken);
+    }
+
+    [Fact(Timeout = 10_000)]
     public async Task OnePublishEnqueuesAtMostOneRemoteWorkPerShard()
     {
         const int shardCount = 8;
@@ -591,6 +641,7 @@ public sealed class FanoutDispatcherTests
 
         try
         {
+            await shards.GetFanoutScheduler(1).StopAsync();
             await shards[1].StopAsync();
             await Assert.ThrowsAsync<ObjectDisposedException>(async () =>
             {
@@ -1048,6 +1099,20 @@ public sealed class FanoutDispatcherTests
         for (int index = 0; index < snapshot.Shards.Count; index++)
         {
             count += snapshot.Shards[index].EnqueuedCount;
+        }
+
+        return count;
+    }
+
+    private static long GetFanoutEnqueuedCount(
+        MqttZeroShardSet shards)
+    {
+        long count = 0;
+        for (int shardId = 0; shardId < shards.Count; shardId++)
+        {
+            count += shards
+                .GetFanoutScheduler(shardId)
+                .EnqueuedCount;
         }
 
         return count;

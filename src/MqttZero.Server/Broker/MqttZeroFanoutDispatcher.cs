@@ -154,20 +154,18 @@ internal sealed class MqttZeroFanoutDispatcher
                 continue;
             }
 
-            MqttZeroFanoutBatchWork work =
-                MqttZeroFanoutBatchWork.Rent(operation, shardId);
             try
             {
-                if (!_shards[shardId].TryEnqueue(work))
-                {
-                    await _shards[shardId].EnqueueAsync(
-                        work,
-                        CancellationToken.None).ConfigureAwait(false);
-                }
+                await _shards
+                    .GetFanoutScheduler(shardId)
+                    .EnqueueAsync(
+                        operation,
+                        shardId,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
             }
             catch (Exception exception)
             {
-                work.Release();
                 operation.Fail(exception);
                 operation.CompleteBatch();
                 schedulingFailure ??= exception;

@@ -21,4 +21,9 @@ internal sealed record MqttZeroFanoutDiagnosticsSnapshot(
     long EgressDataBatchCount,
     long EgressBatchMessageCount,
     long EgressBatchByteCount,
-    long EgressFlushStartCount);
+    long EgressFlushStartCount,
+    long FanoutSchedulerEnqueueCount,
+    long FanoutSchedulerPassCount,
+    long FanoutSchedulerBatchCount,
+    long FanoutSchedulerFailureCount,
+    double MaxFanoutSchedulerWaitMicroseconds);

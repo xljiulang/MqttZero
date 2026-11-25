@@ -1,13 +1,17 @@
 using MqttZero.Server.Scheduling;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace MqttZero.Server.Broker;
 
 internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
 {
     private const int MaximumEntriesPerPass = 64;
+    private static readonly long PassBudgetTimestampTicks =
+        Math.Max(1, Stopwatch.Frequency / 4000);
 
     private readonly SemaphoreSlim _capacity;
+    private readonly MqttZeroFanoutDiagnostics? _diagnostics;
     private readonly ConcurrentQueue<MqttZeroFanoutScheduledBatch> _ready = new();
     private readonly MqttZeroEventLoop _shard;
     private readonly TaskCompletionSource _signalsDrained = new(
@@ -19,6 +23,7 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
     private int _scheduled;
     private int _stopping;
     private long _enqueuedCount;
+    private readonly int _queueCapacity;
 
     internal MqttZeroFanoutScheduler(
         MqttZeroEventLoop shard,
@@ -27,7 +32,8 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
     {
         _shard = shard ?? throw new ArgumentNullException(nameof(shard));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(queueCapacity);
-        _ = diagnostics;
+        _diagnostics = diagnostics;
+        _queueCapacity = queueCapacity;
         _capacity = new SemaphoreSlim(queueCapacity, queueCapacity);
         _work = new MqttZeroFanoutSchedulerWork(this);
     }
@@ -40,6 +46,16 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         }
     }
 
+    internal bool IsIdle
+    {
+        get
+        {
+            return Volatile.Read(ref _scheduled) == 0 &&
+                _ready.IsEmpty &&
+                _capacity.CurrentCount == _queueCapacity;
+        }
+    }
+
     internal ValueTask EnqueueAsync(
         MqttZeroFanoutOperation operation,
         int shardId,
@@ -47,7 +63,22 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(operation);
         ArgumentOutOfRangeException.ThrowIfNegative(shardId);
-        return EnqueueCoreAsync(
+        Interlocked.Increment(ref _activeEnqueues);
+        try
+        {
+            if (TryEnqueueSynchronously(operation, shardId))
+            {
+                CompleteEnqueue();
+                return ValueTask.CompletedTask;
+            }
+        }
+        catch
+        {
+            CompleteEnqueue();
+            throw;
+        }
+
+        return EnqueueSlowAsync(
             operation,
             shardId,
             cancellationToken);
@@ -87,33 +118,44 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
     internal async ValueTask ExecuteAsync(
         CancellationToken cancellationToken)
     {
+        long started = Stopwatch.GetTimestamp();
         int count = 0;
-        while (count < MaximumEntriesPerPass &&
-            _ready.TryDequeue(out MqttZeroFanoutScheduledBatch? batch))
+        try
         {
-            try
-            {
-                await batch.Operation.ExecuteBatchAsync(
-                    batch.ShardId,
-                    cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception exception)
-            {
-                batch.Operation.Fail(exception);
-            }
-            finally
+            while (count < MaximumEntriesPerPass &&
+                Stopwatch.GetElapsedTime(started) <
+                    TimeSpan.FromTicks(PassBudgetTimestampTicks) &&
+                _ready.TryDequeue(out MqttZeroFanoutScheduledBatch? batch))
             {
                 try
                 {
-                    batch.Operation.CompleteBatch();
+                    await batch.Operation.ExecuteBatchAsync(
+                        batch.ShardId,
+                        cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception exception)
+                {
+                    _diagnostics?.RecordFanoutSchedulerFailure();
+                    batch.Operation.Fail(exception);
                 }
                 finally
                 {
-                    batch.Release();
-                    _capacity.Release();
-                    count++;
+                    try
+                    {
+                        batch.Operation.CompleteBatch();
+                    }
+                    finally
+                    {
+                        batch.Release();
+                        _capacity.Release();
+                        count++;
+                    }
                 }
             }
+        }
+        finally
+        {
+            _diagnostics?.RecordFanoutSchedulerPass(count);
         }
     }
 
@@ -134,17 +176,19 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         }
     }
 
-    private async ValueTask EnqueueCoreAsync(
+    private async ValueTask EnqueueSlowAsync(
         MqttZeroFanoutOperation operation,
         int shardId,
         CancellationToken cancellationToken)
     {
-        Interlocked.Increment(ref _activeEnqueues);
         try
         {
             ThrowIfStopping();
+            long waitStarted = Stopwatch.GetTimestamp();
             await _capacity.WaitAsync(cancellationToken)
                 .ConfigureAwait(false);
+            _diagnostics?.RecordFanoutSchedulerEnqueue(
+                Stopwatch.GetTimestamp() - waitStarted);
             if (Volatile.Read(ref _stopping) != 0)
             {
                 _capacity.Release();
@@ -152,19 +196,52 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
                     nameof(MqttZeroFanoutScheduler));
             }
 
-            MqttZeroFanoutScheduledBatch batch =
-                MqttZeroFanoutScheduledBatch.Rent(operation, shardId);
-            Interlocked.Increment(ref _enqueuedCount);
-            _ready.Enqueue(batch);
-            Schedule();
+            Accept(operation, shardId);
         }
         finally
         {
-            if (Interlocked.Decrement(ref _activeEnqueues) == 0 &&
-                Volatile.Read(ref _stopping) != 0)
-            {
-                _signalsDrained.TrySetResult();
-            }
+            CompleteEnqueue();
+        }
+    }
+
+    private bool TryEnqueueSynchronously(
+        MqttZeroFanoutOperation operation,
+        int shardId)
+    {
+        ThrowIfStopping();
+        if (!_capacity.Wait(0))
+        {
+            return false;
+        }
+
+        if (Volatile.Read(ref _stopping) != 0)
+        {
+            _capacity.Release();
+            throw new ObjectDisposedException(
+                nameof(MqttZeroFanoutScheduler));
+        }
+
+        Accept(operation, shardId);
+        return true;
+    }
+
+    private void Accept(
+        MqttZeroFanoutOperation operation,
+        int shardId)
+    {
+        MqttZeroFanoutScheduledBatch batch =
+            MqttZeroFanoutScheduledBatch.Rent(operation, shardId);
+        Interlocked.Increment(ref _enqueuedCount);
+        _ready.Enqueue(batch);
+        Schedule();
+    }
+
+    private void CompleteEnqueue()
+    {
+        if (Interlocked.Decrement(ref _activeEnqueues) == 0 &&
+            Volatile.Read(ref _stopping) != 0)
+        {
+            _signalsDrained.TrySetResult();
         }
     }
 
@@ -194,6 +271,7 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         catch (Exception exception)
         {
             Volatile.Write(ref _scheduled, 0);
+            _diagnostics?.RecordFanoutSchedulerFailure();
             FailPending(exception);
             _stopped.TrySetResult();
         }
