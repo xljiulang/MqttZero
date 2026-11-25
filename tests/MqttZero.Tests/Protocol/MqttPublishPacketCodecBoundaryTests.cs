@@ -81,7 +81,7 @@ namespace MqttZero.Tests.Protocol
         }
 
         [Fact]
-        public void EncodeToWriterFragmentsLargePayloadSpanRequests()
+        public void EncodeToWriterLetsKestrelChooseSpanSize()
         {
             MqttZeroPublishView view = new(
                 new ReadOnlySequence<byte>("large/topic"u8.ToArray()),
@@ -102,7 +102,7 @@ namespace MqttZero.Tests.Protocol
                 headerWriter,
                 writer);
 
-            Assert.InRange(writer.MaximumSizeHint, 1, 4096);
+            Assert.Equal(0, writer.PositiveSizeHintCount);
         }
 
         [Fact]
@@ -164,7 +164,7 @@ namespace MqttZero.Tests.Protocol
                 _buffer = new byte[capacity];
             }
 
-            public int MaximumSizeHint { get; private set; }
+            public int PositiveSizeHintCount { get; private set; }
 
             public void Advance(int count)
             {
@@ -185,9 +185,10 @@ namespace MqttZero.Tests.Protocol
 
             private void RecordSizeHint(int sizeHint)
             {
-                MaximumSizeHint = Math.Max(
-                    MaximumSizeHint,
-                    Math.Max(sizeHint, 1));
+                if (sizeHint > 0)
+                {
+                    PositiveSizeHintCount++;
+                }
             }
         }
     }

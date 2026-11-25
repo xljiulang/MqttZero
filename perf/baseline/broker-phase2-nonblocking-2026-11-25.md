@@ -47,13 +47,14 @@ Reduced 3 x 6 second diagnostic for QoS 0 / 100 subscribers / 8 KiB:
 
 An EventPipe allocation trace under the same workload attributed 97.75% of
 sampled allocation bytes to `PipeWriter.GetSpan` through
-`MqttPublishPacketCodec.EncodeToWriter`. The codec now writes control headers
-and PUBLISH payloads in spans no larger than 4 KiB, with a regression test that
-rejects a single 8 KiB span request. This removes the exact-size allocation
-shape but does not yet pass the performance gate.
+`MqttPublishPacketCodec.EncodeToWriter`. The codec now calls `GetSpan()` without
+a size hint and consumes only the segment chosen by Kestrel, with a regression
+test that rejects positive size hints on the outbound data path. This respects
+Kestrel's pooled segment policy but does not yet pass the performance gate.
 
-The remaining architectural bottleneck is the Kestrel `PipeWriter` outbound
-copy and segment acquisition for 100 concurrent fanout connections. Further
-progress requires either fewer flushes by coalescing more pending data or a
-socket fast transport that can write directly from the shared message lease.
+MQTTnet.AspNetCore also uses the Kestrel `PipeWriter`; bypassing Kestrel is not
+the conclusion. The remaining differences to investigate are connection-local
+send-loop lifetime, flush cadence, packet-bus wakeups and Shard rescheduling
+under 100-connection fanout. The current result does not justify replacing the
+transport.
 

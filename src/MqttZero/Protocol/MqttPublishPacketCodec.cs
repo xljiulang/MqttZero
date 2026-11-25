@@ -5,7 +5,6 @@ namespace MqttZero.Protocol;
 
 internal static class MqttPublishPacketCodec
 {
-    private const int MaximumWriteSpanSize = 4096;
     private const byte MessageExpiryIntervalId = 0x02;
     private const byte SubscriptionIdentifierId = 0x0B;
     private const byte TopicAliasId = 0x23;
@@ -736,10 +735,14 @@ internal static class MqttPublishPacketCodec
         ReadOnlySpan<byte> remaining = value.Span;
         while (!remaining.IsEmpty)
         {
-            int length = Math.Min(
-                remaining.Length,
-                MaximumWriteSpanSize);
-            Span<byte> destination = writer.GetSpan(length);
+            Span<byte> destination = writer.GetSpan();
+            if (destination.IsEmpty)
+            {
+                throw new InvalidOperationException(
+                    "The buffer writer returned an empty span.");
+            }
+
+            int length = Math.Min(remaining.Length, destination.Length);
             remaining[..length].CopyTo(destination);
             writer.Advance(length);
             remaining = remaining[length..];

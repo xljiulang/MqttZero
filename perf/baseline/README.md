@@ -50,8 +50,10 @@
   Pump/Writer classes. Its regression gate remains red in 5 of 12 cells.
 - The nonblocking Flush revision reduces Phase 2 failures to 4 of 12 cells.
 - The write-lock-free revision pools encoded control frames and removes direct
-  control writers from attached connections. Correctness and zero-allocation
-  control tests pass; the QoS 0/100/8-KiB development cell remains red.
+  control writers from attached connections. It also lets Kestrel choose
+  PipeWriter segment sizes instead of passing payload-sized hints. Correctness
+  and zero-allocation control tests pass; the QoS 0/100/8-KiB development cell
+  remains red.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`
