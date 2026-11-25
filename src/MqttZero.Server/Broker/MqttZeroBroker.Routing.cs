@@ -236,33 +236,14 @@ public sealed partial class MqttZeroBroker
                 await StoreRetainedMessageAsync(lease, cancellationToken).ConfigureAwait(false);
             }
 
-            MqttZeroRouteEpoch routeEpoch = _routeEpochs.Current;
-            using MqttZeroRouteScope deliveries = MqttZeroRouteSelector.Select(
-                routeEpoch,
-                lease.Topic.Span,
+            int deliveryCount = await RouteToSubscribersAsync(
                 sender,
-                _sharedGroupCursors,
-                _routeScopes);
-            if (deliveries.Count == 0 && _deliveryObservers.Length > 0)
+                null,
+                lease,
+                cancellationToken).ConfigureAwait(false);
+            if (deliveryCount == 0 && _deliveryObservers.Length > 0)
             {
                 await NotifyNotConsumedAsync(null, lease, cancellationToken).ConfigureAwait(false);
-            }
-
-            for (int index = 0; index < deliveries.Count; index++)
-            {
-                MqttZeroDeliveryCandidate delivery = deliveries[index];
-                MqttQualityOfServiceLevel deliveryQos =
-                    (MqttQualityOfServiceLevel)Math.Min(
-                        (byte)lease.QualityOfServiceLevel,
-                        (byte)delivery.QualityOfServiceLevel);
-                await DeliverLeaseAsync(
-                    delivery.Session,
-                    lease,
-                    deliveryQos,
-                    delivery.Subscription.RetainAsPublished && lease.RetainFlag,
-                    delivery.SubscriptionIdentifiers,
-                    null,
-                    cancellationToken).ConfigureAwait(false);
             }
 
             if (sender != null &&
@@ -516,35 +497,16 @@ public sealed partial class MqttZeroBroker
                 cancellationToken).ConfigureAwait(false);
         }
 
-        MqttZeroRouteEpoch routeEpoch = _routeEpochs.Current;
-        using MqttZeroRouteScope deliveries = MqttZeroRouteSelector.Select(
-            routeEpoch,
-            lease.Topic.Span,
+        int deliveryCount = await RouteToSubscribersAsync(
             sender,
-            _sharedGroupCursors,
-            _routeScopes);
-        if (deliveries.Count == 0 && _deliveryObservers.Length > 0)
+            senderConnection,
+            lease,
+            cancellationToken).ConfigureAwait(false);
+        if (deliveryCount == 0 && _deliveryObservers.Length > 0)
         {
             await NotifyNotConsumedAsync(
                 senderConnection?.ConnectedClient,
                 lease,
-                cancellationToken).ConfigureAwait(false);
-        }
-
-        for (int index = 0; index < deliveries.Count; index++)
-        {
-            MqttZeroDeliveryCandidate delivery = deliveries[index];
-            MqttQualityOfServiceLevel deliveryQos =
-                (MqttQualityOfServiceLevel)Math.Min(
-                    (byte)lease.QualityOfServiceLevel,
-                    (byte)delivery.QualityOfServiceLevel);
-            await DeliverLeaseAsync(
-                delivery.Session,
-                lease,
-                deliveryQos,
-                delivery.Subscription.RetainAsPublished && lease.RetainFlag,
-                delivery.SubscriptionIdentifiers,
-                senderConnection,
                 cancellationToken).ConfigureAwait(false);
         }
     }
@@ -667,39 +629,18 @@ public sealed partial class MqttZeroBroker
                     cancellationToken).ConfigureAwait(false);
             }
 
-            MqttZeroRouteEpoch routeEpoch = _routeEpochs.Current;
-            using MqttZeroRouteScope deliveries = MqttZeroRouteSelector.Select(
-                routeEpoch,
-                effectiveLease.Topic.Span,
+            int deliveryCount = await RouteToSubscribersAsync(
                 sender,
-                _sharedGroupCursors,
-                _routeScopes);
-            if (deliveries.Count == 0 && _deliveryObservers.Length > 0)
+                senderConnection,
+                effectiveLease,
+                cancellationToken).ConfigureAwait(false);
+            if (deliveryCount == 0 && _deliveryObservers.Length > 0)
             {
                 await NotifyNotConsumedAsync(
                     senderConnection.ConnectedClient,
                     effectiveLease,
                     cancellationToken).ConfigureAwait(false);
             }
-
-            for (int index = 0; index < deliveries.Count; index++)
-            {
-                MqttZeroDeliveryCandidate delivery = deliveries[index];
-                MqttQualityOfServiceLevel deliveryQos =
-                    (MqttQualityOfServiceLevel)Math.Min(
-                        (byte)effectiveLease.QualityOfServiceLevel,
-                        (byte)delivery.QualityOfServiceLevel);
-                await DeliverLeaseAsync(
-                    delivery.Session,
-                    effectiveLease,
-                    deliveryQos,
-                    delivery.Subscription.RetainAsPublished && effectiveLease.RetainFlag,
-                    delivery.SubscriptionIdentifiers,
-                    senderConnection,
-                    cancellationToken).ConfigureAwait(false);
-            }
-
-
             if (effectiveLease.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtLeastOnce)
             {
                 await senderConnection.SendPubAckAsync(

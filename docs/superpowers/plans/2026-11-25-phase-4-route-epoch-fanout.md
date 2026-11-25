@@ -746,9 +746,10 @@ git commit -m "feat: plan shard aggregated fanout"
   - `MqttZeroClientConnection? senderConnection`
   - remaining batch count
   - failure state
-- Produces: `ValueTask DispatchAsync(MqttZeroRoutePlan plan, MqttZeroRoutePlanBuffer buffer, MqttZeroMessageLease lease, MqttZeroClientConnection senderConnection, CancellationToken cancellationToken)`.
+- Produces: `ValueTask DispatchAsync(MqttZeroRoutePlan plan, MqttZeroRoutePlanBuffer buffer, MqttZeroMessageLease lease, MqttZeroClientConnection? senderConnection, int publisherShardId, CancellationToken cancellationToken)`.
+- Planned Subscription Identifiers are copied into message-owned pooled storage before the planner lane can be reused.
 
-- [ ] **Step 1: Write failing Work-Item-count test**
+- [x] **Step 1: Write failing Work-Item-count test**
 
 Use a recording `MqttZeroShardWork` hook or Event Loop diagnostics. Record enqueue count before and after one 1,000-Session publish distributed across eight Shards.
 
@@ -757,21 +758,21 @@ Assert.InRange(remoteEnqueueDelta, 0, 7);
 Assert.Equal(1_000, receiver.PendingMessages.Count across all sessions);
 ```
 
-- [ ] **Step 2: Write failing ordering test**
+- [x] **Step 2: Write failing ordering test**
 
 Publish payloads `0`, `1`, `2` from one publisher to Sessions on multiple Shards. Wait for all target batches. Assert each Session receives `[0,1,2]`.
 
-- [ ] **Step 3: Write failing lease-lifetime test**
+- [x] **Step 3: Write failing lease-lifetime test**
 
 Use a tracking `MqttZeroMessageLease`. Assert its reference count returns to zero only after every target batch completes or faults.
 
-- [ ] **Step 4: Run tests and verify RED**
+- [x] **Step 4: Run tests and verify RED**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~FanoutDispatcherTests"
 ```
 
-- [ ] **Step 5: Implement dispatch**
+- [x] **Step 5: Implement dispatch**
 
 Dispatch algorithm:
 
@@ -786,13 +787,13 @@ Dispatch algorithm:
 
 Each remote batch loops its `MqttZeroPlannedDelivery` values in array order and calls the existing delivery enqueue path with the planned QoS, retain flag and identifiers. Signal each touched Egress Actor after its Session message is enqueued.
 
-- [ ] **Step 6: Run fanout and QoS tests**
+- [x] **Step 6: Run fanout and QoS tests**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~FanoutDispatcherTests|FullyQualifiedName~OutboundDeliveryTests|FullyQualifiedName~BrokerIntegrationTests.Qos"
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add src/MqttZero.Server/Broker src/MqttZero.Server/Routing tests/MqttZero.Tests/Broker/FanoutDispatcherTests.cs

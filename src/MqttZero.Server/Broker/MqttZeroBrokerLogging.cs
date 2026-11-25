@@ -54,4 +54,12 @@ internal static partial class MqttZeroBrokerLogging
     public static partial void LogInboundDispatcherFailure(
         ILogger<MqttZeroBroker> logger,
         Exception exception);
+
+    [LoggerMessage(
+        EventId = 1006,
+        Level = LogLevel.Error,
+        Message = "MQTTZero sharded fanout failed.")]
+    public static partial void LogFanoutFailure(
+        ILogger<MqttZeroBroker> logger,
+        Exception exception);
 }

@@ -38,6 +38,44 @@ namespace MqttZero.Tests.Sessions
         }
 
         [Fact]
+        public void CopiedSubscriptionIdentifiersSurviveSourceMutation()
+        {
+            using MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                new ReadOnlySequence<byte>("topic"u8.ToArray()),
+                ReadOnlySequence<byte>.Empty,
+                new ReadOnlySequence<byte>("payload"u8.ToArray()),
+                MqttQualityOfServiceLevel.AtLeastOnce,
+                false,
+                null,
+                null);
+            uint[] source = ArrayPool<uint>.Shared.Rent(2);
+            source[0] = 7;
+            source[1] = 9;
+            MqttZeroQueuedMessage message =
+                MqttZeroQueuedMessage.RentWithCopiedIdentifiers(
+                    lease,
+                    MqttQualityOfServiceLevel.AtLeastOnce,
+                    false,
+                    source.AsMemory(0, 2),
+                    null);
+
+            try
+            {
+                source[0] = 99;
+                source[1] = 100;
+
+                Assert.Equal(
+                    new uint[] { 7, 9 },
+                    message.SubscriptionIdentifiers.ToArray());
+            }
+            finally
+            {
+                message.Release();
+                ArrayPool<uint>.Shared.Return(source);
+            }
+        }
+
+        [Fact]
         public void PacketAndViewExposeMessageValues()
         {
             using MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(

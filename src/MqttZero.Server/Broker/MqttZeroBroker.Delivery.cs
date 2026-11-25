@@ -20,6 +20,200 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 public sealed partial class MqttZeroBroker
 {
+    private bool UseFastFanoutDelivery
+    {
+        get
+        {
+            return !_sessionStore.IsEnabled &&
+                !_messageStore.IsEnabled &&
+                !_retainedMessageStore.IsEnabled &&
+                _enqueueInterceptors.Length == 0 &&
+                _deliveryObservers.Length == 0;
+        }
+    }
+
+    private ValueTask DeliverPlannedAsync(
+        MqttZeroPlannedDelivery delivery,
+        MqttZeroMessageLease lease,
+        MqttZeroClientConnection? senderConnection,
+        CancellationToken cancellationToken)
+    {
+        MqttQualityOfServiceLevel deliveryQos =
+            (MqttQualityOfServiceLevel)Math.Min(
+                (byte)lease.QualityOfServiceLevel,
+                (byte)delivery.QualityOfServiceLevel);
+        bool retain =
+            delivery.RetainAsPublished && lease.RetainFlag;
+        ReadOnlyMemory<uint> subscriptionIdentifiers =
+            delivery.SubscriptionIdentifiersMemory;
+        if (UseFastFanoutDelivery)
+        {
+            return DeliverLeaseFastAsync(
+                delivery.Session,
+                lease,
+                deliveryQos,
+                retain,
+                subscriptionIdentifiers,
+                cancellationToken,
+                copySubscriptionIdentifiers: true);
+        }
+
+        return DeliverLeaseAsync(
+            delivery.Session,
+            lease,
+            deliveryQos,
+            retain,
+            subscriptionIdentifiers,
+            senderConnection,
+            cancellationToken,
+            copySubscriptionIdentifiers: true);
+    }
+
+    private void HandleFanoutFailure(Exception exception)
+    {
+        MqttZeroBrokerLogging.LogFanoutFailure(
+            _logger,
+            exception);
+    }
+
+    private ValueTask<int> RouteToSubscribersAsync(
+        MqttZeroSessionState? sender,
+        MqttZeroClientConnection? senderConnection,
+        MqttZeroMessageLease lease,
+        CancellationToken cancellationToken)
+    {
+        MqttZeroShardSet? shards = Volatile.Read(ref _shardSet);
+        MqttZeroFanoutDispatcher? dispatcher =
+            Volatile.Read(ref _fanoutDispatcher);
+        MqttZeroRoutePlannerLanes? lanes =
+            Volatile.Read(ref _routePlannerLanes);
+        if (shards != null && dispatcher != null && lanes != null)
+        {
+            int publisherShardId = sender?.ShardId ??
+                senderConnection?.ShardId ??
+                0;
+            if ((uint)publisherShardId >= (uint)shards.Count)
+            {
+                throw new InvalidOperationException(
+                    "The publisher references an invalid event loop shard.");
+            }
+
+            MqttZeroEventLoop publisherShard =
+                shards[publisherShardId];
+            if (publisherShard.IsCurrent || sender != null)
+            {
+                return ExecuteFanoutOnShardAsync(
+                    shards,
+                    dispatcher,
+                    lanes,
+                    sender,
+                    senderConnection,
+                    lease,
+                    publisherShardId,
+                    cancellationToken);
+            }
+
+            return publisherShard.InvokeAsync(
+                token => ExecuteFanoutOnShardAsync(
+                    shards,
+                    dispatcher,
+                    lanes,
+                    sender,
+                    senderConnection,
+                    lease,
+                    publisherShardId,
+                    token),
+                cancellationToken);
+        }
+
+        return RouteToSubscribersFallbackAsync(
+            sender,
+            senderConnection,
+            lease,
+            cancellationToken);
+    }
+
+    private async ValueTask<int> RouteToSubscribersFallbackAsync(
+        MqttZeroSessionState? sender,
+        MqttZeroClientConnection? senderConnection,
+        MqttZeroMessageLease lease,
+        CancellationToken cancellationToken)
+    {
+        using MqttZeroRouteScope deliveries =
+            MqttZeroRouteSelector.Select(
+                _routeEpochs.Current,
+                lease.Topic.Span,
+                sender,
+                _sharedGroupCursors,
+                _routeScopes);
+        for (int index = 0; index < deliveries.Count; index++)
+        {
+            MqttZeroDeliveryCandidate delivery = deliveries[index];
+            MqttQualityOfServiceLevel deliveryQos =
+                (MqttQualityOfServiceLevel)Math.Min(
+                    (byte)lease.QualityOfServiceLevel,
+                    (byte)delivery.QualityOfServiceLevel);
+            bool retain = delivery.Subscription.RetainAsPublished &&
+                lease.RetainFlag;
+            if (UseFastFanoutDelivery)
+            {
+                await DeliverLeaseFastAsync(
+                    delivery.Session,
+                    lease,
+                    deliveryQos,
+                    retain,
+                    delivery.SubscriptionIdentifiers,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await DeliverLeaseAsync(
+                    delivery.Session,
+                    lease,
+                    deliveryQos,
+                    retain,
+                    delivery.SubscriptionIdentifiers,
+                    senderConnection,
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return deliveries.Count;
+    }
+
+    private async ValueTask<int> ExecuteFanoutOnShardAsync(
+        MqttZeroShardSet shards,
+        MqttZeroFanoutDispatcher dispatcher,
+        MqttZeroRoutePlannerLanes lanes,
+        MqttZeroSessionState? sender,
+        MqttZeroClientConnection? senderConnection,
+        MqttZeroMessageLease lease,
+        int publisherShardId,
+        CancellationToken cancellationToken)
+    {
+        MqttZeroRoutePlanBuffer buffer = lanes[publisherShardId];
+        MqttZeroRoutePlan plan = MqttZeroRoutePlanner.Plan(
+            _routeEpochs.Current,
+            lease.Topic.Span,
+            sender,
+            _sharedGroupCursors,
+            shards.Count,
+            buffer);
+        int deliveryCount = plan.TotalDeliveryCount;
+        if (deliveryCount > 0)
+        {
+            await dispatcher.DispatchAsync(
+                plan,
+                buffer,
+                lease,
+                senderConnection,
+                publisherShardId,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        return deliveryCount;
+    }
+
     private async ValueTask DeliverAsync(
         MqttZeroSessionState session,
         MqttPublishPacket source,
@@ -104,7 +298,8 @@ public sealed partial class MqttZeroBroker
         bool retain,
         ReadOnlyMemory<uint> subscriptionIdentifiers,
         MqttZeroClientConnection? senderConnection,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool copySubscriptionIdentifiers = false)
     {
         DateTimeOffset? expiresAt = lease.ExpiresAt;
         if (expiresAt.HasValue &&
@@ -199,12 +394,19 @@ public sealed partial class MqttZeroBroker
                     }
                     else
                     {
-                        message = MqttZeroQueuedMessage.RentWithIdentifiers(
-                            lease,
-                            qos,
-                            retain,
-                            subscriptionIdentifiers,
-                            expiresAt);
+                        message = copySubscriptionIdentifiers
+                            ? MqttZeroQueuedMessage.RentWithCopiedIdentifiers(
+                                lease,
+                                qos,
+                                retain,
+                                subscriptionIdentifiers,
+                                expiresAt)
+                            : MqttZeroQueuedMessage.RentWithIdentifiers(
+                                lease,
+                                qos,
+                                retain,
+                                subscriptionIdentifiers,
+                                expiresAt);
                         if (connection != null)
                         {
                             message.SetEncodedLength(

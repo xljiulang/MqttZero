@@ -10,6 +10,7 @@ internal sealed class MqttZeroQueuedMessage
     private static readonly ConcurrentQueue<MqttZeroQueuedMessage> MessagePool = new();
 
     private MqttZeroMessageLease _lease = null!;
+    private uint[] _subscriptionIdentifierBuffer = [];
 
     internal MqttZeroQueuedMessage? QueueNext { get; set; }
 
@@ -120,6 +121,41 @@ internal sealed class MqttZeroQueuedMessage
         return message;
     }
 
+    public static MqttZeroQueuedMessage RentWithCopiedIdentifiers(
+        MqttZeroMessageLease lease,
+        MqttQualityOfServiceLevel qualityOfServiceLevel,
+        bool retain,
+        ReadOnlyMemory<uint> subscriptionIdentifiers,
+        DateTimeOffset? expiresAt)
+    {
+        MqttZeroQueuedMessage message = RentWithIdentifiers(
+            lease,
+            qualityOfServiceLevel,
+            retain,
+            ReadOnlyMemory<uint>.Empty,
+            expiresAt);
+        if (subscriptionIdentifiers.IsEmpty)
+        {
+            return message;
+        }
+
+        try
+        {
+            uint[] buffer = ArrayPool<uint>.Shared.Rent(
+                subscriptionIdentifiers.Length);
+            subscriptionIdentifiers.Span.CopyTo(buffer);
+            message._subscriptionIdentifierBuffer = buffer;
+            message.SubscriptionIdentifiers =
+                buffer.AsMemory(0, subscriptionIdentifiers.Length);
+            return message;
+        }
+        catch
+        {
+            message.Release();
+            throw;
+        }
+    }
+
     public void SetAwaitPubComp()
     {
         State = MqttZeroOutboundState.AwaitPubComp;
@@ -215,6 +251,13 @@ internal sealed class MqttZeroQueuedMessage
     public void Release()
     {
         ObjectDisposedException.ThrowIf(_lease is null, this);
+        if (_subscriptionIdentifierBuffer.Length > 0)
+        {
+            ArrayPool<uint>.Shared.Return(
+                _subscriptionIdentifierBuffer);
+            _subscriptionIdentifierBuffer = [];
+        }
+
         _lease.Release();
         _lease = null!;
         SubscriptionIdentifiers = ReadOnlyMemory<uint>.Empty;

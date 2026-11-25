@@ -3,6 +3,7 @@ using MqttZero.Server.Clients;
 using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Routing;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using System.Buffers;
 
@@ -111,7 +112,6 @@ public sealed partial class MqttZeroBroker
             }
         }
 
-        MqttZeroRouteScope? deliveries = null;
         try
         {
             if (effectiveLease.RetainFlag)
@@ -119,27 +119,60 @@ public sealed partial class MqttZeroBroker
                 StoreRetainedMessageInMemory(effectiveLease);
             }
 
-            MqttZeroRouteEpoch routeEpoch = _routeEpochs.Current;
-            deliveries = MqttZeroRouteSelector.Select(
-                routeEpoch,
-                effectiveLease.Topic.Span,
-                sender,
-                _sharedGroupCursors,
-                _routeScopes);
-            for (int index = 0; index < deliveries.Count; index++)
+            MqttZeroFanoutDispatcher? dispatcher =
+                Volatile.Read(ref _fanoutDispatcher);
+            MqttZeroRoutePlannerLanes? lanes =
+                Volatile.Read(ref _routePlannerLanes);
+            MqttZeroShardSet? shards = Volatile.Read(ref _shardSet);
+            if (dispatcher == null || lanes == null || shards == null)
             {
-                MqttZeroDeliveryCandidate delivery = deliveries[index];
-                MqttQualityOfServiceLevel deliveryQos =
-                    (MqttQualityOfServiceLevel)Math.Min(
-                        (byte)effectiveLease.QualityOfServiceLevel,
-                        (byte)delivery.QualityOfServiceLevel);
-                await DeliverLeaseFastAsync(
-                    delivery.Session,
-                    effectiveLease,
-                    deliveryQos,
-                    delivery.Subscription.RetainAsPublished && effectiveLease.RetainFlag,
-                    delivery.SubscriptionIdentifiers,
-                    cancellationToken).ConfigureAwait(false);
+                using MqttZeroRouteScope deliveries =
+                    MqttZeroRouteSelector.Select(
+                        _routeEpochs.Current,
+                        effectiveLease.Topic.Span,
+                        sender,
+                        _sharedGroupCursors,
+                        _routeScopes);
+                for (int index = 0;
+                    index < deliveries.Count;
+                    index++)
+                {
+                    MqttZeroDeliveryCandidate delivery =
+                        deliveries[index];
+                    MqttQualityOfServiceLevel deliveryQos =
+                        (MqttQualityOfServiceLevel)Math.Min(
+                            (byte)effectiveLease.QualityOfServiceLevel,
+                            (byte)delivery.QualityOfServiceLevel);
+                    await DeliverLeaseFastAsync(
+                        delivery.Session,
+                        effectiveLease,
+                        deliveryQos,
+                        delivery.Subscription.RetainAsPublished &&
+                            effectiveLease.RetainFlag,
+                        delivery.SubscriptionIdentifiers,
+                        cancellationToken).ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                int publisherShardId = sender.ShardId;
+                MqttZeroRoutePlan plan = MqttZeroRoutePlanner.Plan(
+                    _routeEpochs.Current,
+                    effectiveLease.Topic.Span,
+                    sender,
+                    _sharedGroupCursors,
+                    shards.Count,
+                    lanes[publisherShardId]);
+                if (plan.TotalDeliveryCount > 0)
+                {
+                    await dispatcher.DispatchAsync(
+                        plan,
+                        lanes[publisherShardId],
+                        effectiveLease,
+                        senderConnection,
+                        publisherShardId,
+                        cancellationToken).ConfigureAwait(false);
+                }
             }
 
             if (!suppressPublisherAck &&
@@ -154,15 +187,6 @@ public sealed partial class MqttZeroBroker
         }
         finally
         {
-            if (deliveries != null)
-            {
-                for (int index = 0; index < deliveries.Count; index++)
-                {
-                    deliveries[index].Session.Egress?.Signal();
-                }
-            }
-
-            deliveries?.Dispose();
             if (ownsEffectiveLease)
             {
                 effectiveLease.Release();
@@ -176,7 +200,8 @@ public sealed partial class MqttZeroBroker
         MqttQualityOfServiceLevel qos,
         bool retain,
         ReadOnlyMemory<uint> subscriptionIdentifiers,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool copySubscriptionIdentifiers = false)
     {
         DateTimeOffset? expiresAt = lease.ExpiresAt;
         if (expiresAt.HasValue &&
@@ -212,12 +237,19 @@ public sealed partial class MqttZeroBroker
             }
         }
 
-        MqttZeroQueuedMessage message = MqttZeroQueuedMessage.RentWithIdentifiers(
-            lease,
-            qos,
-            retain,
-            subscriptionIdentifiers,
-            expiresAt);
+        MqttZeroQueuedMessage message = copySubscriptionIdentifiers
+            ? MqttZeroQueuedMessage.RentWithCopiedIdentifiers(
+                lease,
+                qos,
+                retain,
+                subscriptionIdentifiers,
+                expiresAt)
+            : MqttZeroQueuedMessage.RentWithIdentifiers(
+                lease,
+                qos,
+                retain,
+                subscriptionIdentifiers,
+                expiresAt);
         message.SetMessageId(GetNextMessageId());
         MqttZeroQueuedMessage? evicted = null;
         bool enqueued = false;
@@ -254,6 +286,11 @@ public sealed partial class MqttZeroBroker
         }
 
         evicted?.Release();
+        if (enqueued)
+        {
+            session.Egress?.Signal();
+        }
+
         return ValueTask.CompletedTask;
     }
 }

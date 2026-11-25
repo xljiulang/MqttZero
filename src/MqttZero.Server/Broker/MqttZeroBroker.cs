@@ -54,6 +54,8 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly SemaphoreSlim _retainedMutationGate = new(1, 1);
     private readonly SemaphoreSlim _routeMutationGate = new(1, 1);
     private readonly MqttZeroRouteEpochManager _routeEpochs = new();
+    private MqttZeroFanoutDispatcher? _fanoutDispatcher;
+    private MqttZeroRoutePlannerLanes? _routePlannerLanes;
     private MqttZeroSessionShardMap? _sessionShardMap;
     private MqttZeroShardSet? _shardSet;
     private readonly MqttZeroOptions _options;
@@ -252,6 +254,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         try
         {
             await StopAsync().ConfigureAwait(false);
+            _routePlannerLanes?.Dispose();
             _routeScopes.Dispose();
             _routeMutationGate.Dispose();
             _bufferPool.Dispose();

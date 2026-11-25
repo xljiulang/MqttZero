@@ -55,6 +55,16 @@ internal struct MqttZeroPlannedDelivery
         }
     }
 
+    internal ReadOnlyMemory<uint> SubscriptionIdentifiersMemory
+    {
+        get
+        {
+            return _identifierSource.GetSubscriptionIdentifiersMemory(
+                _identifierOffset,
+                _identifierCount);
+        }
+    }
+
     internal void IncrementIdentifierCount()
     {
         _identifierCount++;

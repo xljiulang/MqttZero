@@ -53,9 +53,15 @@ public sealed partial class MqttZeroBroker
             int shardQueueCapacity = Math.Max(
                 1024,
                 _options.MaxMessageQueueLength / shardCount);
-            _shardSet = new MqttZeroShardSet(
+            MqttZeroShardSet shardSet = new(
                 shardCount,
                 shardQueueCapacity);
+            _routePlannerLanes = new MqttZeroRoutePlannerLanes(shardCount);
+            _fanoutDispatcher = new MqttZeroFanoutDispatcher(
+                shardSet,
+                DeliverPlannedAsync,
+                HandleFanoutFailure);
+            _shardSet = shardSet;
         }
         finally
         {
@@ -162,6 +168,12 @@ public sealed partial class MqttZeroBroker
                 await shardSet.DisposeAsync().ConfigureAwait(false);
                 _shardSet = null;
             }
+
+            _fanoutDispatcher = null;
+            MqttZeroRoutePlannerLanes? routePlannerLanes =
+                _routePlannerLanes;
+            _routePlannerLanes = null;
+            routePlannerLanes?.Dispose();
 
             foreach (MqttZeroSessionState session in _sessions.Values)
             {

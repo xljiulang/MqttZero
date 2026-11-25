@@ -145,6 +145,13 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         return _identifiers.AsSpan(offset, count);
     }
 
+    internal ReadOnlyMemory<uint> GetSubscriptionIdentifiersMemory(
+        int offset,
+        int count)
+    {
+        return _identifiers.AsMemory(offset, count);
+    }
+
     internal void PlanSharedGroups(
         MqttZeroSessionState? sender,
         MqttZeroSharedGroupCursors cursors)
