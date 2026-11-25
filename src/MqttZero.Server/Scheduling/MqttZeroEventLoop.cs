@@ -13,6 +13,8 @@ internal sealed class MqttZeroEventLoop :
     private static readonly AsyncLocal<int?> CurrentShardId = new();
 
     private readonly ConcurrentQueue<MqttZeroShardWork> _queue = new();
+    private readonly ConcurrentQueue<MqttZeroShardWork> _lowPriorityQueue =
+        new();
     private readonly SemaphoreSlim _queueSpace;
     private readonly TaskCompletionSource _stopped = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
@@ -60,10 +62,48 @@ internal sealed class MqttZeroEventLoop :
         }
 
         work.MarkEnqueued();
-        _queue.Enqueue(work);
+        if (work.IsLowPriority)
+        {
+            _lowPriorityQueue.Enqueue(work);
+        }
+        else
+        {
+            _queue.Enqueue(work);
+        }
         Interlocked.Increment(ref _queuedCount);
         Interlocked.Increment(ref _enqueuedCount);
         Schedule();
+    }
+
+    public bool TryEnqueue(MqttZeroShardWork work)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        if (Volatile.Read(ref _stopping) != 0 ||
+            !_queueSpace.Wait(0))
+        {
+            return false;
+        }
+
+        if (Volatile.Read(ref _stopping) != 0)
+        {
+            _queueSpace.Release();
+            return false;
+        }
+
+        work.MarkEnqueued();
+        if (work.IsLowPriority)
+        {
+            _lowPriorityQueue.Enqueue(work);
+        }
+        else
+        {
+            _queue.Enqueue(work);
+        }
+
+        Interlocked.Increment(ref _queuedCount);
+        Interlocked.Increment(ref _enqueuedCount);
+        Schedule();
+        return true;
     }
 
     public async ValueTask<T> InvokeAsync<T>(
@@ -87,7 +127,8 @@ internal sealed class MqttZeroEventLoop :
     public MqttZeroShardDiagnostics GetSnapshot()
     {
         double oldestWorkAgeMilliseconds = 0;
-        if (_queue.TryPeek(out MqttZeroShardWork? oldestWork))
+        if (_queue.TryPeek(out MqttZeroShardWork? oldestWork) ||
+            _lowPriorityQueue.TryPeek(out oldestWork))
         {
             oldestWorkAgeMilliseconds = Stopwatch.GetElapsedTime(
                 oldestWork.EnqueuedTimestamp).TotalMilliseconds;
@@ -139,7 +180,8 @@ internal sealed class MqttZeroEventLoop :
                 Stopwatch.GetElapsedTime(drainStarted) <
                     TimeSpan.FromTicks(DrainBudgetTimestampTicks))
             {
-                if (!_queue.TryDequeue(out MqttZeroShardWork? work))
+                if (!_queue.TryDequeue(out MqttZeroShardWork? work) &&
+                    !_lowPriorityQueue.TryDequeue(out work))
                 {
                     break;
                 }
@@ -172,7 +214,7 @@ internal sealed class MqttZeroEventLoop :
                 previousShardId >= 0 ? previousShardId : null;
             Volatile.Write(ref _scheduled, 0);
             Thread.MemoryBarrier();
-            if (!_queue.IsEmpty)
+            if (!_queue.IsEmpty || !_lowPriorityQueue.IsEmpty)
             {
                 Schedule();
             }

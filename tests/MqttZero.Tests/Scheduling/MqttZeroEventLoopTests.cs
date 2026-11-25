@@ -254,6 +254,112 @@ public sealed class MqttZeroEventLoopTests
         await shard.StopAsync();
     }
 
+    [Fact(Timeout = 5_000)]
+    public async Task LowPriorityWorkRunsAfterQueuedHighPriorityWork()
+    {
+        await using MqttZeroEventLoop shard = new(0, 16);
+        TaskCompletionSource blockerStarted = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseBlocker = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource completed = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        List<string> order = [];
+
+        await shard.EnqueueAsync(
+            new DelegateShardWork(
+                async cancellationToken =>
+                {
+                    blockerStarted.TrySetResult();
+                    await releaseBlocker.Task.WaitAsync(cancellationToken);
+                }),
+            TestContext.Current.CancellationToken);
+        await blockerStarted.Task.WaitAsync(
+            TestContext.Current.CancellationToken);
+        await shard.EnqueueAsync(
+            new PriorityShardWork(
+                isLowPriority: true,
+                _ =>
+                {
+                    order.Add("low");
+                    if (order.Count == 2)
+                    {
+                        completed.TrySetResult();
+                    }
+
+                    return ValueTask.CompletedTask;
+                }),
+            TestContext.Current.CancellationToken);
+        await shard.EnqueueAsync(
+            new PriorityShardWork(
+                isLowPriority: false,
+                _ =>
+                {
+                    order.Add("high");
+                    if (order.Count == 2)
+                    {
+                        completed.TrySetResult();
+                    }
+
+                    return ValueTask.CompletedTask;
+                }),
+            TestContext.Current.CancellationToken);
+        releaseBlocker.TrySetResult();
+
+        await completed.Task.WaitAsync(
+            TestContext.Current.CancellationToken);
+        Assert.Equal(["high", "low"], order);
+        await shard.StopAsync();
+    }
+
+    [Fact(Timeout = 5_000)]
+    public async Task TryEnqueueRunsWorkWhenCapacityIsAvailable()
+    {
+        await using MqttZeroEventLoop shard = new(0, 4);
+        TaskCompletionSource completed = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        bool enqueued = shard.TryEnqueue(
+            new DelegateShardWork(
+                _ =>
+                {
+                    completed.TrySetResult();
+                    return ValueTask.CompletedTask;
+                }));
+
+        Assert.True(enqueued);
+        await completed.Task.WaitAsync(
+            TestContext.Current.CancellationToken);
+        await shard.StopAsync();
+    }
+
+    [Fact(Timeout = 5_000)]
+    public async Task TryEnqueueReturnsFalseWhenQueueIsFull()
+    {
+        await using MqttZeroEventLoop shard = new(0, 1);
+        TaskCompletionSource blockerStarted = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseBlocker = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        await shard.EnqueueAsync(
+            new DelegateShardWork(
+                async cancellationToken =>
+                {
+                    blockerStarted.TrySetResult();
+                    await releaseBlocker.Task.WaitAsync(cancellationToken);
+                }),
+            TestContext.Current.CancellationToken);
+        await blockerStarted.Task.WaitAsync(
+            TestContext.Current.CancellationToken);
+
+        bool enqueued = shard.TryEnqueue(
+            new DelegateShardWork(_ => ValueTask.CompletedTask));
+
+        Assert.False(enqueued);
+        releaseBlocker.TrySetResult();
+        await shard.StopAsync();
+    }
+
     private sealed class DelegateShardWork : MqttZeroShardWork
     {
         private readonly Func<CancellationToken, ValueTask> _execute;
@@ -263,6 +369,28 @@ public sealed class MqttZeroEventLoopTests
         {
             _execute = execute;
         }
+
+        public override ValueTask ExecuteAsync(
+            MqttZeroEventLoop shard,
+            CancellationToken cancellationToken)
+        {
+            return _execute(cancellationToken);
+        }
+    }
+
+    private sealed class PriorityShardWork : MqttZeroShardWork
+    {
+        private readonly Func<CancellationToken, ValueTask> _execute;
+
+        public PriorityShardWork(
+            bool isLowPriority,
+            Func<CancellationToken, ValueTask> execute)
+        {
+            IsLowPriority = isLowPriority;
+            _execute = execute;
+        }
+
+        public override bool IsLowPriority { get; }
 
         public override ValueTask ExecuteAsync(
             MqttZeroEventLoop shard,

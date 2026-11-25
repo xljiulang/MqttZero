@@ -15,6 +15,8 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
     {
         RunContinuationsAsynchronously = true
     };
+    private bool _autoRelease;
+    private int _autoReleaseArmed;
     private MqttZeroRoutePlanBuffer? _buffer;
     private int _completed;
     private Func<
@@ -28,7 +30,9 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
     private MqttZeroMessageLease? _lease;
     private MqttZeroRoutePlan _plan;
     private int _remainingBatchCount;
+    private int _returned;
     private MqttZeroClientConnection? _senderConnection;
+    private Action<MqttZeroRoutePlanBuffer>? _returnBuffer;
     private short _version;
 
     private MqttZeroFanoutOperation()
@@ -55,7 +59,9 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
             MqttZeroClientConnection?,
             CancellationToken,
             ValueTask> deliver,
-        Action<Exception> faulted)
+        Action<Exception> faulted,
+        Action<MqttZeroRoutePlanBuffer>? returnBuffer = null,
+        bool autoRelease = false)
     {
         ArgumentNullException.ThrowIfNull(buffer);
         ArgumentNullException.ThrowIfNull(lease);
@@ -75,9 +81,13 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
         operation._senderConnection = senderConnection;
         operation._deliver = deliver;
         operation._faulted = faulted;
+        operation._returnBuffer = returnBuffer;
+        operation._autoRelease = autoRelease;
+        operation._autoReleaseArmed = 0;
         operation._failure = null;
         operation._remainingBatchCount = expectedBatchCount;
         operation._completed = 0;
+        operation._returned = 0;
         lease.Retain();
         return operation;
     }
@@ -154,9 +164,21 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
 
     internal void Seal()
     {
+        if (_autoRelease)
+        {
+            Volatile.Write(ref _autoReleaseArmed, 1);
+        }
+
         Thread.MemoryBarrier();
         if (Volatile.Read(ref _remainingBatchCount) == 0)
         {
+            if (_autoRelease &&
+                Volatile.Read(ref _completed) != 0)
+            {
+                ReturnToPool();
+                return;
+            }
+
             Complete();
         }
     }
@@ -200,6 +222,16 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
         }
 
         Exception? failure = Volatile.Read(ref _failure);
+        if (_autoRelease)
+        {
+            if (Volatile.Read(ref _autoReleaseArmed) != 0)
+            {
+                ReturnToPool();
+            }
+
+            return;
+        }
+
         if (failure == null)
         {
             _completion.SetResult(true);
@@ -212,7 +244,14 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
 
     private void ReturnToPool()
     {
+        if (Interlocked.Exchange(ref _returned, 1) != 0)
+        {
+            return;
+        }
+
+        MqttZeroRoutePlanBuffer? buffer = _buffer;
         MqttZeroMessageLease? lease = _lease;
+        Action<MqttZeroRoutePlanBuffer>? returnBuffer = _returnBuffer;
         _buffer = null;
         _deliver = null;
         _failure = null;
@@ -221,7 +260,15 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
         _plan = default;
         _remainingBatchCount = 0;
         _senderConnection = null;
+        _returnBuffer = null;
+        _autoRelease = false;
+        _autoReleaseArmed = 0;
         lease?.Release();
+        if (buffer != null)
+        {
+            returnBuffer?.Invoke(buffer);
+        }
+
         Pool.Enqueue(this);
     }
 }

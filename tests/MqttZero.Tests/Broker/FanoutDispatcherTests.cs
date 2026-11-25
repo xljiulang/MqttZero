@@ -349,6 +349,12 @@ public sealed class FanoutDispatcherTests
             publisher,
             publisherConnection,
             "second/topic");
+        await WaitForPendingMessageAsync(
+            firstReceiver,
+            TestContext.Current.CancellationToken);
+        await WaitForPendingMessageAsync(
+            secondReceiver,
+            TestContext.Current.CancellationToken);
 
         lock (firstReceiver.SyncRoot)
         {
@@ -676,6 +682,30 @@ public sealed class FanoutDispatcherTests
         finally
         {
             lease.Release();
+        }
+    }
+
+    private static async Task WaitForPendingMessageAsync(
+        MqttZeroSessionState session,
+        CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource timeout =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        while (true)
+        {
+            lock (session.SyncRoot)
+            {
+                if (session.PendingMessages.Count > 0)
+                {
+                    return;
+                }
+            }
+
+            await Task.Delay(
+                TimeSpan.FromMilliseconds(1),
+                timeout.Token);
         }
     }
 

@@ -6,6 +6,7 @@ namespace MqttZero.Server.Egress;
 internal sealed class MqttZeroEgressActor : IAsyncDisposable
 {
     private const int MaximumControlQueueLength = 1024;
+    private const int CoalescePassCount = 1;
 
     private readonly Queue<MqttZeroEgressControlFrame> _controlQueue = new();
     private readonly List<MqttZeroEgressControlFrame> _controlBatch = [];
@@ -19,6 +20,7 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
     private readonly TaskCompletionSource _stopped = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly MqttZeroEgressWork _work;
+    private int _coalesceRemaining;
     private int _dataSignaled;
     private int _flushPending;
     private int _scheduled;
@@ -62,11 +64,19 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
 
     public void Signal()
     {
+        SignalCore(allowCoalesce: true);
+    }
+
+    private void SignalCore(bool allowCoalesce)
+    {
         if (Volatile.Read(ref _stopping) != 0)
         {
             return;
         }
 
+        Volatile.Write(
+            ref _coalesceRemaining,
+            allowCoalesce ? CoalescePassCount : 0);
         if (Volatile.Read(ref _flushPending) != 0)
         {
             Volatile.Write(ref _dataSignaled, 1);
@@ -185,11 +195,20 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
 
             if (Volatile.Read(ref _stopping) == 0)
             {
-                bool hasMoreData = await _drainData(cancellationToken)
-                    .ConfigureAwait(false);
-                if (hasMoreData)
+                int coalesceRemaining = Interlocked.Decrement(
+                    ref _coalesceRemaining);
+                if (coalesceRemaining >= 0)
                 {
                     Volatile.Write(ref _dataSignaled, 1);
+                }
+                else
+                {
+                    bool hasMoreData = await _drainData(cancellationToken)
+                        .ConfigureAwait(false);
+                    if (hasMoreData)
+                    {
+                        Volatile.Write(ref _dataSignaled, 1);
+                    }
                 }
             }
         }
@@ -265,7 +284,7 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
         Volatile.Write(
             ref _state,
             (int)MqttZeroEgressActorState.Idle);
-        Signal();
+        SignalCore(allowCoalesce: false);
     }
 
     private async ValueTask RunControlBatchAsync(
@@ -335,7 +354,10 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
     {
         if (Interlocked.CompareExchange(ref _scheduled, 1, 0) == 0)
         {
-            _ = ScheduleWorkAsync();
+            if (!_shard.TryEnqueue(_work))
+            {
+                _ = ScheduleWorkAsync();
+            }
         }
     }
 

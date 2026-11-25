@@ -75,6 +75,60 @@ internal sealed class MqttZeroFanoutDispatcher
             plan.NonEmptyBatchCount,
             _deliver,
             _faulted);
+        await ScheduleAndExecuteAsync(
+            operation,
+            plan,
+            publisherShardId,
+            cancellationToken).ConfigureAwait(false);
+        operation.Seal();
+        await operation.Completion.ConfigureAwait(false);
+        int localBatchCount =
+            plan.Batches[publisherShardId].Count > 0 ? 1 : 0;
+        _diagnostics?.RecordPublish(
+            localBatchCount,
+            plan.NonEmptyBatchCount - localBatchCount,
+            plan.TotalDeliveryCount,
+            Stopwatch.GetTimestamp() - started);
+    }
+
+    public async ValueTask DispatchQosZeroAsync(
+        MqttZeroRoutePlan plan,
+        MqttZeroRoutePlanBuffer buffer,
+        MqttZeroMessageLease lease,
+        MqttZeroClientConnection? senderConnection,
+        int publisherShardId,
+        Action<MqttZeroRoutePlanBuffer> returnBuffer,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(buffer);
+        ArgumentNullException.ThrowIfNull(lease);
+        ArgumentNullException.ThrowIfNull(returnBuffer);
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateDispatch(plan, buffer, publisherShardId);
+        MqttZeroFanoutOperation operation = MqttZeroFanoutOperation.Rent(
+            plan,
+            buffer,
+            lease,
+            senderConnection,
+            plan.NonEmptyBatchCount,
+            _deliver,
+            _faulted,
+            returnBuffer,
+            autoRelease: true);
+        await ScheduleAndExecuteAsync(
+            operation,
+            plan,
+            publisherShardId,
+            cancellationToken).ConfigureAwait(false);
+        operation.Seal();
+    }
+
+    private async ValueTask ScheduleAndExecuteAsync(
+        MqttZeroFanoutOperation operation,
+        MqttZeroRoutePlan plan,
+        int publisherShardId,
+        CancellationToken cancellationToken)
+    {
         for (int shardId = 0; shardId < plan.Batches.Length; shardId++)
         {
             if (shardId == publisherShardId ||
@@ -87,9 +141,12 @@ internal sealed class MqttZeroFanoutDispatcher
                 MqttZeroFanoutBatchWork.Rent(operation, shardId);
             try
             {
-                await _shards[shardId].EnqueueAsync(
-                    work,
-                    CancellationToken.None).ConfigureAwait(false);
+                if (!_shards[shardId].TryEnqueue(work))
+                {
+                    await _shards[shardId].EnqueueAsync(
+                        work,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
             }
             catch (Exception exception)
             {
@@ -117,14 +174,28 @@ internal sealed class MqttZeroFanoutDispatcher
             }
         }
 
-        operation.Seal();
-        await operation.Completion.ConfigureAwait(false);
-        int localBatchCount =
-            plan.Batches[publisherShardId].Count > 0 ? 1 : 0;
-        _diagnostics?.RecordPublish(
-            localBatchCount,
-            plan.NonEmptyBatchCount - localBatchCount,
-            plan.TotalDeliveryCount,
-            Stopwatch.GetTimestamp() - started);
+    }
+
+    private void ValidateDispatch(
+        MqttZeroRoutePlan plan,
+        MqttZeroRoutePlanBuffer buffer,
+        int publisherShardId)
+    {
+        if (plan.Batches.Length != _shards.Count)
+        {
+            throw new InvalidOperationException(
+                "The route plan shard count does not match the shard set.");
+        }
+
+        if (buffer.ShardCount != _shards.Count)
+        {
+            throw new InvalidOperationException(
+                "The route plan buffer shard count does not match the shard set.");
+        }
+
+        if ((uint)publisherShardId >= (uint)_shards.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(publisherShardId));
+        }
     }
 }

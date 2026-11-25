@@ -11,6 +11,14 @@ internal sealed class MqttZeroEgressWork : MqttZeroShardWork
         _actor = actor;
     }
 
+    public override bool IsLowPriority
+    {
+        get
+        {
+            return true;
+        }
+    }
+
     public override ValueTask ExecuteAsync(
         MqttZeroEventLoop shard,
         CancellationToken cancellationToken)

@@ -51,15 +51,19 @@ public sealed partial class MqttZeroBroker
                 shardCount,
                 shardQueueCapacity);
             MqttZeroRoutePlannerLanes? routePlannerLanes = null;
+            MqttZeroRoutePlanBufferPool? qosZeroPlanBuffers = null;
             try
             {
                 routePlannerLanes = new MqttZeroRoutePlannerLanes(shardCount);
+                qosZeroPlanBuffers = new MqttZeroRoutePlanBufferPool(
+                    shardCount);
                 MqttZeroFanoutDispatcher fanoutDispatcher = new(
                     shardSet,
                     DeliverPlannedAsync,
                     HandleFanoutFailure,
                     _fanoutDiagnostics);
                 _routePlannerLanes = routePlannerLanes;
+                _qosZeroPlanBuffers = qosZeroPlanBuffers;
                 _fanoutDispatcher = fanoutDispatcher;
                 _shardSet = shardSet;
                 await RestorePersistenceAsync(cancellationToken).ConfigureAwait(false);
@@ -74,9 +78,11 @@ public sealed partial class MqttZeroBroker
             {
                 _fanoutDispatcher = null;
                 _routePlannerLanes = null;
+                _qosZeroPlanBuffers = null;
                 _shardSet = null;
                 _sessionShardMap = null;
                 routePlannerLanes?.Dispose();
+                qosZeroPlanBuffers?.Dispose();
                 await shardSet.DisposeAsync().ConfigureAwait(false);
                 throw;
             }
@@ -188,6 +194,10 @@ public sealed partial class MqttZeroBroker
             }
 
             _fanoutDispatcher = null;
+            MqttZeroRoutePlanBufferPool? qosZeroPlanBuffers =
+                _qosZeroPlanBuffers;
+            _qosZeroPlanBuffers = null;
+            qosZeroPlanBuffers?.Dispose();
             MqttZeroRoutePlannerLanes? routePlannerLanes =
                 _routePlannerLanes;
             _routePlannerLanes = null;

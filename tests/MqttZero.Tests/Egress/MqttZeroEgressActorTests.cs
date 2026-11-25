@@ -7,6 +7,63 @@ namespace MqttZero.Tests.Egress;
 public sealed class MqttZeroEgressActorTests
 {
     [Fact(Timeout = 5_000)]
+    public async Task SignalYieldsBeforeFirstDataDrain()
+    {
+        await using MqttZeroEventLoop shard = new(0, 32);
+        TaskCompletionSource blockerStarted = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseBlocker = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource drainStarted = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        int drainCount = 0;
+        List<string> order = [];
+        await using MqttZeroEgressActor actor = CreateActor(
+            shard,
+            (_, _) => ValueTask.CompletedTask,
+            _ =>
+            {
+                order.Add("drain");
+                Interlocked.Increment(ref drainCount);
+                drainStarted.TrySetResult();
+                return ValueTask.FromResult(false);
+            },
+            _ => { });
+
+        await shard.EnqueueAsync(
+            new DelegateShardWork(
+                async cancellationToken =>
+                {
+                    blockerStarted.TrySetResult();
+                    await releaseBlocker.Task.WaitAsync(cancellationToken);
+                }),
+            TestContext.Current.CancellationToken);
+        await blockerStarted.Task.WaitAsync(
+            TestContext.Current.CancellationToken);
+        actor.Signal();
+        await Task.Delay(
+            TimeSpan.FromMilliseconds(20),
+            TestContext.Current.CancellationToken);
+        await shard.EnqueueAsync(
+            new DelegateShardWork(
+                _ =>
+                {
+                    order.Add("batch");
+                    return ValueTask.CompletedTask;
+                }),
+            TestContext.Current.CancellationToken);
+        releaseBlocker.TrySetResult();
+        await drainStarted.Task.WaitAsync(
+            TestContext.Current.CancellationToken);
+
+        await WaitUntilAsync(
+            () => Volatile.Read(ref drainCount) == 1,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(["batch", "drain"], order);
+        await actor.StopAsync();
+    }
+
+    [Fact(Timeout = 5_000)]
     public async Task MultipleSignalsCoalesceIntoOneActiveDrain()
     {
         await using MqttZeroEventLoop shard = new(0, 32);
@@ -76,6 +133,9 @@ public sealed class MqttZeroEgressActorTests
         try
         {
             await controlCompletion.WaitAsync(
+                TestContext.Current.CancellationToken);
+            await WaitUntilAsync(
+                () => sequence.Count == 2,
                 TestContext.Current.CancellationToken);
             Assert.Equal(["control", "data"], sequence);
         }
@@ -182,6 +242,24 @@ public sealed class MqttZeroEgressActorTests
             await Task.Delay(
                 TimeSpan.FromMilliseconds(10),
                 timeout.Token);
+        }
+    }
+
+    private sealed class DelegateShardWork : MqttZeroShardWork
+    {
+        private readonly Func<CancellationToken, ValueTask> _execute;
+
+        public DelegateShardWork(
+            Func<CancellationToken, ValueTask> execute)
+        {
+            _execute = execute;
+        }
+
+        public override ValueTask ExecuteAsync(
+            MqttZeroEventLoop shard,
+            CancellationToken cancellationToken)
+        {
+            return _execute(cancellationToken);
         }
     }
 }

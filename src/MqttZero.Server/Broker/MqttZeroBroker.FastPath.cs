@@ -132,22 +132,67 @@ public sealed partial class MqttZeroBroker
                 throw new InvalidOperationException(
                     "The MQTTZero event loop shards are not running.");
             int publisherShardId = sender.ShardId;
-            MqttZeroRoutePlan plan = MqttZeroRoutePlanner.Plan(
-                _routeEpochs.Current,
-                effectiveLease.Topic.Span,
-                sender,
-                _sharedGroupCursors,
-                shards.Count,
-                lanes[publisherShardId]);
-            if (plan.TotalDeliveryCount > 0)
+            if (effectiveLease.QualityOfServiceLevel ==
+                MqttQualityOfServiceLevel.AtMostOnce)
             {
-                await dispatcher.DispatchAsync(
-                    plan,
-                    lanes[publisherShardId],
-                    effectiveLease,
-                    senderConnection,
-                    publisherShardId,
-                    cancellationToken).ConfigureAwait(false);
+                MqttZeroRoutePlanBufferPool qosZeroPlanBuffers =
+                    Volatile.Read(ref _qosZeroPlanBuffers) ??
+                    throw new InvalidOperationException(
+                        "The MQTTZero QoS 0 planner buffers are not running.");
+                MqttZeroRoutePlanBuffer buffer =
+                    qosZeroPlanBuffers.Rent();
+                MqttZeroRoutePlan plan;
+                try
+                {
+                    plan = MqttZeroRoutePlanner.Plan(
+                        _routeEpochs.Current,
+                        effectiveLease.Topic.Span,
+                        sender,
+                        _sharedGroupCursors,
+                        shards.Count,
+                        buffer);
+                }
+                catch
+                {
+                    qosZeroPlanBuffers.Return(buffer);
+                    throw;
+                }
+
+                if (plan.TotalDeliveryCount == 0)
+                {
+                    qosZeroPlanBuffers.Return(buffer);
+                }
+                else
+                {
+                    await dispatcher.DispatchQosZeroAsync(
+                        plan,
+                        buffer,
+                        effectiveLease,
+                        senderConnection,
+                        publisherShardId,
+                        qosZeroPlanBuffers.ReturnCallback,
+                        cancellationToken).ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                MqttZeroRoutePlan plan = MqttZeroRoutePlanner.Plan(
+                    _routeEpochs.Current,
+                    effectiveLease.Topic.Span,
+                    sender,
+                    _sharedGroupCursors,
+                    shards.Count,
+                    lanes[publisherShardId]);
+                if (plan.TotalDeliveryCount > 0)
+                {
+                    await dispatcher.DispatchAsync(
+                        plan,
+                        lanes[publisherShardId],
+                        effectiveLease,
+                        senderConnection,
+                        publisherShardId,
+                        cancellationToken).ConfigureAwait(false);
+                }
             }
 
             if (!suppressPublisherAck &&

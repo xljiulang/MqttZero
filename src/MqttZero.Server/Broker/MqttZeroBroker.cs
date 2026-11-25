@@ -57,6 +57,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly MqttZeroFanoutDiagnostics _fanoutDiagnostics = new();
     private readonly MqttZeroRouteEpochManager _routeEpochs = new();
     private MqttZeroFanoutDispatcher? _fanoutDispatcher;
+    private MqttZeroRoutePlanBufferPool? _qosZeroPlanBuffers;
     private MqttZeroRoutePlannerLanes? _routePlannerLanes;
     private MqttZeroSessionShardMap? _sessionShardMap;
     private MqttZeroShardSet? _shardSet;
@@ -270,6 +271,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         try
         {
             await StopAsync().ConfigureAwait(false);
+            _qosZeroPlanBuffers?.Dispose();
             _routePlannerLanes?.Dispose();
             _routeMutationGate.Dispose();
             _bufferPool.Dispose();
