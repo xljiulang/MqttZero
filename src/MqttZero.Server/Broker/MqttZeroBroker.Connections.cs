@@ -31,7 +31,7 @@ public sealed partial class MqttZeroBroker
     /// <param name="isWebSocket">Whether the connection uses WebSocket.</param>
     /// <param name="cancellationToken">A token that terminates the connection.</param>
     /// <returns>A task that completes when the connection closes.</returns>
-    public async ValueTask AcceptConnectionAsync(
+    public ValueTask AcceptConnectionAsync(
         PipeReader input,
         PipeWriter output,
         EndPoint? remoteEndPoint,
@@ -39,14 +39,16 @@ public sealed partial class MqttZeroBroker
         bool isWebSocket,
         CancellationToken cancellationToken)
     {
-        await AcceptConnectionAsync(
-            input,
-            output,
-            remoteEndPoint,
-            isSecure,
-            isWebSocket,
-            true,
-            cancellationToken).ConfigureAwait(false);
+        return AcceptConnectionAsync(
+            new MqttZeroTransportConnection(
+                input,
+                output,
+                remoteEndPoint,
+                isSecure,
+                isWebSocket,
+                allowPacketFragmentation: true),
+            clientCertificate: null,
+            cancellationToken);
     }
 
     /// <summary>
@@ -60,7 +62,7 @@ public sealed partial class MqttZeroBroker
     /// <param name="allowPacketFragmentation">Whether outbound PUBLISH packets may be split across writes.</param>
     /// <param name="cancellationToken">A token that terminates the connection.</param>
     /// <returns>A task that completes when the connection closes.</returns>
-    public async ValueTask AcceptConnectionAsync(
+    public ValueTask AcceptConnectionAsync(
         PipeReader input,
         PipeWriter output,
         EndPoint? remoteEndPoint,
@@ -69,19 +71,59 @@ public sealed partial class MqttZeroBroker
         bool allowPacketFragmentation,
         CancellationToken cancellationToken)
     {
-        await AcceptConnectionAsync(
-            input,
-            output,
-            remoteEndPoint,
-            isSecure,
-            isWebSocket,
-            null,
-            allowPacketFragmentation,
-            cancellationToken).ConfigureAwait(false);
+        return AcceptConnectionAsync(
+            new MqttZeroTransportConnection(
+                input,
+                output,
+                remoteEndPoint,
+                isSecure,
+                isWebSocket,
+                allowPacketFragmentation),
+            clientCertificate: null,
+            cancellationToken);
     }
 
     /// <summary>Processes one accepted connection with client certificate data.</summary>
-    public async ValueTask AcceptConnectionAsync(
+    public ValueTask AcceptConnectionAsync(
+        PipeReader input,
+        PipeWriter output,
+        EndPoint? remoteEndPoint,
+        bool isSecure,
+        bool isWebSocket,
+        X509Certificate2? clientCertificate,
+        bool allowPacketFragmentation,
+        CancellationToken cancellationToken)
+    {
+        return AcceptConnectionAsync(
+            new MqttZeroTransportConnection(
+                input,
+                output,
+                remoteEndPoint,
+                isSecure,
+                isWebSocket,
+                allowPacketFragmentation),
+            clientCertificate,
+            cancellationToken);
+    }
+
+    internal ValueTask AcceptConnectionAsync(
+        MqttZeroTransportConnection transport,
+        X509Certificate2? clientCertificate,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(transport);
+        return AcceptConnectionCoreAsync(
+            transport.Input,
+            transport.Output,
+            transport.RemoteEndPoint,
+            transport.IsSecure,
+            transport.IsWebSocket,
+            clientCertificate,
+            transport.AllowPacketFragmentation,
+            cancellationToken);
+    }
+
+    private async ValueTask AcceptConnectionCoreAsync(
         PipeReader input,
         PipeWriter output,
         EndPoint? remoteEndPoint,
