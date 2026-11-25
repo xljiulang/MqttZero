@@ -52,7 +52,6 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly Dictionary<string, SessionMutationLock> _sessionMutationLocks = [];
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _retainedMutationGate = new(1, 1);
-    private MqttZeroInboundDispatcher? _inboundDispatcher;
     private MqttZeroSessionShardMap? _sessionShardMap;
     private MqttZeroShardSet? _shardSet;
     private readonly MqttZeroOptions _options;

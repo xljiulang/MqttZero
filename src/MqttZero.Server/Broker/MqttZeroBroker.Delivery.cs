@@ -4,6 +4,7 @@ using MqttZero.Server.Observers;
 using MqttZero.Server.Clients;
 using MqttZero.Protocol;
 using MqttZero.Server.Routing;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using MqttZero.Server.Storage;
 using System.Buffers;
@@ -1029,7 +1030,7 @@ public sealed partial class MqttZeroBroker
     {
         get
         {
-            return _inboundDispatcher != null;
+            return _shardSet != null;
         }
     }
 
@@ -1048,23 +1049,35 @@ public sealed partial class MqttZeroBroker
         CancellationToken cancellationToken,
         long messageId = 0)
     {
-        MqttZeroInboundDispatcher dispatcher = _inboundDispatcher ??
-            throw new InvalidOperationException("The inbound dispatcher is not running.");
+        MqttZeroShardSet shards = _shardSet ??
+            throw new InvalidOperationException(
+                "The event loop shards are not running.");
         MqttZeroInboundWork work = MqttZeroInboundWork.Rent(
             lease,
             sender,
             senderConnection,
             messageId);
+        MqttZeroInboundShardWork shardWork = MqttZeroInboundShardWork.Rent(
+            work,
+            DispatchInboundWorkAsync,
+            HandleInboundShardFailure);
+        if (senderConnection.ShardId < 0 ||
+            senderConnection.ShardId >= shards.Count)
+        {
+            shardWork.Release();
+            throw new InvalidOperationException(
+                "The MQTT connection references an invalid event loop shard.");
+        }
+
         try
         {
-            await dispatcher.EnqueueAsync(
-                senderConnection.ConnectionId,
-                work,
+            await shards[senderConnection.ShardId].EnqueueAsync(
+                shardWork,
                 cancellationToken).ConfigureAwait(false);
         }
         catch
         {
-            work.Release();
+            shardWork.Release();
             throw;
         }
     }
@@ -1082,6 +1095,17 @@ public sealed partial class MqttZeroBroker
             work.Sender.ClientId,
             work.MessageId,
             cancellationToken).ConfigureAwait(false);
+    }
+
+    private void HandleInboundShardFailure(Exception exception)
+    {
+        MqttZeroBrokerLogging.LogInboundDispatcherFailure(
+            _logger,
+            exception);
+        Volatile.Write(ref _stopping, 1);
+        Volatile.Write(
+            ref _state,
+            (int)MqttZeroBrokerState.Stopping);
     }
 
     private static void ReleaseSessionMessages(MqttZeroSessionState session)
