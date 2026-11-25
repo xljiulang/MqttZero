@@ -1,5 +1,6 @@
 using MqttZero.Memory;
 using MqttZero.Server.Observers;
+using MqttZero.Server.Egress;
 using MqttZero.Protocol;
 using MqttZero.Server.Sessions;
 using System.Buffers;
@@ -20,6 +21,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly PipeWriter _writer;
     private readonly DateTimeOffset _connectedAt;
+    private MqttZeroEgressActor? _egress;
     private readonly TimeProvider _timeProvider;
     private int _disposed;
     private int _pendingControlWrites;
@@ -69,6 +71,20 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     internal long ConnectionId { get; }
 
     internal int ShardId { get; set; }
+
+    internal MqttZeroEgressActor? Egress
+    {
+        get
+        {
+            return _egress;
+        }
+    }
+
+    internal void AttachEgress(MqttZeroEgressActor egress)
+    {
+        ArgumentNullException.ThrowIfNull(egress);
+        _egress = egress;
+    }
 
     public bool IsSecure { get; }
 

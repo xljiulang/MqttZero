@@ -700,9 +700,17 @@ public sealed partial class MqttZeroBroker
             {
                 for (int index = 0; index < frames.Count; index++)
                 {
-                    await connection.WriteEncodedControlAsync(
-                        frames[index].EncodedMemory,
-                        token).ConfigureAwait(false);
+                    MqttZeroEgressControlFrame frame = frames[index];
+                    if (frame.IsOperation)
+                    {
+                        await frame.ExecuteAsync(token).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await connection.WriteEncodedControlAsync(
+                            frame.EncodedMemory,
+                            token).ConfigureAwait(false);
+                    }
                 }
             },
             DrainAsync,
@@ -733,6 +741,7 @@ public sealed partial class MqttZeroBroker
             session.Egress = egress;
         }
 
+        connection.AttachEgress(egress);
         egress.Signal();
         return egress;
     }

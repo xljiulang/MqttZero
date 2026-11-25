@@ -4,7 +4,8 @@ namespace MqttZero.Server.Egress;
 
 internal sealed class MqttZeroEgressControlFrame : IDisposable
 {
-    private readonly MqttZeroPooledBufferWriter _writer;
+    private readonly Func<CancellationToken, ValueTask>? _operation;
+    private readonly MqttZeroPooledBufferWriter? _writer;
     private readonly TaskCompletionSource _completion = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -17,11 +18,32 @@ internal sealed class MqttZeroEgressControlFrame : IDisposable
             encodedLength);
     }
 
+    private MqttZeroEgressControlFrame(
+        Func<CancellationToken, ValueTask> operation)
+    {
+        _operation = operation;
+    }
+
+    public static MqttZeroEgressControlFrame ForOperation(
+        Func<CancellationToken, ValueTask> operation)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        return new MqttZeroEgressControlFrame(operation);
+    }
+
+    public bool IsOperation
+    {
+        get
+        {
+            return _operation != null;
+        }
+    }
+
     public MqttZeroPooledBufferWriter Writer
     {
         get
         {
-            return _writer;
+            return _writer!;
         }
     }
 
@@ -29,7 +51,7 @@ internal sealed class MqttZeroEgressControlFrame : IDisposable
     {
         get
         {
-            return _writer.WrittenMemory;
+            return _writer!.WrittenMemory;
         }
     }
 
@@ -46,6 +68,13 @@ internal sealed class MqttZeroEgressControlFrame : IDisposable
         _completion.TrySetResult();
     }
 
+    public ValueTask ExecuteAsync(CancellationToken cancellationToken)
+    {
+        return _operation == null
+            ? ValueTask.CompletedTask
+            : _operation(cancellationToken);
+    }
+
     public void Fail(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
@@ -54,6 +83,6 @@ internal sealed class MqttZeroEgressControlFrame : IDisposable
 
     public void Dispose()
     {
-        _writer.Dispose();
+        _writer?.Dispose();
     }
 }

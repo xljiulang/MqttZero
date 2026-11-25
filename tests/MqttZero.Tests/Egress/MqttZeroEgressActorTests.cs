@@ -112,7 +112,10 @@ public sealed class MqttZeroEgressActorTests
         releaseControlWrite.TrySetResult();
         await stop.WaitAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(completion.IsCompleted);
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+            await completion.WaitAsync(
+                TimeSpan.FromSeconds(1),
+                TestContext.Current.CancellationToken));
         await Assert.ThrowsAnyAsync<Exception>(async () =>
             await actor.PostControlAsync(
                 CreateFrame(bufferPool),

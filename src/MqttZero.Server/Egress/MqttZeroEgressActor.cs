@@ -104,6 +104,14 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(frame);
         ThrowIfStopping();
+        if (_shard.IsCurrent)
+        {
+            await ExecuteControlDirectAsync(
+                frame,
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         await _shard.InvokeAsync(
             _ =>
             {
@@ -114,6 +122,15 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
         await frame.Completion
             .WaitAsync(cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    public ValueTask PostOperationAsync(
+        Func<CancellationToken, ValueTask> operation,
+        CancellationToken cancellationToken)
+    {
+        return PostControlAsync(
+            MqttZeroEgressControlFrame.ForOperation(operation),
+            cancellationToken);
     }
 
     public async ValueTask StopAsync()
@@ -273,6 +290,23 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
             }
 
             throw;
+        }
+        finally
+        {
+            _controlBatch.Clear();
+        }
+    }
+
+    private async ValueTask ExecuteControlDirectAsync(
+        MqttZeroEgressControlFrame frame,
+        CancellationToken cancellationToken)
+    {
+        _controlBatch.Clear();
+        _controlBatch.Add(frame);
+        try
+        {
+            await RunControlBatchAsync(cancellationToken)
+                .ConfigureAwait(false);
         }
         finally
         {
