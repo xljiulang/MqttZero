@@ -13,6 +13,7 @@ namespace MqttZero.Server.Clients;
 internal sealed class MqttZeroClientConnection : IAsyncDisposable
 {
     private static long NextConnectionId;
+    private static readonly AsyncLocal<int> EgressControlDepth = new();
     private readonly MqttZeroPacketWriter _bufferWriter = new();
     private readonly MqttZeroBufferPool _bufferPool;
     private readonly CancellationTokenSource _closed = new();
@@ -232,6 +233,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
 
     public async ValueTask SendAsync(MqttPacket packet, CancellationToken cancellationToken)
     {
+        if (_egress != null && EgressControlDepth.Value == 0 && await TrySendControlThroughEgressAsync(
+                token => SendAsync(packet, token),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
         await WaitForWriteLockAsync(true, cancellationToken).ConfigureAwait(false);
         try
         {
@@ -538,6 +546,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
 
     public async ValueTask SendPingRespAsync(CancellationToken cancellationToken)
     {
+        if (_egress != null && EgressControlDepth.Value == 0 && await TrySendControlThroughEgressAsync(
+                token => SendPingRespAsync(token),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
         if (MaximumPacketSize < 2)
         {
             throw new InvalidOperationException(
@@ -564,6 +579,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         MqttSubAckPacket packet,
         CancellationToken cancellationToken)
     {
+        if (_egress != null && EgressControlDepth.Value == 0 && await TrySendControlThroughEgressAsync(
+                token => SendSubAckAsync(packet, token),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
         int propertiesLength = Mqtt5PropertyWriter.GetReasonPropertiesLength(
             packet.ReasonString,
             packet.UserProperties);
@@ -595,6 +617,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         MqttUnsubAckPacket packet,
         CancellationToken cancellationToken)
     {
+        if (_egress != null && EgressControlDepth.Value == 0 && await TrySendControlThroughEgressAsync(
+                token => SendUnsubAckAsync(packet, token),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
         int propertiesLength = Mqtt5PropertyWriter.GetReasonPropertiesLength(
             packet.ReasonString,
             packet.UserProperties);
@@ -917,6 +946,17 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken)
     {
+        if (_egress != null && EgressControlDepth.Value == 0 && await TrySendControlThroughEgressAsync(
+                token => SendAckDirectAsync(
+                    firstByte,
+                    packetIdentifier,
+                    reasonCode,
+                    token),
+                cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
         bool includeReason = reasonCode != MqttReasonCode.Success;
         int encodedLength = includeReason ? 6 : 4;
         if (encodedLength > MaximumPacketSize)
@@ -1036,6 +1076,33 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
 
         return 4;
+    }
+
+    private async ValueTask<bool> TrySendControlThroughEgressAsync(
+        Func<CancellationToken, ValueTask> operation,
+        CancellationToken cancellationToken)
+    {
+        MqttZeroEgressActor? egress = _egress;
+        if (egress == null || EgressControlDepth.Value > 0)
+        {
+            return false;
+        }
+
+        await egress.PostOperationAsync(
+            async token =>
+            {
+                EgressControlDepth.Value++;
+                try
+                {
+                    await operation(token).ConfigureAwait(false);
+                }
+                finally
+                {
+                    EgressControlDepth.Value--;
+                }
+            },
+            cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     public async ValueTask DisposeAsync()
