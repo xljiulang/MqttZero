@@ -4,16 +4,85 @@ using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
+using MqttZero.Tests.Support;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.IO.Pipelines;
 using System.Reflection;
+using System.Runtime.InteropServices;
 
 
 namespace MqttZero.Tests.Memory
 {
     public sealed class MemoryLeaseAllocationTests
     {
+        [Fact]
+        public void OwnedLeaseStoresAllRegionsInOneSlab()
+        {
+            using MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                new ReadOnlySequence<byte>("topic"u8.ToArray()),
+                new ReadOnlySequence<byte>([1, 2]),
+                new ReadOnlySequence<byte>("payload"u8.ToArray()),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                null,
+                null);
+
+            Assert.True(MemoryMarshal.TryGetArray(
+                lease.Topic,
+                out ArraySegment<byte> topic));
+            Assert.True(MemoryMarshal.TryGetArray(
+                lease.Properties,
+                out ArraySegment<byte> properties));
+            Assert.True(MemoryMarshal.TryGetArray(
+                lease.Payload,
+                out ArraySegment<byte> payload));
+            Assert.Same(topic.Array, properties.Array);
+            Assert.Same(topic.Array, payload.Array);
+            Assert.True(topic.Offset < properties.Offset);
+            Assert.True(properties.Offset < payload.Offset);
+        }
+
+        [Fact]
+        public void BorrowedLeasePromotesIntoOneSlab()
+        {
+            using MqttZeroBufferPool pool = new(1024 * 1024);
+            SequenceSegment first = new("pay"u8.ToArray());
+            SequenceSegment second = new("load"u8.ToArray());
+            first.SetNext(second);
+            MqttZeroMessageLease lease = MqttZeroMessageLease.BorrowFrom(
+                new ReadOnlySequence<byte>("topic"u8.ToArray()),
+                new ReadOnlySequence<byte>([1, 2]),
+                new ReadOnlySequence<byte>(first, 0, second, second.Memory.Length),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                null,
+                null,
+                pool);
+
+            try
+            {
+                lease.EnsureOwned();
+                Assert.True(MemoryMarshal.TryGetArray(
+                    lease.Topic,
+                    out ArraySegment<byte> topic));
+                Assert.True(MemoryMarshal.TryGetArray(
+                    lease.Properties,
+                    out ArraySegment<byte> properties));
+                Assert.True(MemoryMarshal.TryGetArray(
+                    lease.Payload,
+                    out ArraySegment<byte> payload));
+                Assert.Same(topic.Array, properties.Array);
+                Assert.Same(topic.Array, payload.Array);
+                Assert.Equal("payload", System.Text.Encoding.UTF8.GetString(
+                    lease.Payload.Span));
+            }
+            finally
+            {
+                lease.Release();
+            }
+        }
+
         [Fact]
         public void PooledMessageLeaseDoesNotAllocateAfterWarmup()
         {
