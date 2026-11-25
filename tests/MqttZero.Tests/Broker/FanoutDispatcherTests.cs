@@ -246,6 +246,60 @@ public sealed class FanoutDispatcherTests
             TestContext.Current.CancellationToken);
     }
 
+    [Fact(Timeout = 20_000)]
+    public async Task ScheduledFanoutRepeatedCyclesReleaseLeases()
+    {
+        const int shardCount = 2;
+        await using MqttZeroShardSet shards = new(
+            shardCount,
+            4096);
+        using MqttZeroRoutePlannerLanes lanes = new(shardCount);
+        MqttZeroRouteEpoch epoch = MqttZeroRouteEpoch.Empty.Add(
+            new MqttZeroSessionState("receiver", 100, 1),
+            CreateSubscription("repeat/#"));
+        using MqttZeroBufferPool bufferPool = new(16 * 1024 * 1024);
+        MqttZeroFanoutDispatcher dispatcher = new(
+            shards,
+            (_, _, _, _) => ValueTask.CompletedTask,
+            _ => { });
+
+        for (int cycle = 0; cycle < 1_000; cycle++)
+        {
+            MqttZeroMessageLease lease = CreateLease(bufferPool);
+            try
+            {
+                MqttZeroRoutePlan plan = MqttZeroRoutePlanner.Plan(
+                    epoch,
+                    "repeat/topic"u8,
+                    null,
+                    new MqttZeroSharedGroupCursors(),
+                    shardCount,
+                    lanes[0]);
+                await dispatcher.DispatchScheduledAsync(
+                    plan,
+                    lanes[0],
+                    lease,
+                    null,
+                    0,
+                    TestContext.Current.CancellationToken);
+            }
+            finally
+            {
+                lease.Release();
+            }
+
+            await WaitUntilAsync(
+                () => bufferPool.RentedBytes == 0,
+                TestContext.Current.CancellationToken);
+        }
+
+        Assert.Equal(
+            1_000,
+            shards
+                .GetFanoutScheduler(1)
+                .EnqueuedCount);
+    }
+
     [Fact(Timeout = 10_000)]
     public async Task OnePublishEnqueuesAtMostOneRemoteWorkPerShard()
     {

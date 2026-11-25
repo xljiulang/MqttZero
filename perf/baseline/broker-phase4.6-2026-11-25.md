@@ -209,6 +209,75 @@ QoS 2 和管理面发布保持原等待语义。
 - `broker-phase4.6-scheduled-ack-q1-single-2026-11-25.json`
 - `broker-phase4.6-scheduled-ack-q1-100-2026-11-25.json`
 
+## 持久 Fanout Scheduler 跟进
+
+每个 Event Loop Shard 现在拥有一个持久 Fanout Scheduler：
+
+- 每个目标 Shard 的单次发布 Batch 进入有界 FIFO。
+- 多个发布批次共享一个高优先级 Shard Work。
+- 单次执行最多 `250 us`、`64` 个批次，避免长时间占用 Shard。
+- 同步容量快路径保持 `0 B/op`；队列满时才进入异步背压。
+- Scheduler Stop 先排空已接受批次，再由 ShardSet 停止 Event Loop。
+
+QoS 1 / 100 订阅者三次中位数：
+
+| Payload | MQTTZero msg/s | MQTTnet msg/s | 吞吐比 | MQTTZero p99 us | p99 比 |
+|---:|---:|---:|---:|---:|---:|
+| 32 B | 659.81 | 660.38 | 1.00x | 3,730.4 | 1.00x |
+| 8 KiB | 403.05 | 438.11 | 0.92x | 5,228.4 | 0.87x |
+| 64 KiB | 102.25 | 108.47 | 0.94x | 21,246.1 | 0.95x |
+
+32 B 保持吞吐，8/64 KiB 的吞吐回退未超过 Task 2 的5%门禁，
+8/64 KiB 的 p99 均优于 MQTTnet。
+
+## 大包写入实验结论
+
+尝试将单 Segment `>= 64 KiB` 的 Payload 改为直接
+`PipeWriter.WriteAsync(ReadOnlyMemory<byte>)`。
+
+测试证明字节等价且只需一次 Flush，但三次基准结果明显恶化：
+
+| QoS | 订阅者 | 吞吐比 | p99 比 |
+|---:|---:|---:|---:|
+| 0 | 1 | 0.36x | 17.87x |
+| 0 | 100 | 0.55x | 1.97x |
+| 1 | 1 | 0.23x | 19.92x |
+| 1 | 100 | 0.85x | 1.06x |
+
+该实验已从生产路径和测试中删除。大包尾延迟不能通过把 Payload 单独交给
+Kestrel `WriteAsync` 解决。
+
+## 后台 Fanout 故障
+
+Enqueue Interceptor 等后台投递阶段的永久失败现在会：
+
+- 记录源生成日志和失败计数。
+- 立即退出 `Running`，使 Readiness 不健康。
+- 发起一次性 Broker Stop，拒绝新连接并清理已接受资源。
+
+Delivery Observer 异常仍按现有扩展语义记录后隔离，不会停止 Broker。
+
+## 500 订阅者快速矩阵
+
+单次开发矩阵：
+
+| QoS | Payload | MQTTZero msg/s | MQTTnet msg/s | 吞吐比 | MQTTZero p99 us | MQTTnet p99 us |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 32 B | 3,548.92 | 1,666.74 | 2.13x | 175.6 | 386.0 |
+| 0 | 8 KiB | 170.99 | 254.09 | 0.67x | 43,883.2 | 96,931.9 |
+| 0 | 64 KiB | 25.41 | 117.72 | 0.22x | 670,611.7 | 123,142.1 |
+| 1 | 32 B | 106.98 | 133.40 | 0.80x | 42,716.9 | 14,800.2 |
+| 1 | 8 KiB | 76.04 | 75.72 | 1.00x | 23,386.9 | 32,144.7 |
+| 1 | 64 KiB | 17.29 | 19.71 | 0.88x | 79,511.3 | 96,202.5 |
+
+没有连接失败或排空超时，但严格门禁仍为红色。
+
+稳定性测试：
+
+- `ScheduledFanoutRepeatedCyclesReleaseLeases` 连续 1,000 次调度、
+  完成和 Lease 释放后 BufferPool 为0。
+- 现有 Message Store ACK 屏障、QoS 1 DUP 重连和队列淘汰测试通过。
+
 ## 下一步
 
 1. 继续优化跨 Shard Fanout 唤醒延迟，优先复用每个目标 Shard 的持久

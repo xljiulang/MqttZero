@@ -102,6 +102,13 @@
   Shard queues while Message Store mode keeps the completion barrier. The
   64-KiB single-subscriber cell improves about 22% in throughput and 23% in
   p99, but remains below the strict MQTTnet gate.
+- Persistent per-Shard Fanout Schedulers reuse one high-priority Shard work,
+  deduplicate bursts and cap each pass at 250 microseconds. A 1,000-cycle
+  release test and the 500-subscriber development matrix pass without
+  connection failures or drain timeouts.
+- The direct Kestrel `PipeWriter.WriteAsync` experiment for 64-KiB payloads
+  was rejected after reducing QoS 1 single-subscriber throughput to about
+  0.23x MQTTnet; the production path was restored.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`
