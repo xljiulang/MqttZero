@@ -35,7 +35,10 @@ BenchmarkRuntimeSnapshot runtimeSnapshot =
     runtimeConfiguration.ApplyToCurrentProcess();
 BenchmarkTopologyOptions topologyOptions =
     BenchmarkTopologyOptions.Parse(arguments);
-BenchmarkTopologyInfo topology = topologyOptions.CreateInfo();
+BenchmarkTransportKind transportKind =
+    BenchmarkTransportSelection.Parse(arguments);
+BenchmarkTopologyInfo topology =
+    topologyOptions.CreateInfo(transportKind);
 BenchmarkEnvironmentInfo environment =
     BenchmarkObservationCapture.CaptureEnvironment(
         runtimeSnapshot,
@@ -95,6 +98,8 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
         true);
     BenchmarkTopologyOptions topologyOptions =
         BenchmarkTopologyOptions.Parse(arguments);
+    BenchmarkTransportKind transportKind =
+        BenchmarkTransportSelection.Parse(arguments);
     CancellationTokenSource lifetime = new();
     Console.CancelKeyPress += (_, eventArgs) =>
     {
@@ -104,6 +109,12 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
 
     if (broker == "mqttzero")
     {
+        if (transportKind == BenchmarkTransportKind.Socket)
+        {
+            throw new NotSupportedException(
+                "The socket transport prototype is not initialized yet.");
+        }
+
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
         builder.Logging.ClearProviders();
         builder.WebHost.ConfigureKestrel(kestrel =>
@@ -186,6 +197,8 @@ static async Task CompareAsync(
         1024);
     BenchmarkTopologyOptions topologyOptions =
         BenchmarkTopologyOptions.Parse(arguments);
+    BenchmarkTransportKind transportKind =
+        BenchmarkTransportSelection.Parse(arguments);
     bool allowPacketFragmentation = GetBool(
         arguments,
         "fragmentation",
@@ -222,7 +235,8 @@ static async Task CompareAsync(
                             port,
                             allowPacketFragmentation,
                             runtimeConfiguration,
-                            topologyOptions);
+                            topologyOptions,
+                            transportKind);
                         await WaitForReadyAsync(serverProcess);
                         BenchmarkProcessObservation brokerObservation;
                         try
@@ -513,7 +527,8 @@ static Process StartServerProcess(
     int port,
     bool allowPacketFragmentation,
     BenchmarkRuntimeConfiguration runtimeConfiguration,
-    BenchmarkTopologyOptions topologyOptions)
+    BenchmarkTopologyOptions topologyOptions,
+    BenchmarkTransportKind transportKind)
 {
     ProcessStartInfo startInfo = new()
     {
@@ -540,6 +555,11 @@ static Process StartServerProcess(
     startInfo.ArgumentList.Add(
         topologyOptions.IoQueueCount.ToString(
             CultureInfo.InvariantCulture));
+    startInfo.ArgumentList.Add("--transport");
+    startInfo.ArgumentList.Add(
+        transportKind == BenchmarkTransportKind.Socket
+            ? "socket"
+            : "kestrel");
     foreach (KeyValuePair<string, string> variable in
         runtimeConfiguration.CreateBrokerEnvironmentVariables())
     {

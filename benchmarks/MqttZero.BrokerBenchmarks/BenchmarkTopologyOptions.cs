@@ -25,7 +25,8 @@ internal sealed record BenchmarkTopologyOptions(
             ioQueueCount);
     }
 
-    public BenchmarkTopologyInfo CreateInfo()
+    public BenchmarkTopologyInfo CreateInfo(
+        BenchmarkTransportKind transport)
     {
         int resolvedEventLoopShardCount =
             EventLoopShardCount == 0
@@ -41,7 +42,8 @@ internal sealed record BenchmarkTopologyOptions(
             EventLoopShardCount,
             resolvedEventLoopShardCount,
             IoQueueCount,
-            resolvedIoQueueCount);
+            resolvedIoQueueCount,
+            transport);
     }
 
     private static int ParseCount(
