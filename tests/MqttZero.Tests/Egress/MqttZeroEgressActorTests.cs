@@ -52,16 +52,13 @@ public sealed class MqttZeroEgressActorTests
         await using MqttZeroEventLoop shard = new(0, 32);
         List<string> sequence = [];
         using MqttZeroBufferPool bufferPool = new(1024 * 1024);
+        using MqttZeroEgressControlFramePool framePool =
+            new(bufferPool);
         await using MqttZeroEgressActor actor = CreateActor(
             shard,
             (frames, _) =>
             {
                 sequence.Add("control");
-                foreach (MqttZeroEgressControlFrame frame in frames)
-                {
-                    frame.Complete();
-                }
-
                 return ValueTask.CompletedTask;
             },
             _ =>
@@ -70,17 +67,23 @@ public sealed class MqttZeroEgressActorTests
                 return ValueTask.FromResult(false);
             },
             _ => { });
-        MqttZeroEgressControlFrame control = CreateFrame(bufferPool);
+        MqttZeroEgressControlFrame control = CreateFrame(framePool);
 
         Task controlCompletion = actor.PostControlAsync(
             control,
             TestContext.Current.CancellationToken).AsTask();
         actor.Signal();
-        await controlCompletion.WaitAsync(
-            TestContext.Current.CancellationToken);
-
-        Assert.Equal(["control", "data"], sequence);
-        await actor.StopAsync();
+        try
+        {
+            await controlCompletion.WaitAsync(
+                TestContext.Current.CancellationToken);
+            Assert.Equal(["control", "data"], sequence);
+        }
+        finally
+        {
+            control.Release();
+            await actor.StopAsync();
+        }
     }
 
     [Fact(Timeout = 5_000)]
@@ -92,6 +95,8 @@ public sealed class MqttZeroEgressActorTests
         TaskCompletionSource releaseControlWrite = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         using MqttZeroBufferPool bufferPool = new(1024 * 1024);
+        using MqttZeroEgressControlFramePool framePool =
+            new(bufferPool);
         await using MqttZeroEgressActor actor = CreateActor(
             shard,
             async (_, cancellationToken) =>
@@ -101,7 +106,7 @@ public sealed class MqttZeroEgressActorTests
             },
             _ => ValueTask.FromResult(false),
             _ => { });
-        MqttZeroEgressControlFrame control = CreateFrame(bufferPool);
+        MqttZeroEgressControlFrame control = CreateFrame(framePool);
         Task completion = actor.PostControlAsync(
             control,
             TestContext.Current.CancellationToken).AsTask();
@@ -112,14 +117,30 @@ public sealed class MqttZeroEgressActorTests
         releaseControlWrite.TrySetResult();
         await stop.WaitAsync(TestContext.Current.CancellationToken);
 
-        await Assert.ThrowsAnyAsync<Exception>(async () =>
-            await completion.WaitAsync(
-                TimeSpan.FromSeconds(1),
-                TestContext.Current.CancellationToken));
-        await Assert.ThrowsAnyAsync<Exception>(async () =>
-            await actor.PostControlAsync(
-                CreateFrame(bufferPool),
-                TestContext.Current.CancellationToken));
+        try
+        {
+            await Assert.ThrowsAnyAsync<Exception>(async () =>
+                await completion.WaitAsync(
+                    TimeSpan.FromSeconds(1),
+                    TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            control.Release();
+        }
+
+        MqttZeroEgressControlFrame rejected = CreateFrame(framePool);
+        try
+        {
+            await Assert.ThrowsAnyAsync<Exception>(async () =>
+                await actor.PostControlAsync(
+                    rejected,
+                    TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            rejected.Release();
+        }
     }
 
     private static MqttZeroEgressActor CreateActor(
@@ -139,9 +160,9 @@ public sealed class MqttZeroEgressActorTests
     }
 
     private static MqttZeroEgressControlFrame CreateFrame(
-        MqttZeroBufferPool bufferPool)
+        MqttZeroEgressControlFramePool framePool)
     {
-        MqttZeroEgressControlFrame frame = new(bufferPool, 1);
+        MqttZeroEgressControlFrame frame = framePool.Rent(1);
         Span<byte> span = frame.Writer.GetSpan(1);
         span[0] = 0;
         frame.Writer.Advance(1);

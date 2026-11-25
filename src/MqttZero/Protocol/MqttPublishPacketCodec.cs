@@ -5,6 +5,7 @@ namespace MqttZero.Protocol;
 
 internal static class MqttPublishPacketCodec
 {
+    private const int MaximumWriteSpanSize = 4096;
     private const byte MessageExpiryIntervalId = 0x02;
     private const byte SubscriptionIdentifierId = 0x0B;
     private const byte TopicAliasId = 0x23;
@@ -218,18 +219,7 @@ internal static class MqttPublishPacketCodec
         }
 
         MqttZeroPublishPacketBuffer buffer = EncodeHeader(view, headerWriter);
-        if (view.Payload.IsSingleSegment)
-        {
-            Span<byte> destination = writer.GetSpan(buffer.Length);
-            buffer.Header.Span.CopyTo(destination);
-            view.Payload.FirstSpan.CopyTo(destination[buffer.Header.Length..]);
-            writer.Advance(buffer.Length);
-            return buffer.Length;
-        }
-
-        Span<byte> header = writer.GetSpan(buffer.Header.Length);
-        buffer.Header.Span.CopyTo(header);
-        writer.Advance(buffer.Header.Length);
+        WriteMemory(writer, buffer.Header);
         WriteSequence(writer, view.Payload);
         return buffer.Length;
     }
@@ -733,19 +723,26 @@ internal static class MqttPublishPacketCodec
 
     private static void WriteSequence(IBufferWriter<byte> writer, ReadOnlySequence<byte> value)
     {
-        if (value.IsSingleSegment)
-        {
-            Span<byte> destination = writer.GetSpan(value.FirstSpan.Length);
-            value.FirstSpan.CopyTo(destination);
-            writer.Advance(value.FirstSpan.Length);
-            return;
-        }
-
         foreach (ReadOnlyMemory<byte> segment in value)
         {
-            Span<byte> destination = writer.GetSpan(segment.Length);
-            segment.Span.CopyTo(destination);
-            writer.Advance(segment.Length);
+            WriteMemory(writer, segment);
+        }
+    }
+
+    private static void WriteMemory(
+        IBufferWriter<byte> writer,
+        ReadOnlyMemory<byte> value)
+    {
+        ReadOnlySpan<byte> remaining = value.Span;
+        while (!remaining.IsEmpty)
+        {
+            int length = Math.Min(
+                remaining.Length,
+                MaximumWriteSpanSize);
+            Span<byte> destination = writer.GetSpan(length);
+            remaining[..length].CopyTo(destination);
+            writer.Advance(length);
+            remaining = remaining[length..];
         }
     }
 

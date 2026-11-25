@@ -24,6 +24,14 @@ internal sealed class MqttZeroPooledBufferWriter : IBufferWriter<byte>, IDisposa
         }
     }
 
+    public int WrittenCount
+    {
+        get
+        {
+            return _written;
+        }
+    }
+
     public void Advance(int count)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
@@ -56,6 +64,19 @@ internal sealed class MqttZeroPooledBufferWriter : IBufferWriter<byte>, IDisposa
 
         _bufferPool.Return(_buffer);
         _buffer = [];
+    }
+
+    public void Reset(int minimumLength)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(minimumLength);
+        if (_buffer.Length < minimumLength)
+        {
+            byte[] previous = _buffer;
+            _buffer = _bufferPool.Rent(minimumLength);
+            _bufferPool.Return(previous);
+        }
+
+        _written = 0;
     }
 
     private void EnsureCapacity(int sizeHint)

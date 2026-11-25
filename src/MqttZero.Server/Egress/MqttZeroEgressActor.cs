@@ -52,6 +52,14 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
         }
     }
 
+    internal bool IsStopping
+    {
+        get
+        {
+            return Volatile.Read(ref _stopping) != 0;
+        }
+    }
+
     public void Signal()
     {
         if (Volatile.Read(ref _stopping) != 0)
@@ -104,6 +112,7 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(frame);
         ThrowIfStopping();
+        cancellationToken.ThrowIfCancellationRequested();
         if (_shard.IsCurrent)
         {
             await ExecuteControlDirectAsync(
@@ -118,19 +127,8 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
                 EnqueueControl(frame);
                 return ValueTask.FromResult(true);
             },
-            cancellationToken).ConfigureAwait(false);
-        await frame.Completion
-            .WaitAsync(cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    public ValueTask PostOperationAsync(
-        Func<CancellationToken, ValueTask> operation,
-        CancellationToken cancellationToken)
-    {
-        return PostControlAsync(
-            MqttZeroEgressControlFrame.ForOperation(operation),
-            cancellationToken);
+            CancellationToken.None).ConfigureAwait(false);
+        await frame.WaitAsync().ConfigureAwait(false);
     }
 
     public async ValueTask StopAsync()
@@ -142,10 +140,14 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
                 (int)MqttZeroEgressActorState.Stopping);
             FailQueuedControls(
                 new ObjectDisposedException(nameof(MqttZeroEgressActor)));
-            Volatile.Write(
-                ref _state,
-                (int)MqttZeroEgressActorState.Stopped);
-            _stopped.TrySetResult();
+            if (Volatile.Read(ref _scheduled) == 0 &&
+                Volatile.Read(ref _flushPending) == 0)
+            {
+                Volatile.Write(
+                    ref _state,
+                    (int)MqttZeroEgressActorState.Stopped);
+                _stopped.TrySetResult();
+            }
         }
 
         await _stopped.Task.ConfigureAwait(false);
@@ -277,7 +279,6 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
             {
                 MqttZeroEgressControlFrame frame = _controlBatch[index];
                 frame.Complete();
-                frame.Dispose();
             }
         }
         catch (Exception exception)
@@ -286,7 +287,6 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
             {
                 MqttZeroEgressControlFrame frame = _controlBatch[index];
                 frame.Fail(exception);
-                frame.Dispose();
             }
 
             throw;
@@ -322,7 +322,6 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
             InvalidOperationException exception = new(
                 "The outbound control queue is full.");
             frame.Fail(exception);
-            frame.Dispose();
             FailQueuedControls(exception);
             _faulted(exception);
             throw exception;
@@ -363,14 +362,12 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
         {
             MqttZeroEgressControlFrame frame = _controlQueue.Dequeue();
             frame.Fail(exception);
-            frame.Dispose();
         }
 
         for (int index = 0; index < _controlBatch.Count; index++)
         {
             MqttZeroEgressControlFrame frame = _controlBatch[index];
             frame.Fail(exception);
-            frame.Dispose();
         }
 
         _controlBatch.Clear();

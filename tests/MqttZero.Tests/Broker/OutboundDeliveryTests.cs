@@ -5,6 +5,7 @@ using MqttZero.Server.Broker;
 using MqttZero.Server.Clients;
 using MqttZero.Server.Egress;
 using MqttZero.Server.Routing;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -519,7 +520,6 @@ namespace MqttZero.Tests.Broker
                 await Task.Delay(
                     TimeSpan.FromMilliseconds(50),
                     TestContext.Current.CancellationToken);
-                Assert.True(connection.HasPendingControlWrites);
                 writer.ReleaseFlush();
                 await Task.WhenAll(publish, subAck).WaitAsync(
                     TimeSpan.FromSeconds(2),
@@ -531,6 +531,60 @@ namespace MqttZero.Tests.Broker
                 writer.ReleaseFlush();
                 message.Release();
                 lease.Release();
+                await connection.DisposeAsync();
+            }
+        }
+
+        [Fact(Timeout = 5_000)]
+        public async Task AttachedConnectionRoutesControlPacketsThroughEgress()
+        {
+            await using MqttZeroEventLoop shard = new(0, 32);
+            TrackingPipeWriter writer = new();
+            MqttZeroClientConnection connection = new(
+                writer,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                1024 * 1024,
+                TimeProvider.System);
+            int egressBatchCount = 0;
+            await using MqttZeroEgressActor egress = new(
+                shard,
+                async (frames, cancellationToken) =>
+                {
+                    Interlocked.Increment(ref egressBatchCount);
+                    await Task.CompletedTask.ConfigureAwait(false);
+                },
+                _ => ValueTask.FromResult(false),
+                _ => { });
+
+            try
+            {
+                connection.AttachEgress(egress);
+
+                await connection.SendPubAckAsync(
+                    1,
+                    MqttReasonCode.Success,
+                    TestContext.Current.CancellationToken);
+                await connection.SendConnAckAsync(
+                    new MqttConnAckPacket
+                    {
+                        ReasonCode = MqttReasonCode.Success
+                    },
+                    TestContext.Current.CancellationToken);
+                await connection.SendDisconnectAsync(
+                    new MqttDisconnectPacket
+                    {
+                        ReasonCode = MqttReasonCode.Success
+                    },
+                    TestContext.Current.CancellationToken);
+
+                Assert.Equal(3, Volatile.Read(ref egressBatchCount));
+            }
+            finally
+            {
                 await connection.DisposeAsync();
             }
         }
@@ -866,6 +920,7 @@ namespace MqttZero.Tests.Broker
 
             public override void CancelPendingFlush()
             {
+                ReleaseFlush();
             }
 
             public override void Complete(Exception? exception = null)

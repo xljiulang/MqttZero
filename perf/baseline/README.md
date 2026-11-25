@@ -49,6 +49,9 @@
 - Phase 2 moves data delivery to a Shard-owned Egress Actor and removes the
   Pump/Writer classes. Its regression gate remains red in 5 of 12 cells.
 - The nonblocking Flush revision reduces Phase 2 failures to 4 of 12 cells.
+- The write-lock-free revision pools encoded control frames and removes direct
+  control writers from attached connections. Correctness and zero-allocation
+  control tests pass; the QoS 0/100/8-KiB development cell remains red.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`

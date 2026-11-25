@@ -24,3 +24,36 @@ The nonblocking Flush path removed the previous QoS 0 large-payload and
 100-subscriber/64-KiB regressions. Remaining failures are concentrated in
 QoS 0/100/8 KiB and QoS 1 mid/large payload paths.
 
+## Write-lock-free control revision
+
+- `MqttZeroClientConnection` no longer owns a `SemaphoreSlim` write lock or
+  per-connection fixed writer array.
+- Attached connections pre-encode every control packet into a pooled
+  `MqttZeroEgressControlFrame`; the Egress Actor is the only active control
+  writer.
+- Control-frame completion uses `IValueTaskSource`, so 1,000 PubAck operations
+  remain `0 B` after warmup.
+- Direct control encoding remains only for pre-attach handshake and the final
+  DISCONNECT after Egress has stopped.
+- Actor shutdown waits for an in-flight Flush before exposing `Stopped`, which
+  prevents a final control packet from racing the previous network Flush.
+
+Reduced 3 x 6 second diagnostic for QoS 0 / 100 subscribers / 8 KiB:
+
+| Revision | MQTTZero msg/s | p99 us | Result |
+|---|---:|---:|---|
+| Phase 0 reference | 504.71 | 4,199.3 | baseline |
+| current write-lock-free | 381.70–445.17 | 50,030.7–110,310.0 | FAIL |
+
+An EventPipe allocation trace under the same workload attributed 97.75% of
+sampled allocation bytes to `PipeWriter.GetSpan` through
+`MqttPublishPacketCodec.EncodeToWriter`. The codec now writes control headers
+and PUBLISH payloads in spans no larger than 4 KiB, with a regression test that
+rejects a single 8 KiB span request. This removes the exact-size allocation
+shape but does not yet pass the performance gate.
+
+The remaining architectural bottleneck is the Kestrel `PipeWriter` outbound
+copy and segment acquisition for 100 concurrent fanout connections. Further
+progress requires either fewer flushes by coalescing more pending data or a
+socket fast transport that can write directly from the shared message lease.
+

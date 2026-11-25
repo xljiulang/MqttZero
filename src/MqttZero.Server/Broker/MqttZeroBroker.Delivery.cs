@@ -676,44 +676,24 @@ public sealed partial class MqttZeroBroker
         async ValueTask<bool> DrainAsync(
             CancellationToken pumpCancellationToken)
         {
-            using CancellationTokenSource linkedCancellation =
-                CancellationTokenSource.CreateLinkedTokenSource(
-                    pumpCancellationToken,
-                    connection.ClosedToken);
             if (Interlocked.Exchange(ref resumePending, 0) != 0)
             {
                 await ResumeInflightMessagesAsync(
                     session,
                     connection,
-                    linkedCancellation.Token).ConfigureAwait(false);
+                    pumpCancellationToken).ConfigureAwait(false);
             }
 
             return await DrainQueuedMessagesOnceAsync(
                 session,
                 connection,
                 egress!,
-                linkedCancellation.Token).ConfigureAwait(false);
+                pumpCancellationToken).ConfigureAwait(false);
         }
 
         egress = new MqttZeroEgressActor(
             _shardSet![session.ShardId],
-            async (frames, token) =>
-            {
-                for (int index = 0; index < frames.Count; index++)
-                {
-                    MqttZeroEgressControlFrame frame = frames[index];
-                    if (frame.IsOperation)
-                    {
-                        await frame.ExecuteAsync(token).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        await connection.WriteEncodedControlAsync(
-                            frame.EncodedMemory,
-                            token).ConfigureAwait(false);
-                    }
-                }
-            },
+            connection.WriteEncodedControlBatchAsync,
             DrainAsync,
             exception =>
             {

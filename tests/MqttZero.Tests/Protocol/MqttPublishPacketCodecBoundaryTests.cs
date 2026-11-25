@@ -81,6 +81,31 @@ namespace MqttZero.Tests.Protocol
         }
 
         [Fact]
+        public void EncodeToWriterFragmentsLargePayloadSpanRequests()
+        {
+            MqttZeroPublishView view = new(
+                new ReadOnlySequence<byte>("large/topic"u8.ToArray()),
+                ReadOnlySequence<byte>.Empty,
+                new ReadOnlySequence<byte>(new byte[8 * 1024]),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                0,
+                false,
+                false,
+                null,
+                null,
+                null);
+            RecordingBufferWriter writer = new(16 * 1024);
+            MqttZeroPacketWriter headerWriter = new();
+
+            _ = MqttPublishPacketCodec.EncodeToWriter(
+                view,
+                headerWriter,
+                writer);
+
+            Assert.InRange(writer.MaximumSizeHint, 1, 4096);
+        }
+
+        [Fact]
         public void EncodedLengthIncludesRewrittenExpiryAndScalars()
         {
             MqttZeroPublishView view = new(
@@ -127,6 +152,43 @@ namespace MqttZero.Tests.Protocol
                 out _));
 
             Assert.Equal(new uint[] { 7, 9 }, decoded.SubscriptionIdentifiers.ToArray());
+        }
+
+        private sealed class RecordingBufferWriter : IBufferWriter<byte>
+        {
+            private readonly byte[] _buffer;
+            private int _written;
+
+            public RecordingBufferWriter(int capacity)
+            {
+                _buffer = new byte[capacity];
+            }
+
+            public int MaximumSizeHint { get; private set; }
+
+            public void Advance(int count)
+            {
+                _written += count;
+            }
+
+            public Memory<byte> GetMemory(int sizeHint = 0)
+            {
+                RecordSizeHint(sizeHint);
+                return _buffer.AsMemory(_written);
+            }
+
+            public Span<byte> GetSpan(int sizeHint = 0)
+            {
+                RecordSizeHint(sizeHint);
+                return _buffer.AsSpan(_written);
+            }
+
+            private void RecordSizeHint(int sizeHint)
+            {
+                MaximumSizeHint = Math.Max(
+                    MaximumSizeHint,
+                    Math.Max(sizeHint, 1));
+            }
         }
     }
 }

@@ -1,49 +1,36 @@
 using MqttZero.Memory;
+using System.Threading.Tasks.Sources;
 
 namespace MqttZero.Server.Egress;
 
-internal sealed class MqttZeroEgressControlFrame : IDisposable
+internal sealed class MqttZeroEgressControlFrame : IValueTaskSource, IDisposable
 {
-    private readonly Func<CancellationToken, ValueTask>? _operation;
-    private readonly MqttZeroPooledBufferWriter? _writer;
-    private readonly TaskCompletionSource _completion = new(
-        TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly MqttZeroEgressControlFramePool _owner;
+    private readonly MqttZeroPooledBufferWriter _writer;
+    private ManualResetValueTaskSourceCore<bool> _completion = new()
+    {
+        RunContinuationsAsynchronously = true
+    };
+    private int _completed;
+    private int _released;
 
-    public MqttZeroEgressControlFrame(
+    internal MqttZeroEgressControlFrame(
+        MqttZeroEgressControlFramePool owner,
         MqttZeroBufferPool bufferPool,
         int encodedLength)
     {
+        _owner = owner ??
+            throw new ArgumentNullException(nameof(owner));
         _writer = new MqttZeroPooledBufferWriter(
             bufferPool,
             encodedLength);
-    }
-
-    private MqttZeroEgressControlFrame(
-        Func<CancellationToken, ValueTask> operation)
-    {
-        _operation = operation;
-    }
-
-    public static MqttZeroEgressControlFrame ForOperation(
-        Func<CancellationToken, ValueTask> operation)
-    {
-        ArgumentNullException.ThrowIfNull(operation);
-        return new MqttZeroEgressControlFrame(operation);
-    }
-
-    public bool IsOperation
-    {
-        get
-        {
-            return _operation != null;
-        }
     }
 
     public MqttZeroPooledBufferWriter Writer
     {
         get
         {
-            return _writer!;
+            return _writer;
         }
     }
 
@@ -51,38 +38,97 @@ internal sealed class MqttZeroEgressControlFrame : IDisposable
     {
         get
         {
-            return _writer!.WrittenMemory;
+            return _writer.WrittenMemory;
         }
     }
 
-    public Task Completion
+    public int EncodedLength
     {
         get
         {
-            return _completion.Task;
+            return _writer.WrittenCount;
         }
+    }
+
+    public ValueTask WaitAsync()
+    {
+        return new ValueTask(
+            this,
+            _completion.Version);
     }
 
     public void Complete()
     {
-        _completion.TrySetResult();
-    }
-
-    public ValueTask ExecuteAsync(CancellationToken cancellationToken)
-    {
-        return _operation == null
-            ? ValueTask.CompletedTask
-            : _operation(cancellationToken);
+        if (Interlocked.Exchange(ref _completed, 1) == 0)
+        {
+            _completion.SetResult(true);
+        }
     }
 
     public void Fail(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
-        _completion.TrySetException(exception);
+        if (Interlocked.Exchange(ref _completed, 1) == 0)
+        {
+            _completion.SetException(exception);
+        }
+    }
+
+    public void Release()
+    {
+        if (Interlocked.Exchange(ref _released, 1) == 0)
+        {
+            _owner.Return(this);
+        }
+    }
+
+    public ValueTaskSourceStatus GetStatus(short token)
+    {
+        return _completion.GetStatus(token);
+    }
+
+    public void OnCompleted(
+        Action<object?> continuation,
+        object? state,
+        short token,
+        ValueTaskSourceOnCompletedFlags flags)
+    {
+        _completion.OnCompleted(
+            continuation,
+            state,
+            token,
+            flags);
+    }
+
+    public void GetResult(short token)
+    {
+        _completion.GetResult(token);
+    }
+
+    internal bool TryReset(int minimumLength)
+    {
+        try
+        {
+            _writer.Reset(minimumLength);
+        }
+        catch (MqttZeroBufferPoolExhaustedException)
+        {
+            return false;
+        }
+
+        _completion.Reset();
+        Volatile.Write(ref _completed, 0);
+        Volatile.Write(ref _released, 0);
+        return true;
     }
 
     public void Dispose()
     {
-        _writer?.Dispose();
+        DisposeWriter();
+    }
+
+    internal void DisposeWriter()
+    {
+        _writer.Dispose();
     }
 }
