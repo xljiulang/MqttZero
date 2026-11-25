@@ -33,6 +33,11 @@ jobs:
       - name: Tests and coverage
         shell: pwsh
         run: ./eng/verify-coverage.ps1
+      - name: Benchmark tests
+        run: dotnet test tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Tests.csproj -c Release --no-build
+      - name: Benchmark smoke
+        shell: pwsh
+        run: ./eng/verify-benchmark-smoke.ps1
       - name: Formatting
         run: dotnet format MqttZero.slnx --verify-no-changes --no-restore
       - name: Vulnerable dependencies
