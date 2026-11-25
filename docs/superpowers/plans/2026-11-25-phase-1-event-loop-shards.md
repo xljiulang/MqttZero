@@ -28,7 +28,7 @@
 
 ### Task 1: Shard Count 与物理核解析
 
-- Create `MqttZeroProcessorTopology`, `MqttZeroShardCountResolver` and tests.
+- Create `MqttZeroShardCountResolver` and tests.
 - Add `MqttZeroOptions.EventLoopShardCount = 0` and validation.
 - Auto mode uses `Environment.ProcessorCount`, capped to `1..256`.
 
