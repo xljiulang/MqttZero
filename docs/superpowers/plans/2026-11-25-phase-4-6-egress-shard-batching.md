@@ -96,8 +96,8 @@
 
 - [ ] Run QoS 0/100/8-KiB and QoS 1/100/8-KiB diagnostics three times.
 - [ ] Verify Actor Drain count falls by at least 30% relative to encoded messages.
-- [ ] Evaluate four batch configurations.
-- [ ] Run the best configuration through the full 12-cell 2 s / 6 s / 3-repetition matrix.
+- [x] Evaluate four batch configurations.
+- [x] Run the best configuration through the full 12-cell 2 s / 6 s / 3-repetition matrix.
 - [ ] Run full tests, coverage, allocation, format and `git diff --check`.
 - [ ] Record all red cells honestly and commit.
 
@@ -111,13 +111,12 @@
 
 ## Execution Status
 
-Blocked on 2026-11-25.
+Red on 2026-11-25.
 
 - Scheduler, batch options and diagnostics are implemented.
-- A focused outbound diagnostic reduced scheduler passes but not Actor Drains.
-- Actor Drain / encoded message remained about `0.863`, below the required
-  30% reduction.
-- The 12-cell matrix could not complete because
-  `QoS 0 / 100 / 64 KiB` intermittently stalls during warmup drain.
-- Full continuation notes are in
-  `perf/baseline/broker-phase4.6-in-progress-2026-11-25.md`.
+- The `QoS 0 / 100 / 64 KiB` warmup stall was traced to a lost data signal
+  while the connection had a pending data Flush.
+- The 12-cell three-repetition matrix now completes without a drain timeout.
+- Strict MQTTnet gate: `2/12` passed.
+- Same-machine Phase 0 development gate: approximately `5/12` passed.
+- Full report: `perf/baseline/broker-phase4.6-2026-11-25.md`.

@@ -93,10 +93,28 @@ internal static class BenchmarkLoadRunner
                 .ConfigureAwait(false);
             long warmupPublishingCompleted = Stopwatch.GetTimestamp();
             long warmupDrainStarted = Stopwatch.GetTimestamp();
-            await WaitForSubscriberDrainAsync(
-                Interlocked.Read(ref publishedMessages) * options.Subscribers,
-                CountReceived,
-                cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await WaitForSubscriberDrainAsync(
+                    Interlocked.Read(ref publishedMessages) * options.Subscribers,
+                    CountReceived,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (!cancellationToken.IsCancellationRequested)
+            {
+                long advertised =
+                    Interlocked.Read(ref publishedMessages) *
+                    options.Subscribers;
+                throw new TimeoutException(
+                    $"Subscriber warmup drain timed out. " +
+                    $"Advertised={advertised}, " +
+                    $"Received={CountReceived()}, " +
+                    $"Published={Interlocked.Read(ref publishedMessages)}, " +
+                    $"Subscribers={options.Subscribers}, " +
+                    $"Qos={options.Qos}, " +
+                    $"Payload={options.PayloadSize}.");
+            }
             long warmupDrainCompleted = Stopwatch.GetTimestamp();
             long warmupPublishedMessages =
                 Interlocked.Read(ref publishedMessages);

@@ -6,6 +6,12 @@
 
 **未完成，性能门禁为红色。不要启动 Phase 5。**
 
+> 后续更新：`QoS 0 / 100 / 64 KiB` 的排空超时已经在同一工作分支中定位并修复。
+> 根因是 `SignalCore()` 在 `FlushPending` 时提前返回，没有设置
+> `dataSignaled`。修复后 12 格三次矩阵可以完整运行，但严格 MQTTnet
+> 门禁仍只通过 `2/12`。最终结果见
+> `broker-phase4.6-2026-11-25.md`。
+
 已实现并通过局部测试的改动：
 
 - 每个 Event Loop Shard 一个低优先级 Egress Scheduler。

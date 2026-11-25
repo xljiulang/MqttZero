@@ -180,7 +180,7 @@ static async Task CompareAsync(
 {
     string[] brokers = ["mqttzero", "mqttnet"];
     int[] qosLevels = GetIntArray(arguments, "qos", [0, 1, 2]);
-    int[] subscriberCounts = GetIntArray(arguments, "subscribers", [1, 100, 1000]);
+    int[] subscriberCounts = GetIntArray(arguments, "subscribers", [1, 100, 500]);
     int[] payloadSizes = GetIntArray(arguments, "payload", [32, 8 * 1024, 64 * 1024]);
     int warmup = GetInt(arguments, "warmup", 15);
     int seconds = GetInt(arguments, "seconds", 60);
@@ -244,14 +244,29 @@ static async Task CompareAsync(
                                 warmup,
                                 seconds,
                                 maxPendingMessages);
-                            BrokerBenchmarkResult result =
-                                await BenchmarkLoadRunner.RunAsync(
+                            BrokerBenchmarkResult result;
+                            try
+                            {
+                                result = await BenchmarkLoadRunner.RunAsync(
                                     port,
                                     options,
                                     new BenchmarkMqttClientFactory(
                                         clientKind,
                                         port),
                                     CancellationToken.None);
+                            }
+                            catch (Exception exception)
+                            {
+                                throw new InvalidOperationException(
+                                    $"Broker benchmark failed at " +
+                                    $"repetition={repetition}, " +
+                                    $"broker={broker}, " +
+                                    $"qos={qos}, " +
+                                    $"subscribers={subscribers}, " +
+                                    $"payload={payloadSize}, port={port}.",
+                                    exception);
+                            }
+
                             brokerObservation =
                                 BenchmarkObservationCapture.CaptureProcess(
                                     serverProcess,
