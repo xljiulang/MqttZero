@@ -7,6 +7,7 @@ using MqttZero.Server.Retained;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
 using MqttZero.Server.Storage;
+using MqttZero.Server.Scheduling;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -52,6 +53,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _retainedMutationGate = new(1, 1);
     private MqttZeroInboundDispatcher? _inboundDispatcher;
+    private MqttZeroShardSet? _shardSet;
     private readonly MqttZeroOptions _options;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<MqttZeroBroker> _logger;
@@ -185,6 +187,22 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         get
         {
             return Volatile.Read(ref _publishedWillCount);
+        }
+    }
+
+    internal int ShardCount
+    {
+        get
+        {
+            return Volatile.Read(ref _shardSet)?.Count ?? 0;
+        }
+    }
+
+    internal MqttZeroShardSet? Shards
+    {
+        get
+        {
+            return Volatile.Read(ref _shardSet);
         }
     }
 

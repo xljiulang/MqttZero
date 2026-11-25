@@ -88,6 +88,29 @@ namespace MqttZero.Tests.Broker
                     TestContext.Current.CancellationToken));
         }
 
+        [Fact]
+        public async Task BrokerStartsAndStopsShardSetWithLifecycle()
+        {
+            MqttZeroBroker broker = MqttZeroBroker.Create(
+                new MqttZeroOptions
+                {
+                    EventLoopShardCount = 2
+                },
+                TimeProvider.System);
+
+            await broker.StartAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(2, broker.ShardCount);
+            Assert.NotNull(broker.Shards);
+
+            await broker.StopAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(0, broker.ShardCount);
+            Assert.Null(broker.Shards);
+
+            await broker.StartAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(2, broker.ShardCount);
+            await broker.DisposeAsync();
+        }
+
         [Fact(Timeout = 10_000)]
         public async Task StopDrainsConnectionBeforeConnectCompletes()
         {

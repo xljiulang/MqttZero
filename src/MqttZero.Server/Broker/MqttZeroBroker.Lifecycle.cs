@@ -3,6 +3,7 @@ using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Clients;
 using MqttZero.Server.Routing;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -44,8 +45,16 @@ public sealed partial class MqttZeroBroker
             Volatile.Write(ref _state, (int)MqttZeroBrokerState.Running);
             _maintenanceCancellation = new CancellationTokenSource();
             _maintenanceTask = RunMaintenanceAsync(_maintenanceCancellation.Token);
+            int shardCount = MqttZeroShardCountResolver.Resolve(
+                _options.EventLoopShardCount);
+            int shardQueueCapacity = Math.Max(
+                1024,
+                _options.MaxMessageQueueLength / shardCount);
+            _shardSet = new MqttZeroShardSet(
+                shardCount,
+                shardQueueCapacity);
             int workerCount = Math.Clamp(
-                Environment.ProcessorCount / 2,
+                shardCount,
                 1,
                 8);
             _inboundDispatcher = new MqttZeroInboundDispatcher(
@@ -108,6 +117,13 @@ public sealed partial class MqttZeroBroker
                 }
 
                 _inboundDispatcher = null;
+            }
+
+            MqttZeroShardSet? shardSet = _shardSet;
+            if (shardSet != null)
+            {
+                await shardSet.DisposeAsync().ConfigureAwait(false);
+                _shardSet = null;
             }
 
             CancellationTokenSource[] acceptedConnections;
