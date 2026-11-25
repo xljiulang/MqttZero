@@ -41,7 +41,7 @@
 - `EventLoopShardCount=0` retains automatic logical-core resolution.
 - `IoQueueCount=0` disables the explicit Kestrel override.
 
-- [ ] **Step 1: Write failing parser tests**
+- [x] **Step 1: Write failing parser tests**
 
 ```csharp
 [Fact]
@@ -66,20 +66,20 @@ public void ParseRejectsInvalidShardCount()
 }
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```powershell
 dotnet test tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Tests.csproj -c Release --filter "FullyQualifiedName~BenchmarkTopologyOptionsTests"
 ```
 
-- [ ] **Step 3: Implement parsing and server wiring**
+- [x] **Step 3: Implement parsing and server wiring**
 
 `ServeAsync` sets `MqttZeroOptions.EventLoopShardCount`; when
 `IoQueueCount > 0`, register
 `services.Configure<SocketTransportOptions>(options => options.IOQueueCount = topology.IoQueueCount)`.
 The same topology options are passed to `outbound` and `serve`.
 
-- [ ] **Step 4: Record topology in JSON**
+- [x] **Step 4: Record topology in JSON**
 
 Add `BenchmarkTopologyInfo` to the report environment with:
 
@@ -88,7 +88,7 @@ Add `BenchmarkTopologyInfo` to the report environment with:
 - configured IOQueue count
 - effective IOQueue count.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```powershell
 dotnet test tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Tests.csproj -c Release
@@ -124,7 +124,7 @@ git commit -m "perf: add broker topology benchmark controls"
   - FlushWaitCount
   - MaxPendingQueueDepth.
 
-- [ ] **Step 1: Write failing aggregation tests**
+- [x] **Step 1: Write failing aggregation tests**
 
 ```csharp
 [Fact]
@@ -146,19 +146,19 @@ public void SnapshotCountsOnePublishAndItsBatches()
 }
 ```
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~FanoutDiagnosticsTests"
 ```
 
-- [ ] **Step 3: Implement counters without logging**
+- [x] **Step 3: Implement counters without logging**
 
 Use `Interlocked` counters. Instrument fanout completion, local/remote batch
 completion, and Egress drain/flush transitions. Diagnostics are disabled
 from JSON unless a benchmark explicitly requests them.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~FanoutDiagnosticsTests|FullyQualifiedName~Egress|FullyQualifiedName~FanoutDispatcherTests"
@@ -184,7 +184,7 @@ git commit -m "perf: add fanout and egress diagnostics"
   not after every remote delivery completes.
 - QoS 1/2 keep the existing operation-completion wait before PUBACK.
 
-- [ ] **Step 1: Write failing ordering test**
+- [x] **Step 1: Write failing ordering test**
 
 ```csharp
 [Fact]
@@ -195,18 +195,18 @@ public async Task QosZeroPublishesCanPipelineWithoutReorderingTargetShard()
 }
 ```
 
-- [ ] **Step 2: Write failing buffer-owned test**
+- [x] **Step 2: Write failing buffer-owned test**
 
 Assert that each in-flight QoS 0 operation owns a distinct planner buffer and
 that buffers are returned exactly once after remote completion or fault.
 
-- [ ] **Step 3: Run RED**
+- [x] **Step 3: Run RED**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~QosZeroFanoutPipelineTests"
 ```
 
-- [ ] **Step 4: Implement pipeline dispatch**
+- [x] **Step 4: Implement pipeline dispatch**
 
 1. Rent an exclusive plan buffer for QoS 0.
 2. Plan and retain the source Lease.
@@ -216,7 +216,7 @@ dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "Full
    existing fanout fault callback.
 6. Return the buffer and Lease only when all batch work completes.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~QosZeroFanoutPipelineTests|FullyQualifiedName~FanoutDispatcherTests|FullyQualifiedName~OutboundDeliveryTests"
@@ -240,7 +240,7 @@ git commit -m "perf: pipeline qos zero fanout"
 - Preserve control-frame priority.
 - A non-completed Flush must yield the Shard; it must not spin or block.
 
-- [ ] **Step 1: Write failing coalescing test**
+- [x] **Step 1: Write failing coalescing test**
 
 Queue three publishes for one connection before releasing the first Egress work;
 assert one data drain processes all three messages and performs at most one Flush.
@@ -250,20 +250,20 @@ assert one data drain processes all three messages and performs at most one Flus
 Publish 64 KiB to five connections; assert no extra full-Payload copy and one
 Flush per Egress drain batch.
 
-- [ ] **Step 3: Run RED**
+- [x] **Step 3: Run RED**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~EgressCoalescingTests"
 ```
 
-- [ ] **Step 4: Implement evidence-driven Egress changes**
+- [x] **Step 4: Implement evidence-driven Egress changes**
 
 If Task 2 shows very small data batches, coalesce signals within one Event Loop
 drain before starting the Egress work. Do not add an artificial timer delay.
 If Flush dominates, keep the existing nonblocking Flush continuation and reduce
 duplicate Flush calls only when encoded bytes were actually written.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~Egress|FullyQualifiedName~OutboundDeliveryTests"
@@ -287,10 +287,10 @@ git commit -m "perf: coalesce egress hot path"
   - `-OutputDirectory artifacts/topology`
 - It runs the fixed QoS 0/100/8 KiB and QoS 1/100/8 KiB cells only.
 
-- [ ] **Step 1: Add topology runner**
-- [ ] **Step 2: Run A/B**
-- [ ] **Step 3: Select the best topology or document that topology is not the cause**
-- [ ] **Step 4: Commit**
+- [x] **Step 1: Add topology runner**
+- [x] **Step 2: Run A/B**
+- [x] **Step 3: Select the best topology or document that topology is not the cause**
+- [x] **Step 4: Commit**
 
 ```powershell
 git commit -m "perf: add broker topology comparison"
@@ -307,7 +307,7 @@ git commit -m "perf: add broker topology comparison"
 - Modify: `README.md`
 - Modify: `docs/superpowers/plans/2026-11-25-phase-4-5-egress-hot-path.md`
 
-- [ ] **Step 1: Run the fixed 12-cell development matrix**
+- [x] **Step 1: Run the fixed 12-cell development matrix**
 
 ```powershell
 dotnet run -c Release --no-build `
@@ -318,7 +318,7 @@ dotnet run -c Release --no-build `
     --output artifacts/broker-phase4.5-dev.json
 ```
 
-- [ ] **Step 2: Compare against Phase 0**
+- [x] **Step 2: Compare against Phase 0**
 
 ```powershell
 ./eng/compare-broker-benchmarks.ps1 `
@@ -328,7 +328,7 @@ dotnet run -c Release --no-build `
     -MaxP99Regression 0.05
 ```
 
-- [ ] **Step 3: Run the official baseline**
+- [x] **Step 3: Run the official baseline**
 
 ```powershell
 ./eng/run-broker-benchmark.ps1 `
@@ -337,13 +337,13 @@ dotnet run -c Release --no-build `
     -StartPort 30000
 ```
 
-- [ ] **Step 4: Write the report**
+- [x] **Step 4: Write the report**
 
 The report must list every red cell and state whether Phase 5 is unblocked.
 Do not claim MQTTnet strict-gate success unless all 12 cells satisfy the strict
 throughput and p99 conditions.
 
-- [ ] **Step 5: Full verification**
+- [x] **Step 5: Full verification**
 
 ```powershell
 dotnet restore MqttZero.slnx --locked-mode
@@ -357,7 +357,7 @@ dotnet format MqttZero.slnx --verify-no-changes --no-restore
 git diff --check
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add benchmarks eng src tests perf/baseline README.md docs/superpowers/plans/2026-11-25-phase-4-5-egress-hot-path.md
@@ -372,3 +372,15 @@ git commit -m "perf: close phase four hot path"
 - No new per-message hot-path allocations.
 - All 12 development cells pass before Phase 5 starts.
 - Any remaining strict MQTTnet failures are recorded explicitly.
+
+## Execution Status
+
+Blocked at the performance gate on 2026-11-25.
+
+- Topology and diagnostics: complete.
+- QoS 0 fanout pipelining: complete and ordered.
+- Low-priority Egress and allocation-free enqueue: complete.
+- Development matrix: `8/12 PASS`; four cells remain red.
+- Strict MQTTnet gate: `0/12 PASS`.
+- Large-Payload suppression work: not completed.
+- Phase 5: not unblocked.

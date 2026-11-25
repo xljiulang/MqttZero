@@ -299,6 +299,10 @@ dotnet run -c Release --project benchmarks/MqttZero.Benchmarks -- `
 Trie 和内存端到端均经过 `0 B/op` 分配验证；网络 Broker 对比结果和尚未
 通过的单元格以 baseline 报告为准。
 
+Phase 4.5 的 QoS 0 Fanout 流水化、Egress 低优先级调度和拓扑 A/B 结果见
+`perf/baseline/broker-phase4.5-2026-11-25.md`。当前网络热路径门禁仍未
+全部通过，Phase 5 暂缓。
+
 全局 Packet Writer 池经顺序和 128 并发基准验证后决定不引入，结论见 `perf/baseline/packet-writer-pool-0.5.0-alpha.1.md`。完整 Broker 对 Broker 的 TCP/QoS/多连接比较方法见 `perf/baseline/broker-comparison-methodology.md`。
 
 ## 构建与测试
