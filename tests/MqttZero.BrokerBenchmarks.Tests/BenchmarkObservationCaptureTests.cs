@@ -10,8 +10,7 @@ public sealed class BenchmarkObservationCaptureTests
         BenchmarkRuntimeSnapshot runtime = new BenchmarkRuntimeConfiguration(4)
             .ApplyToCurrentProcess();
         BenchmarkTopologyInfo topology =
-        new BenchmarkTopologyOptions(4, 2).CreateInfo(
-            BenchmarkTransportKind.Kestrel);
+        new BenchmarkTopologyOptions(4, 2).CreateInfo();
 
         BenchmarkEnvironmentInfo environment =
             BenchmarkObservationCapture.CaptureEnvironment(

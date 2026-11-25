@@ -206,3 +206,18 @@ git diff --check
 - A/B 的报告明确标记传输、拓扑、矩阵和失败数。
 - 决策基于重复结果，不以单次 benchmark 宣称性能提升。
 - 未达到稳定收益时，实验代码被删除而不是留在生产路径。
+
+## Execution Status
+
+Completed on 2026-11-25.
+
+- Internal transport boundary retained.
+- Experimental SocketAsyncEventArgs transport completed and passed QoS 1
+  integration tests with zero failures.
+- Twelve-cell smoke completed for both transports.
+- Primary QoS 0/100/8-KiB cell completed three interleaved repetitions.
+- Socket median throughput was about 11.1% lower while p99 was about 7.8%
+  lower, so the prototype failed the simultaneous-improvement decision gate.
+- Experimental transport, CLI selection and comparison script were deleted.
+- Evidence is recorded in
+  `perf/baseline/broker-transport-ab-2026-11-25.md`.

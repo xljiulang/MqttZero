@@ -307,6 +307,11 @@ Phase 3 已将 QoS 0 候选队列改为完全惰性侵入链、消息 Lease 合�
 Slab，并按需创建 Topic Alias 表。内存结果见
 `perf/baseline/memory-phase3-2026-11-25.md`。
 
+Phase 7-Lite 已用同一 Broker 核心对 Kestrel 与实验
+`SocketAsyncEventArgs` TCP 传输做交替重复 A/B。实验传输吞吐中位数更低，
+未同时改善吞吐和 p99，因此已删除；Kestrel 继续作为唯一生产传输。记录见
+`perf/baseline/broker-transport-ab-2026-11-25.md`。
+
 全局 Packet Writer 池经顺序和 128 并发基准验证后决定不引入，结论见 `perf/baseline/packet-writer-pool-0.5.0-alpha.1.md`。完整 Broker 对 Broker 的 TCP/QoS/多连接比较方法见 `perf/baseline/broker-comparison-methodology.md`。
 
 ## 构建与测试

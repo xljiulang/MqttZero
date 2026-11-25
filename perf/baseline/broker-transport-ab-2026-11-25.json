@@ -1,0 +1,449 @@
+{
+  "Date": "2026-11-25",
+  "Decision": "rejected",
+  "Reason": "The experimental socket transport did not improve both throughput and p99 on the primary cell under interleaved repetitions.",
+  "FullMatrixSmoke": {
+    "GeneratedAtUtc": "2026-11-25T17:02:51.9525273+08:00",
+    "WarmupSeconds": 1,
+    "MeasurementSeconds": 2,
+    "Repetitions": 1,
+    "TransportExitCodes": {
+      "kestrel": 1,
+      "socket": 1
+    },
+    "Rows": [
+      {
+        "Transport": "kestrel",
+        "Qos": 0,
+        "Subscribers": 1,
+        "PayloadSize": 32,
+        "ThroughputMedian": 6809.55937281536,
+        "P99MedianMicroseconds": 264.5,
+        "Failures": 0
+      },
+      {
+        "Transport": "kestrel",
+        "Qos": 0,
+        "Subscribers": 1,
+        "PayloadSize": 8192,
+        "ThroughputMedian": 7003.691812727975,
+        "P99MedianMicroseconds": 293.2,
+        "Failures": 0
+      },
+      {
+        "Transport": "kestrel",
+        "Qos": 0,
+        "Subscribers": 1,
+        "PayloadSize": 65536,
+        "ThroughputMedian": 3227.296541590743,
+        "P99MedianMicroseconds": 4973.8,
+        "Failures": 0
+      },
+      {
+        "Transport": "kestrel",
+        "Qos": 0,
+        "Subscribers": 100,
+        "PayloadSize": 32,
+        "ThroughputMedian": 4590.434415199377,
+        "P99MedianMicroseconds": 860.6,
+        "Failures": 0
+      },
+      {
+        "Transport": "kestrel",
+        "Qos": 0,
+        "Subscribers": 100,
+        "PayloadSize": 8192,
+        "ThroughputMedian": 451.2951213850017,
+        "P99MedianMicroseconds": 48271.1,
+        "Failures": 0
+      },
+      {
+        "Transport": "kestrel",
+        "Qos": 0,
+        "Subscribers": 100,
+        "PayloadSize": 65536,
+        "ThroughputMedian": 79.31810080936485,
+        "P99MedianMicroseconds": 306966.1,
+        "Failures": 0
+      },
+      {
+        "Transport": "kestrel",
+        "Qos": 1,
+        "Subscribers": 1,
+        "PayloadSize": 32,
+        "ThroughputMedian": 3313.9997603210268,
+        "P99MedianMicroseconds": 544.5,
+        "Failures": 0
+      },
+      {
+        "Transport": "kestrel",
+        "Qos": 1,
+        "Subscribers": 1,
+        "PayloadSize": 8192,
+        "ThroughputMedian": 2841.42814211933,
+        "P99MedianMicroseconds": 731.1,
+        "Failures": 0
+      },
+      {
+        "Transport": "kestrel",
+        "Qos": 1,
+        "Subscribers": 1,
+        "PayloadSize": 65536,
+        "ThroughputMedian": 2246.8002623920415,
+        "P99MedianMicroseconds": 1426.4,
+        "Failures": 0
+      },
+      {
+        "Transport": "kestrel",
+        "Qos": 1,
+        "Subscribers": 100,
+        "PayloadSize": 32,
+        "ThroughputMedian": 222.43404992507314,
+        "P99MedianMicroseconds": 7537.8,
+        "Failures": 0
+      },
+      {
+        "Transport": "kestrel",
+        "Qos": 1,
+        "Subscribers": 100,
+        "PayloadSize": 8192,
+        "ThroughputMedian": 171.91313080442822,
+        "P99MedianMicroseconds": 10234.8,
+        "Failures": 0
+      },
+      {
+        "Transport": "kestrel",
+        "Qos": 1,
+        "Subscribers": 100,
+        "PayloadSize": 65536,
+        "ThroughputMedian": 48.09972610429162,
+        "P99MedianMicroseconds": 48525.3,
+        "Failures": 0
+      },
+      {
+        "Transport": "socket",
+        "Qos": 0,
+        "Subscribers": 1,
+        "PayloadSize": 32,
+        "ThroughputMedian": 6499.3369229824575,
+        "P99MedianMicroseconds": 260.4,
+        "Failures": 0
+      },
+      {
+        "Transport": "socket",
+        "Qos": 0,
+        "Subscribers": 1,
+        "PayloadSize": 8192,
+        "ThroughputMedian": 6678.3022298142205,
+        "P99MedianMicroseconds": 506.8,
+        "Failures": 0
+      },
+      {
+        "Transport": "socket",
+        "Qos": 0,
+        "Subscribers": 1,
+        "PayloadSize": 65536,
+        "ThroughputMedian": 2731.233876237024,
+        "P99MedianMicroseconds": 10248.2,
+        "Failures": 0
+      },
+      {
+        "Transport": "socket",
+        "Qos": 0,
+        "Subscribers": 100,
+        "PayloadSize": 32,
+        "ThroughputMedian": 5223.870514917946,
+        "P99MedianMicroseconds": 1126.1,
+        "Failures": 0
+      },
+      {
+        "Transport": "socket",
+        "Qos": 0,
+        "Subscribers": 100,
+        "PayloadSize": 8192,
+        "ThroughputMedian": 512.0083820742632,
+        "P99MedianMicroseconds": 36650.2,
+        "Failures": 0
+      },
+      {
+        "Transport": "socket",
+        "Qos": 0,
+        "Subscribers": 100,
+        "PayloadSize": 65536,
+        "ThroughputMedian": 107.28498710946496,
+        "P99MedianMicroseconds": 74563.2,
+        "Failures": 0
+      },
+      {
+        "Transport": "socket",
+        "Qos": 1,
+        "Subscribers": 1,
+        "PayloadSize": 32,
+        "ThroughputMedian": 3503.2640686217546,
+        "P99MedianMicroseconds": 480.2,
+        "Failures": 0
+      },
+      {
+        "Transport": "socket",
+        "Qos": 1,
+        "Subscribers": 1,
+        "PayloadSize": 8192,
+        "ThroughputMedian": 3275.1671221623888,
+        "P99MedianMicroseconds": 556.7,
+        "Failures": 0
+      },
+      {
+        "Transport": "socket",
+        "Qos": 1,
+        "Subscribers": 1,
+        "PayloadSize": 65536,
+        "ThroughputMedian": 3544.8260632293704,
+        "P99MedianMicroseconds": 605.1,
+        "Failures": 0
+      },
+      {
+        "Transport": "socket",
+        "Qos": 1,
+        "Subscribers": 100,
+        "PayloadSize": 32,
+        "ThroughputMedian": 232.14018085559312,
+        "P99MedianMicroseconds": 6199.4,
+        "Failures": 0
+      },
+      {
+        "Transport": "socket",
+        "Qos": 1,
+        "Subscribers": 100,
+        "PayloadSize": 8192,
+        "ThroughputMedian": 163.76953872641855,
+        "P99MedianMicroseconds": 9580.6,
+        "Failures": 0
+      },
+      {
+        "Transport": "socket",
+        "Qos": 1,
+        "Subscribers": 100,
+        "PayloadSize": 65536,
+        "ThroughputMedian": 47.03803475684951,
+        "P99MedianMicroseconds": 42351.6,
+        "Failures": 0
+      }
+    ],
+    "Comparison": [
+      {
+        "Qos": 0,
+        "Subscribers": 1,
+        "PayloadSize": 32,
+        "KestrelThroughput": 6809.55937281536,
+        "SocketThroughput": 6499.3369229824575,
+        "ThroughputDelta": -310.2224498329024,
+        "KestrelP99Microseconds": 264.5,
+        "SocketP99Microseconds": 260.4,
+        "P99DeltaMicroseconds": -4.100000000000023,
+        "KestrelFailures": 0,
+        "SocketFailures": 0
+      },
+      {
+        "Qos": 0,
+        "Subscribers": 1,
+        "PayloadSize": 8192,
+        "KestrelThroughput": 7003.691812727975,
+        "SocketThroughput": 6678.3022298142205,
+        "ThroughputDelta": -325.38958291375457,
+        "KestrelP99Microseconds": 293.2,
+        "SocketP99Microseconds": 506.8,
+        "P99DeltaMicroseconds": 213.60000000000002,
+        "KestrelFailures": 0,
+        "SocketFailures": 0
+      },
+      {
+        "Qos": 0,
+        "Subscribers": 1,
+        "PayloadSize": 65536,
+        "KestrelThroughput": 3227.296541590743,
+        "SocketThroughput": 2731.233876237024,
+        "ThroughputDelta": -496.0626653537188,
+        "KestrelP99Microseconds": 4973.8,
+        "SocketP99Microseconds": 10248.2,
+        "P99DeltaMicroseconds": 5274.400000000001,
+        "KestrelFailures": 0,
+        "SocketFailures": 0
+      },
+      {
+        "Qos": 0,
+        "Subscribers": 100,
+        "PayloadSize": 32,
+        "KestrelThroughput": 4590.434415199377,
+        "SocketThroughput": 5223.870514917946,
+        "ThroughputDelta": 633.4360997185686,
+        "KestrelP99Microseconds": 860.6,
+        "SocketP99Microseconds": 1126.1,
+        "P99DeltaMicroseconds": 265.4999999999999,
+        "KestrelFailures": 0,
+        "SocketFailures": 0
+      },
+      {
+        "Qos": 0,
+        "Subscribers": 100,
+        "PayloadSize": 8192,
+        "KestrelThroughput": 451.2951213850017,
+        "SocketThroughput": 512.0083820742632,
+        "ThroughputDelta": 60.71326068926146,
+        "KestrelP99Microseconds": 48271.1,
+        "SocketP99Microseconds": 36650.2,
+        "P99DeltaMicroseconds": -11620.900000000001,
+        "KestrelFailures": 0,
+        "SocketFailures": 0
+      },
+      {
+        "Qos": 0,
+        "Subscribers": 100,
+        "PayloadSize": 65536,
+        "KestrelThroughput": 79.31810080936485,
+        "SocketThroughput": 107.28498710946496,
+        "ThroughputDelta": 27.966886300100114,
+        "KestrelP99Microseconds": 306966.1,
+        "SocketP99Microseconds": 74563.2,
+        "P99DeltaMicroseconds": -232402.89999999997,
+        "KestrelFailures": 0,
+        "SocketFailures": 0
+      },
+      {
+        "Qos": 1,
+        "Subscribers": 1,
+        "PayloadSize": 32,
+        "KestrelThroughput": 3313.9997603210268,
+        "SocketThroughput": 3503.2640686217546,
+        "ThroughputDelta": 189.26430830072786,
+        "KestrelP99Microseconds": 544.5,
+        "SocketP99Microseconds": 480.2,
+        "P99DeltaMicroseconds": -64.30000000000001,
+        "KestrelFailures": 0,
+        "SocketFailures": 0
+      },
+      {
+        "Qos": 1,
+        "Subscribers": 1,
+        "PayloadSize": 8192,
+        "KestrelThroughput": 2841.42814211933,
+        "SocketThroughput": 3275.1671221623888,
+        "ThroughputDelta": 433.73898004305875,
+        "KestrelP99Microseconds": 731.1,
+        "SocketP99Microseconds": 556.7,
+        "P99DeltaMicroseconds": -174.39999999999998,
+        "KestrelFailures": 0,
+        "SocketFailures": 0
+      },
+      {
+        "Qos": 1,
+        "Subscribers": 1,
+        "PayloadSize": 65536,
+        "KestrelThroughput": 2246.8002623920415,
+        "SocketThroughput": 3544.8260632293704,
+        "ThroughputDelta": 1298.025800837329,
+        "KestrelP99Microseconds": 1426.4,
+        "SocketP99Microseconds": 605.1,
+        "P99DeltaMicroseconds": -821.3000000000001,
+        "KestrelFailures": 0,
+        "SocketFailures": 0
+      },
+      {
+        "Qos": 1,
+        "Subscribers": 100,
+        "PayloadSize": 32,
+        "KestrelThroughput": 222.43404992507314,
+        "SocketThroughput": 232.14018085559312,
+        "ThroughputDelta": 9.706130930519976,
+        "KestrelP99Microseconds": 7537.8,
+        "SocketP99Microseconds": 6199.4,
+        "P99DeltaMicroseconds": -1338.4000000000005,
+        "KestrelFailures": 0,
+        "SocketFailures": 0
+      },
+      {
+        "Qos": 1,
+        "Subscribers": 100,
+        "PayloadSize": 8192,
+        "KestrelThroughput": 171.91313080442822,
+        "SocketThroughput": 163.76953872641855,
+        "ThroughputDelta": -8.143592078009675,
+        "KestrelP99Microseconds": 10234.8,
+        "SocketP99Microseconds": 9580.6,
+        "P99DeltaMicroseconds": -654.1999999999989,
+        "KestrelFailures": 0,
+        "SocketFailures": 0
+      },
+      {
+        "Qos": 1,
+        "Subscribers": 100,
+        "PayloadSize": 65536,
+        "KestrelThroughput": 48.09972610429162,
+        "SocketThroughput": 47.03803475684951,
+        "ThroughputDelta": -1.0616913474421068,
+        "KestrelP99Microseconds": 48525.3,
+        "SocketP99Microseconds": 42351.6,
+        "P99DeltaMicroseconds": -6173.700000000004,
+        "KestrelFailures": 0,
+        "SocketFailures": 0
+      }
+    ]
+  },
+  "PrimaryInterleavedSamples": [
+    {
+      "Transport": "kestrel",
+      "Repetition": 1,
+      "ThroughputPerSecond": 554.1196173152617,
+      "LatencyP99Microseconds": 22010.7,
+      "FailedOperations": 0
+    },
+    {
+      "Transport": "kestrel",
+      "Repetition": 2,
+      "ThroughputPerSecond": 474.1720386724285,
+      "LatencyP99Microseconds": 50565.1,
+      "FailedOperations": 0
+    },
+    {
+      "Transport": "kestrel",
+      "Repetition": 3,
+      "ThroughputPerSecond": 471.13317133640953,
+      "LatencyP99Microseconds": 57257.6,
+      "FailedOperations": 0
+    },
+    {
+      "Transport": "socket",
+      "Repetition": 1,
+      "ThroughputPerSecond": 407.4526627139388,
+      "LatencyP99Microseconds": 51511.3,
+      "FailedOperations": 0
+    },
+    {
+      "Transport": "socket",
+      "Repetition": 2,
+      "ThroughputPerSecond": 451.0512673855201,
+      "LatencyP99Microseconds": 41910.5,
+      "FailedOperations": 0
+    },
+    {
+      "Transport": "socket",
+      "Repetition": 3,
+      "ThroughputPerSecond": 421.5889773439782,
+      "LatencyP99Microseconds": 46625.9,
+      "FailedOperations": 0
+    }
+  ],
+  "PrimaryInterleavedMedians": [
+    {
+      "Transport": "kestrel",
+      "ThroughputMedian": 474.1720386724285,
+      "P99MedianMicroseconds": 50565.1,
+      "Failures": 0.0
+    },
+    {
+      "Transport": "socket",
+      "ThroughputMedian": 421.5889773439782,
+      "P99MedianMicroseconds": 46625.9,
+      "Failures": 0.0
+    }
+  ]
+}

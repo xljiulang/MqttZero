@@ -42,6 +42,8 @@
 - `broker-phase4-2026-11-25.md`
 - `broker-phase4.5-2026-11-25.json`
 - `broker-phase4.5-2026-11-25.md`
+- `broker-transport-ab-2026-11-25.json`
+- `broker-transport-ab-2026-11-25.md`
 - `memory-phase3-2026-11-25.md`
 - Phase 0 local development profile: QoS 0/1, 1/100 subscribers, 32 B/8 KiB/64 KiB, 2 s warmup, 6 s measurement and one repetition.
 - Phase 0 nightly stable profile: QoS 0/1/2, 1/100 subscribers, 32 B/8 KiB/64 KiB, 5 s warmup, 20 s measurement and three repetitions.
@@ -79,6 +81,11 @@
   message into one Slab and lazily creates Topic Alias storage. Broker private
   memory in the 100-subscriber 8-KiB workload falls from about 308 MB to
   143.6 MB while the Phase 4.5 Egress bottleneck remains.
+- Phase 7-Lite adds an internal transport boundary and evaluates an experimental
+  SocketAsyncEventArgs TCP transport. The prototype is rejected and removed:
+  interleaved repetitions on QoS 0/100/8-KiB show about 11.1% lower throughput
+  for Socket despite about 7.8% lower p99. Kestrel remains the only production
+  transport; no Socket performance claim is made.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`

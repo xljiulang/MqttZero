@@ -39,13 +39,11 @@ public sealed class BenchmarkTopologyOptionsTests
     {
         BenchmarkTopologyOptions options = new(4, 2);
 
-        BenchmarkTopologyInfo info = options.CreateInfo(
-            BenchmarkTransportKind.Kestrel);
+        BenchmarkTopologyInfo info = options.CreateInfo();
 
         Assert.Equal(4, info.EventLoopShardCount);
         Assert.Equal(4, info.ResolvedEventLoopShardCount);
         Assert.Equal(2, info.IoQueueCount);
         Assert.Equal(2, info.ResolvedIoQueueCount);
-        Assert.Equal(BenchmarkTransportKind.Kestrel, info.Transport);
     }
 }
