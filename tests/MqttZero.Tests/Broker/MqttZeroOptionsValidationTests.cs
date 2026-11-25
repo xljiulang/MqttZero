@@ -96,6 +96,34 @@ namespace MqttZero.Tests.Broker
             MqttZeroOptionsValidator.Validate(options);
         }
 
+        [Theory]
+        [InlineData(-1)]
+        [InlineData(257)]
+        public void RejectsInvalidEventLoopShardCount(int shardCount)
+        {
+            MqttZeroOptions options = new()
+            {
+                EventLoopShardCount = shardCount
+            };
+
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => MqttZeroOptionsValidator.Validate(options));
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(256)]
+        public void AcceptsValidEventLoopShardCount(int shardCount)
+        {
+            MqttZeroOptions options = new()
+            {
+                EventLoopShardCount = shardCount
+            };
+
+            MqttZeroOptionsValidator.Validate(options);
+        }
+
         [Fact]
         public void RejectsNegativeRetainedMessageLimit()
         {

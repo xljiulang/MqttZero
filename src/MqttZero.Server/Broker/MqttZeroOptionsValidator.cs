@@ -11,6 +11,14 @@ internal static class MqttZeroOptionsValidator
             options.MaxActiveConnections,
             nameof(options.MaxActiveConnections));
         ValidatePositive(options.MaxSessions, nameof(options.MaxSessions));
+        if (options.EventLoopShardCount < 0 ||
+            options.EventLoopShardCount > 256)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "MqttZeroOptions.EventLoopShardCount must be between 0 and 256.");
+        }
+
         ValidatePositive(
             options.MaxSubscriptionsPerSession,
             nameof(options.MaxSubscriptionsPerSession));
