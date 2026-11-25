@@ -7,4 +7,5 @@ internal sealed record BenchmarkEnvironmentInfo(
     string ProcessArchitecture,
     string RuntimeIdentifier,
     int ProcessorCount,
-    BenchmarkRuntimeSnapshot Runtime);
+    BenchmarkRuntimeSnapshot Runtime,
+    BenchmarkTopologyInfo Topology);

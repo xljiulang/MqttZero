@@ -9,9 +9,13 @@ public sealed class BenchmarkObservationCaptureTests
     {
         BenchmarkRuntimeSnapshot runtime = new BenchmarkRuntimeConfiguration(4)
             .ApplyToCurrentProcess();
+        BenchmarkTopologyInfo topology =
+            new BenchmarkTopologyOptions(4, 2).CreateInfo();
 
         BenchmarkEnvironmentInfo environment =
-            BenchmarkObservationCapture.CaptureEnvironment(runtime);
+            BenchmarkObservationCapture.CaptureEnvironment(
+                runtime,
+                topology);
 
         Assert.False(string.IsNullOrWhiteSpace(environment.OsDescription));
         Assert.False(string.IsNullOrWhiteSpace(environment.OsVersion));
@@ -20,6 +24,7 @@ public sealed class BenchmarkObservationCaptureTests
         Assert.False(string.IsNullOrWhiteSpace(environment.RuntimeIdentifier));
         Assert.True(environment.ProcessorCount > 0);
         Assert.Equal(runtime, environment.Runtime);
+        Assert.Equal(topology, environment.Topology);
     }
 
     [Fact]

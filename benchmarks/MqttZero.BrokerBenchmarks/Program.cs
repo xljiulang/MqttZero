@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -25,8 +26,13 @@ BenchmarkRuntimeConfiguration runtimeConfiguration =
     new(Math.Max(1, Environment.ProcessorCount));
 BenchmarkRuntimeSnapshot runtimeSnapshot =
     runtimeConfiguration.ApplyToCurrentProcess();
+BenchmarkTopologyOptions topologyOptions =
+    BenchmarkTopologyOptions.Parse(arguments);
+BenchmarkTopologyInfo topology = topologyOptions.CreateInfo();
 BenchmarkEnvironmentInfo environment =
-    BenchmarkObservationCapture.CaptureEnvironment(runtimeSnapshot);
+    BenchmarkObservationCapture.CaptureEnvironment(
+        runtimeSnapshot,
+        topology);
 
 if (mode == "serve")
 {
@@ -80,6 +86,8 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
         arguments,
         "fragmentation",
         true);
+    BenchmarkTopologyOptions topologyOptions =
+        BenchmarkTopologyOptions.Parse(arguments);
     CancellationTokenSource lifetime = new();
     Console.CancelKeyPress += (_, eventArgs) =>
     {
@@ -105,7 +113,15 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
         builder.Services.AddMqttZero(options =>
         {
             options.MaxMessageQueueLength = 100_000;
+            options.EventLoopShardCount =
+                topologyOptions.EventLoopShardCount;
         });
+        if (topologyOptions.IoQueueCount > 0)
+        {
+            builder.Services.Configure<SocketTransportOptions>(
+                options => options.IOQueueCount =
+                    topologyOptions.IoQueueCount);
+        }
         await using WebApplication app = builder.Build();
         await app.StartAsync(lifetime.Token);
         Console.WriteLine("READY");
@@ -161,6 +177,8 @@ static async Task CompareAsync(
         arguments,
         "max-pending",
         1024);
+    BenchmarkTopologyOptions topologyOptions =
+        BenchmarkTopologyOptions.Parse(arguments);
     bool allowPacketFragmentation = GetBool(
         arguments,
         "fragmentation",
@@ -196,7 +214,8 @@ static async Task CompareAsync(
                             broker,
                             port,
                             allowPacketFragmentation,
-                            runtimeConfiguration);
+                            runtimeConfiguration,
+                            topologyOptions);
                         await WaitForReadyAsync(serverProcess);
                         BenchmarkProcessObservation brokerObservation;
                         try
@@ -271,6 +290,8 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
         arguments,
         "max-pending",
         1024);
+    BenchmarkTopologyOptions topologyOptions =
+        BenchmarkTopologyOptions.Parse(arguments);
     MqttZero.Protocol.MqttQualityOfServiceLevel qualityOfServiceLevel = qos switch
     {
         0 => MqttZero.Protocol.MqttQualityOfServiceLevel.AtMostOnce,
@@ -291,7 +312,15 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
     builder.Services.AddMqttZero(options =>
     {
         options.MaxMessageQueueLength = 100_000;
+        options.EventLoopShardCount =
+            topologyOptions.EventLoopShardCount;
     });
+    if (topologyOptions.IoQueueCount > 0)
+    {
+        builder.Services.Configure<SocketTransportOptions>(
+            socketOptions => socketOptions.IOQueueCount =
+                topologyOptions.IoQueueCount);
+    }
     await using WebApplication app = builder.Build();
     await app.StartAsync();
     MqttZeroBroker broker = app.Services.GetRequiredService<MqttZeroBroker>();
@@ -453,7 +482,8 @@ static Process StartServerProcess(
     string broker,
     int port,
     bool allowPacketFragmentation,
-    BenchmarkRuntimeConfiguration runtimeConfiguration)
+    BenchmarkRuntimeConfiguration runtimeConfiguration,
+    BenchmarkTopologyOptions topologyOptions)
 {
     ProcessStartInfo startInfo = new()
     {
@@ -472,6 +502,14 @@ static Process StartServerProcess(
     startInfo.ArgumentList.Add("--fragmentation");
     startInfo.ArgumentList.Add(
         allowPacketFragmentation ? "true" : "false");
+    startInfo.ArgumentList.Add("--event-loop-shards");
+    startInfo.ArgumentList.Add(
+        topologyOptions.EventLoopShardCount.ToString(
+            CultureInfo.InvariantCulture));
+    startInfo.ArgumentList.Add("--io-queue-count");
+    startInfo.ArgumentList.Add(
+        topologyOptions.IoQueueCount.ToString(
+            CultureInfo.InvariantCulture));
     foreach (KeyValuePair<string, string> variable in
         runtimeConfiguration.CreateBrokerEnvironmentVariables())
     {

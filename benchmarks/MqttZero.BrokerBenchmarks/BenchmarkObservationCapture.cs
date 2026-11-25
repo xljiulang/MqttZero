@@ -6,9 +6,11 @@ namespace MqttZero.BrokerBenchmarks;
 internal static class BenchmarkObservationCapture
 {
     public static BenchmarkEnvironmentInfo CaptureEnvironment(
-        BenchmarkRuntimeSnapshot runtime)
+        BenchmarkRuntimeSnapshot runtime,
+        BenchmarkTopologyInfo topology)
     {
         ArgumentNullException.ThrowIfNull(runtime);
+        ArgumentNullException.ThrowIfNull(topology);
         return new BenchmarkEnvironmentInfo(
             RuntimeInformation.OSDescription,
             Environment.OSVersion.VersionString,
@@ -16,7 +18,8 @@ internal static class BenchmarkObservationCapture
             RuntimeInformation.ProcessArchitecture.ToString(),
             RuntimeInformation.RuntimeIdentifier,
             Environment.ProcessorCount,
-            runtime);
+            runtime,
+            topology);
     }
 
     public static BenchmarkProcessObservation CaptureProcess(
