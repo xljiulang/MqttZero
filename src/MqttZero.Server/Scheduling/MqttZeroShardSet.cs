@@ -7,6 +7,7 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
 {
     private readonly MqttZeroEventLoop[] _shards;
     private readonly MqttZeroEgressScheduler[] _egressSchedulers;
+    private readonly MqttZeroFanoutScheduler[] _fanoutSchedulers;
     private readonly MqttZeroSessionShardMap _sessionShardMap;
     private int _disposed;
     private int _stopped;
@@ -22,6 +23,8 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         _shards = new MqttZeroEventLoop[shardCount];
         _egressSchedulers =
             new MqttZeroEgressScheduler[shardCount];
+        _fanoutSchedulers =
+            new MqttZeroFanoutScheduler[shardCount];
         for (int index = 0; index < _shards.Length; index++)
         {
             _shards[index] = new MqttZeroEventLoop(
@@ -29,6 +32,10 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
                 queueCapacity);
             _egressSchedulers[index] = new MqttZeroEgressScheduler(
                 _shards[index],
+                fanoutDiagnostics);
+            _fanoutSchedulers[index] = new MqttZeroFanoutScheduler(
+                _shards[index],
+                queueCapacity,
                 fanoutDiagnostics);
         }
     }
@@ -72,6 +79,11 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         return _egressSchedulers[shardId];
     }
 
+    public MqttZeroFanoutScheduler GetFanoutScheduler(int shardId)
+    {
+        return _fanoutSchedulers[shardId];
+    }
+
     public async ValueTask StopAsync()
     {
         if (Interlocked.Exchange(ref _stopped, 1) != 0)
@@ -88,6 +100,15 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         }
 
         await Task.WhenAll(schedulerStopTasks).ConfigureAwait(false);
+        Task[] fanoutSchedulerStopTasks =
+            new Task[_fanoutSchedulers.Length];
+        for (int index = 0; index < _fanoutSchedulers.Length; index++)
+        {
+            fanoutSchedulerStopTasks[index] =
+                _fanoutSchedulers[index].StopAsync().AsTask();
+        }
+
+        await Task.WhenAll(fanoutSchedulerStopTasks).ConfigureAwait(false);
         Task[] stopTasks = new Task[_shards.Length];
         for (int index = 0; index < _shards.Length; index++)
         {
@@ -110,6 +131,15 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
             index++)
         {
             await _egressSchedulers[index]
+                .DisposeAsync()
+                .ConfigureAwait(false);
+        }
+
+        for (int index = 0;
+            index < _fanoutSchedulers.Length;
+            index++)
+        {
+            await _fanoutSchedulers[index]
                 .DisposeAsync()
                 .ConfigureAwait(false);
         }

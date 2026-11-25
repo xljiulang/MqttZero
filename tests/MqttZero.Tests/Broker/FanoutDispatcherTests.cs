@@ -18,6 +18,184 @@ namespace MqttZero.Tests.Broker;
 
 public sealed class FanoutDispatcherTests
 {
+    [Fact(Timeout = 5_000)]
+    public async Task FanoutSchedulerUsesOneWorkForManyBatches()
+    {
+        await using MqttZeroEventLoop shard = new(0, 128);
+        await using MqttZeroFanoutScheduler scheduler = new(
+            shard,
+            queueCapacity: 60,
+            diagnostics: null);
+        using MqttZeroBufferPool bufferPool = new(16 * 1024 * 1024);
+        MqttZeroMessageLease lease = CreateLease(bufferPool);
+        MqttZeroRouteEpoch epoch = MqttZeroRouteEpoch.Empty.Add(
+            new MqttZeroSessionState("receiver", 100, 0),
+            CreateSubscription("scheduler/#"));
+        TaskCompletionSource blockerStarted = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseBlocker = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await BlockShardAsync(
+            shard,
+            blockerStarted,
+            releaseBlocker,
+            TestContext.Current.CancellationToken);
+
+        List<MqttZeroRoutePlanBuffer> buffers = [];
+        int executed = 0;
+        long enqueuedBefore = shard.GetSnapshot().EnqueuedCount;
+        try
+        {
+            for (int index = 0; index < 60; index++)
+            {
+                MqttZeroRoutePlanBuffer buffer = new(1);
+                buffers.Add(buffer);
+                MqttZeroRoutePlan plan = MqttZeroRoutePlanner.Plan(
+                    epoch,
+                    "scheduler/topic"u8,
+                    null,
+                    new MqttZeroSharedGroupCursors(),
+                    1,
+                    buffer);
+                MqttZeroFanoutOperation operation =
+                    MqttZeroFanoutOperation.Rent(
+                        plan,
+                        buffer,
+                        lease,
+                        null,
+                        expectedBatchCount: 1,
+                        (_, _, _, _) =>
+                        {
+                            Interlocked.Increment(ref executed);
+                            return ValueTask.CompletedTask;
+                        },
+                        exception => throw exception,
+                        autoRelease: true);
+                await scheduler.EnqueueAsync(
+                    operation,
+                    shardId: 0,
+                    TestContext.Current.CancellationToken);
+            }
+
+            releaseBlocker.TrySetResult();
+            await WaitUntilAsync(
+                () => Volatile.Read(ref executed) == 60,
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(
+                1,
+                shard.GetSnapshot().EnqueuedCount - enqueuedBefore);
+            Assert.Equal(60, scheduler.EnqueuedCount);
+        }
+        finally
+        {
+            releaseBlocker.TrySetResult();
+            lease.Release();
+            for (int index = 0; index < buffers.Count; index++)
+            {
+                buffers[index].Dispose();
+            }
+        }
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task FanoutSchedulerPreservesFifoUnderBackpressure()
+    {
+        await using MqttZeroEventLoop shard = new(0, 2);
+        await using MqttZeroFanoutScheduler scheduler = new(
+            shard,
+            queueCapacity: 2,
+            diagnostics: null);
+        using MqttZeroBufferPool bufferPool = new(16 * 1024 * 1024);
+        MqttZeroMessageLease lease = CreateLease(bufferPool);
+        MqttZeroRouteEpoch epoch = MqttZeroRouteEpoch.Empty.Add(
+            new MqttZeroSessionState("receiver", 100, 0),
+            CreateSubscription("scheduler/#"));
+        List<MqttZeroRoutePlanBuffer> buffers = [];
+        List<int> order = [];
+        TaskCompletionSource releaseFirst = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        MqttZeroFanoutOperation CreateOperation(int value)
+        {
+            MqttZeroRoutePlanBuffer buffer = new(1);
+            buffers.Add(buffer);
+            MqttZeroRoutePlan plan = MqttZeroRoutePlanner.Plan(
+                epoch,
+                "scheduler/topic"u8,
+                null,
+                new MqttZeroSharedGroupCursors(),
+                1,
+                buffer);
+            return MqttZeroFanoutOperation.Rent(
+                plan,
+                buffer,
+                lease,
+                null,
+                expectedBatchCount: 1,
+                async (_, _, _, cancellationToken) =>
+                {
+                    if (value == 0)
+                    {
+                        await releaseFirst.Task.WaitAsync(
+                            cancellationToken);
+                    }
+
+                    lock (order)
+                    {
+                        order.Add(value);
+                    }
+                },
+                exception => throw exception,
+                autoRelease: true);
+        }
+
+        try
+        {
+            await scheduler.EnqueueAsync(
+                CreateOperation(0),
+                0,
+                TestContext.Current.CancellationToken);
+            await scheduler.EnqueueAsync(
+                CreateOperation(1),
+                0,
+                TestContext.Current.CancellationToken);
+            Task blocked = scheduler.EnqueueAsync(
+                CreateOperation(2),
+                0,
+                TestContext.Current.CancellationToken).AsTask();
+            await WaitUntilAsync(
+                () => scheduler.EnqueuedCount == 2,
+                TestContext.Current.CancellationToken);
+            Assert.False(blocked.IsCompleted);
+
+            releaseFirst.TrySetResult();
+            await blocked.WaitAsync(TestContext.Current.CancellationToken);
+            for (int value = 3; value < 8; value++)
+            {
+                await scheduler.EnqueueAsync(
+                    CreateOperation(value),
+                    shardId: 0,
+                    TestContext.Current.CancellationToken);
+            }
+
+            await WaitUntilAsync(
+                () => order.Count == 8,
+                TestContext.Current.CancellationToken);
+            Assert.Equal([0, 1, 2, 3, 4, 5, 6, 7], order);
+        }
+        finally
+        {
+            releaseFirst.TrySetResult();
+            lease.Release();
+            for (int index = 0; index < buffers.Count; index++)
+            {
+                buffers[index].Dispose();
+            }
+        }
+    }
+
     [Fact(Timeout = 10_000)]
     public async Task OnePublishEnqueuesAtMostOneRemoteWorkPerShard()
     {
@@ -1023,6 +1201,18 @@ public sealed class FanoutDispatcherTests
         }
     }
 
+    private static async Task BlockShardAsync(
+        MqttZeroEventLoop shard,
+        TaskCompletionSource started,
+        TaskCompletionSource release,
+        CancellationToken cancellationToken)
+    {
+        await shard.EnqueueAsync(
+            new BlockingShardWork(started, release),
+            cancellationToken);
+        await started.Task.WaitAsync(cancellationToken);
+    }
+
     private static async ValueTask RouteAndReleaseReceiverMessageAsync(
         MqttZeroBroker broker,
         MqttZeroSessionState sender,
@@ -1054,5 +1244,27 @@ public sealed class FanoutDispatcherTests
             (ConcurrentDictionary<string, MqttZeroSessionState>)sessionsField
                 .GetValue(broker)!;
         sessions[session.ClientId] = session;
+    }
+
+    private sealed class BlockingShardWork : MqttZeroShardWork
+    {
+        private readonly TaskCompletionSource _release;
+        private readonly TaskCompletionSource _started;
+
+        public BlockingShardWork(
+            TaskCompletionSource started,
+            TaskCompletionSource release)
+        {
+            _started = started;
+            _release = release;
+        }
+
+        public override async ValueTask ExecuteAsync(
+            MqttZeroEventLoop shard,
+            CancellationToken cancellationToken)
+        {
+            _started.TrySetResult();
+            await _release.Task.WaitAsync(cancellationToken);
+        }
     }
 }
