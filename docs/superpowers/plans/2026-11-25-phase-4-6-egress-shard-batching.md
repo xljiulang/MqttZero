@@ -108,3 +108,16 @@
 - The three existing outbound batch options are effective.
 - The diagnostic target reduces Actor Drain frequency by at least 30%.
 - The Phase 4.6 report either records `12/12` development-gate success or explicitly keeps the phase red.
+
+## Execution Status
+
+Blocked on 2026-11-25.
+
+- Scheduler, batch options and diagnostics are implemented.
+- A focused outbound diagnostic reduced scheduler passes but not Actor Drains.
+- Actor Drain / encoded message remained about `0.863`, below the required
+  30% reduction.
+- The 12-cell matrix could not complete because
+  `QoS 0 / 100 / 64 KiB` intermittently stalls during warmup drain.
+- Full continuation notes are in
+  `perf/baseline/broker-phase4.6-in-progress-2026-11-25.md`.

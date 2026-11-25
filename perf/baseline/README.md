@@ -44,6 +44,8 @@
 - `broker-phase4.5-2026-11-25.md`
 - `broker-transport-ab-2026-11-25.json`
 - `broker-transport-ab-2026-11-25.md`
+- `broker-phase4.6-diagnostic-2026-11-25.json`
+- `broker-phase4.6-in-progress-2026-11-25.md`
 - `memory-phase3-2026-11-25.md`
 - Phase 0 local development profile: QoS 0/1, 1/100 subscribers, 32 B/8 KiB/64 KiB, 2 s warmup, 6 s measurement and one repetition.
 - Phase 0 nightly stable profile: QoS 0/1/2, 1/100 subscribers, 32 B/8 KiB/64 KiB, 5 s warmup, 20 s measurement and three repetitions.
@@ -86,6 +88,10 @@
   interleaved repetitions on QoS 0/100/8-KiB show about 11.1% lower throughput
   for Socket despite about 7.8% lower p99. Kestrel remains the only production
   transport; no Socket performance claim is made.
+- Phase 4.6 adds a per-Shard Egress Scheduler, Actor-ready deduplication and
+  configuration-driven batch limits. The phase remains red: focused diagnostics
+  do not reduce Actor Drain frequency by the required 30%, and
+  QoS 0/100/64-KiB intermittently stalls during warmup drain.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`

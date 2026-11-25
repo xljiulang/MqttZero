@@ -303,6 +303,11 @@ Phase 4.5 的 QoS 0 Fanout 流水化、Egress 低优先级调度和拓扑 A/B �
 `perf/baseline/broker-phase4.5-2026-11-25.md`。当前网络热路径门禁仍未
 全部通过，Phase 5 暂缓。
 
+Phase 4.6 正在验证每 Shard Egress Scheduler 和配置化数据批次。初步结果显示
+调度 Work 数显著下降，但 Actor Drain 频率未达到目标，并暴露出
+QoS 0/100/64 KiB 的间歇性排空停滞；阶段保持红色，详见
+`perf/baseline/broker-phase4.6-in-progress-2026-11-25.md`。
+
 Phase 3 已将 QoS 0 候选队列改为完全惰性侵入链、消息 Lease 合并为单
 Slab，并按需创建 Topic Alias 表。内存结果见
 `perf/baseline/memory-phase3-2026-11-25.md`。
