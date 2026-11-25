@@ -456,6 +456,7 @@ static async Task<BrokerBenchmarkResult> RunLoadAsync(
     int measurementSeconds,
     int maxPendingMessages)
 {
+    long setupStarted = Stopwatch.GetTimestamp();
     MqttClientFactory factory = new();
     MqttQualityOfServiceLevel qualityOfServiceLevel = qos switch
     {
@@ -501,6 +502,7 @@ static async Task<BrokerBenchmarkResult> RunLoadAsync(
                 CancellationToken.None);
         }
 
+        long connectionSetupCompleted = Stopwatch.GetTimestamp();
         byte[] payload = new byte[payloadSize];
         MqttApplicationMessage message = new MqttApplicationMessageBuilder()
             .WithTopic("bench/topic")
@@ -513,6 +515,7 @@ static async Task<BrokerBenchmarkResult> RunLoadAsync(
                 Interlocked.Read(ref receivedMessages) + maxPendingMessages;
         }
 
+        long warmupStarted = Stopwatch.GetTimestamp();
         using CancellationTokenSource warmup = new(TimeSpan.FromSeconds(warmupSeconds));
         await RunPublishersAsync(
             publisherClients,
@@ -526,11 +529,14 @@ static async Task<BrokerBenchmarkResult> RunLoadAsync(
                 errors.Enqueue(exception.ToString());
             },
             () => Interlocked.Increment(ref publishedMessages));
+        long warmupPublishingCompleted = Stopwatch.GetTimestamp();
+        long warmupDrainStarted = Stopwatch.GetTimestamp();
         await WaitForSubscriberDrainAsync(
             advertisedMessages:
                 Interlocked.Read(ref publishedMessages) * subscribers,
             () => Interlocked.Read(ref receivedMessages),
             CancellationToken.None);
+        long warmupDrainCompleted = Stopwatch.GetTimestamp();
         long warmupPublishedMessages =
             Interlocked.Read(ref publishedMessages);
         long warmupReceivedMessages =
@@ -541,6 +547,8 @@ static async Task<BrokerBenchmarkResult> RunLoadAsync(
         long[] latencySamples = new long[100_000];
         int latencySampleCount = 0;
         long measuredPublishes = 0;
+        BenchmarkLoadSnapshot loadBeforeMeasurement =
+            BenchmarkObservationCapture.CreateLoadSnapshot();
         Stopwatch stopwatch = Stopwatch.StartNew();
         using CancellationTokenSource measurement = new(TimeSpan.FromSeconds(measurementSeconds));
         await RunPublishersAsync(
@@ -567,6 +575,8 @@ static async Task<BrokerBenchmarkResult> RunLoadAsync(
                 Interlocked.Increment(ref publishedMessages);
             });
         stopwatch.Stop();
+        BenchmarkLoadObservation loadObservation =
+            BenchmarkObservationCapture.CaptureLoadDelta(loadBeforeMeasurement);
 
         Array.Sort(latencySamples, 0, Math.Min(latencySampleCount, latencySamples.Length));
         int sampleCount = Math.Min(latencySampleCount, latencySamples.Length);
@@ -581,6 +591,17 @@ static async Task<BrokerBenchmarkResult> RunLoadAsync(
             LatencyP50Microseconds = PercentileMicroseconds(latencySamples, sampleCount, 0.50),
             LatencyP95Microseconds = PercentileMicroseconds(latencySamples, sampleCount, 0.95),
             LatencyP99Microseconds = PercentileMicroseconds(latencySamples, sampleCount, 0.99),
+            LoadObservation = loadObservation,
+            ConnectionSetupMilliseconds = Stopwatch.GetElapsedTime(
+                setupStarted,
+                connectionSetupCompleted).TotalMilliseconds,
+            WarmupMilliseconds = Stopwatch.GetElapsedTime(
+                warmupStarted,
+                warmupPublishingCompleted).TotalMilliseconds,
+            MeasurementMilliseconds = stopwatch.Elapsed.TotalMilliseconds,
+            DrainMilliseconds = Stopwatch.GetElapsedTime(
+                warmupDrainStarted,
+                warmupDrainCompleted).TotalMilliseconds,
             FirstError = errors.TryPeek(out string? firstError) ? firstError : null
         };
     }

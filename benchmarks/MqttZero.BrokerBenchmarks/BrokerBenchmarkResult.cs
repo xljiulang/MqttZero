@@ -20,5 +20,15 @@ internal sealed class BrokerBenchmarkResult
 
     public double LatencyP99Microseconds { get; init; }
 
+    public required BenchmarkLoadObservation LoadObservation { get; init; }
+
+    public double ConnectionSetupMilliseconds { get; init; }
+
+    public double WarmupMilliseconds { get; init; }
+
+    public double MeasurementMilliseconds { get; init; }
+
+    public double DrainMilliseconds { get; init; }
+
     public string? FirstError { get; init; }
 }
