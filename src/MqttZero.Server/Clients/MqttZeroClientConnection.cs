@@ -945,6 +945,9 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         catch (ObjectDisposedException)
         {
         }
+        catch (InvalidOperationException)
+        {
+        }
         finally
         {
             try

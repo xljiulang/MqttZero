@@ -99,6 +99,7 @@ dotnet run --project samples/MqttZero.Sample
 | `MaxActiveConnections` | `20_000` |
 | `MaxSessions` | `20_000` |
 | `MaxSubscriptionsPerSession` | `1_000` |
+| `EventLoopShardCount` | `0`，自动使用 `Environment.ProcessorCount` |
 | `MaxInflight` | `32` |
 | `MaxAwaitingRel` | `100` |
 | `MaxMessageQueueLength` | `1_000` |
@@ -115,6 +116,10 @@ dotnet run --project samples/MqttZero.Sample
 | `ResponseInformation` | `null` |
 
 EMQX 默认不对 Listener 连接数和客户端订阅数设置全局上限。MQTTZero 保留有限默认值，避免在缺少进程、容器或反向代理限制时耗尽内存和文件描述符。`KeepAliveCheckInterval` 也保持 `500ms`，因为它同时驱动 Will、Session 和 Retained 清理。
+
+`EventLoopShardCount=0` 时使用逻辑处理器数。CONNECT 后 Session 按 Client ID
+稳定映射到 Shard；`AddMqttZero` 默认将 Kestrel `IOQueueCount` 对齐到相同值，
+调用方之后显式配置 `SocketTransportOptions` 时可以覆盖。
 
 ## 发布 API
 

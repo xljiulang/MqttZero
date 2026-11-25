@@ -36,4 +36,15 @@ public sealed class MqttZeroShardSetTests
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new MqttZeroShardSet(1, 0));
     }
+
+    [Fact]
+    public async Task GetsStableSessionShard()
+    {
+        await using MqttZeroShardSet shards = new(8, 32);
+
+        MqttZeroEventLoop first = shards.GetSessionShard("device/one");
+        MqttZeroEventLoop second = shards.GetSessionShard("device/one");
+
+        Assert.Same(first, second);
+    }
 }

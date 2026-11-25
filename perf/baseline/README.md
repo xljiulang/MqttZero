@@ -31,11 +31,17 @@
 
 - `broker-phase0-2026-11-25.json`
 - `broker-phase0-2026-11-25.md`
+- `broker-phase1-2026-11-25.json`
+- `broker-phase1-2026-11-25.md`
 - Phase 0 local development profile: QoS 0/1, 1/100 subscribers, 32 B/8 KiB/64 KiB, 2 s warmup, 6 s measurement and one repetition.
 - Phase 0 nightly stable profile: QoS 0/1/2, 1/100 subscribers, 32 B/8 KiB/64 KiB, 5 s warmup, 20 s measurement and three repetitions.
 - The 1,000-subscriber cells are deferred until the final performance gate.
 - A red Phase 0 performance gate means the toolchain completed and recorded the
   actual result; it does not mean the benchmark infrastructure failed.
+- Phase 1 adds event loop shards, removes the Channel Inbound Dispatcher and
+  aligns Kestrel IOQueueCount with the logical Shard count.
+- Phase 1's 5% regression gate is red in 5 of 12 development cells. The report
+  lists each regression; no performance improvement claim is made.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`

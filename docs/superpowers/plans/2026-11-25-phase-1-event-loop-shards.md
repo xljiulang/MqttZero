@@ -1,6 +1,6 @@
 # Phase 1 Event Loop Shard Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans or superpowers:subagent-driven-development. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans or superpowers:subagent-driven-development. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 用可复用 `IThreadPoolWorkItem` Shard 调度替换 Inbound Dispatcher，并建立连接与 Session 的固定 Shard 所有权域。
 

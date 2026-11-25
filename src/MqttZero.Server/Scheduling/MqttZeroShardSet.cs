@@ -3,6 +3,7 @@ namespace MqttZero.Server.Scheduling;
 internal sealed class MqttZeroShardSet : IAsyncDisposable
 {
     private readonly MqttZeroEventLoop[] _shards;
+    private readonly MqttZeroSessionShardMap _sessionShardMap;
     private int _disposed;
     private int _stopped;
 
@@ -12,6 +13,7 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(shardCount);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(queueCapacity);
+        _sessionShardMap = new MqttZeroSessionShardMap(shardCount);
         _shards = new MqttZeroEventLoop[shardCount];
         for (int index = 0; index < _shards.Length; index++)
         {
@@ -47,6 +49,12 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         }
 
         return new MqttZeroShardSetSnapshot(snapshots);
+    }
+
+    public MqttZeroEventLoop GetSessionShard(string clientId)
+    {
+        int shardId = _sessionShardMap.GetShardId(clientId);
+        return _shards[shardId];
     }
 
     public async ValueTask StopAsync()

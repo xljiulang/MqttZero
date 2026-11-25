@@ -8,16 +8,16 @@ namespace MqttZero.Tests.Sessions
 {
     public sealed class SessionStateTests
     {
-    [Fact]
-    public void StoresAssignedShardId()
-    {
-        MqttZeroSessionState session = new(
-            "sharded",
-            maxQueueLength: 32,
-            shardId: 7);
+        [Fact]
+        public void StoresAssignedShardId()
+        {
+            MqttZeroSessionState session = new(
+                "sharded",
+                maxQueueLength: 32,
+                shardId: 7);
 
-        Assert.Equal(7, session.ShardId);
-    }
+            Assert.Equal(7, session.ShardId);
+        }
 
         [Fact]
         public void PacketIdentifierSkipsZeroAndInflightIdentifiers()
