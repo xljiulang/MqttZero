@@ -75,7 +75,7 @@
 - `Enumerator` is a `ref struct`; it yields entries without allocating and supports `MoveNext`, `Current`.
 - Hash uses the supplied comparer's `GetHashCode`; equality uses the supplied comparer.
 
-- [ ] **Step 1: Write failing structural-sharing and enumeration tests**
+- [x] **Step 1: Write failing structural-sharing and enumeration tests**
 
 ```csharp
 [Fact]
@@ -142,7 +142,7 @@ private sealed class CollisionKeyComparer :
 }
 ```
 
-- [ ] **Step 2: Run the tests and verify RED**
+- [x] **Step 2: Run the tests and verify RED**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~PersistentHashMapTests"
@@ -150,7 +150,7 @@ dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "Full
 
 Expected: compilation fails because `MqttZeroPersistentHashMap<TKey,TValue>` does not exist.
 
-- [ ] **Step 3: Implement the persistent HAMT**
+- [x] **Step 3: Implement the persistent HAMT**
 
 Use 5 hash bits per level and 32-way bitmap nodes. A bitmap node stores only non-empty children in a compact array. When two keys collide at the current fragment, create a new bitmap node at the next shift. When all 32 bits are exhausted, use a collision node. `Set` and `Remove` rebuild only nodes on the key path.
 
@@ -185,7 +185,7 @@ internal abstract class MqttZeroPersistentHashMapNode<TKey, TValue>
 }
 ```
 
-- [ ] **Step 4: Add allocation and reference-sharing tests**
+- [x] **Step 4: Add allocation and reference-sharing tests**
 
 ```csharp
 [Fact]
@@ -217,7 +217,7 @@ public void ReadsAndEnumerationDoNotAllocateAfterWarmup()
 }
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~PersistentHashMapTests"
@@ -226,7 +226,7 @@ perf/verify-allocation.ps1
 
 Expected: all tests pass and the allocation sentinel reports `0 B`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src/MqttZero.Server/Routing/MqttZeroPersistentHashMap* tests/MqttZero.Tests/Routing/PersistentHashMapTests.cs
