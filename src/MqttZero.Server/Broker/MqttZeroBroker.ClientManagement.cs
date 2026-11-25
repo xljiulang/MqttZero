@@ -262,45 +262,51 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        foreach (MqttZeroRetainedMessage retained in _retainedMessages.Values)
+        List<MqttZeroRetainedMessage> retainedMessages = [];
+        MatchRetainedMessages(filter, retainedMessages);
+        try
         {
             DateTimeOffset now = _timeProvider.GetUtcNow();
-            if (retained.ExpiresAt.HasValue &&
-                retained.ExpiresAt.Value <= now)
+            for (int index = 0;
+                index < retainedMessages.Count;
+                index++)
             {
-                continue;
-            }
+                MqttZeroRetainedMessage retained =
+                    retainedMessages[index];
+                if (retained.ExpiresAt.HasValue &&
+                    retained.ExpiresAt.Value <= now)
+                {
+                    continue;
+                }
 
-            if (!MqttZeroTopicMatcher.Matches(
-                    filter,
-                    retained.Topic.Span))
-            {
-                continue;
+                MqttQualityOfServiceLevel qos =
+                    (MqttQualityOfServiceLevel)Math.Min(
+                        (byte)retained.QualityOfServiceLevel,
+                        (byte)request.QualityOfServiceLevel);
+                MqttPublishPacket packet = new()
+                {
+                    TopicName = new ReadOnlySequence<byte>(retained.Topic),
+                    Payload = new ReadOnlySequence<byte>(retained.Payload),
+                    QualityOfServiceLevel = qos,
+                    Retain = true,
+                    SubscriptionIdentifier = subscriptionIdentifier
+                };
+                packet.MessageExpiryInterval =
+                    GetRemainingMessageExpiry(
+                        retained.ExpiresAt,
+                        now);
+                await DeliverAsync(
+                    session,
+                    packet,
+                    qos,
+                    true,
+                    subscriptionIdentifier,
+                    cancellationToken).ConfigureAwait(false);
             }
-
-            MqttQualityOfServiceLevel qos =
-                (MqttQualityOfServiceLevel)Math.Min(
-                    (byte)retained.QualityOfServiceLevel,
-                    (byte)request.QualityOfServiceLevel);
-            MqttPublishPacket packet = new()
-            {
-                TopicName = new ReadOnlySequence<byte>(retained.Topic),
-                Payload = new ReadOnlySequence<byte>(retained.Payload),
-                QualityOfServiceLevel = qos,
-                Retain = true,
-                SubscriptionIdentifier = subscriptionIdentifier
-            };
-            packet.MessageExpiryInterval =
-                GetRemainingMessageExpiry(
-                    retained.ExpiresAt,
-                    _timeProvider.GetUtcNow());
-            await DeliverAsync(
-                session,
-                packet,
-                qos,
-                true,
-                subscriptionIdentifier,
-                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            ReleaseRetainedMessages(retainedMessages);
         }
     }
 

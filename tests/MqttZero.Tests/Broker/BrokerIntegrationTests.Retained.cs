@@ -103,6 +103,11 @@ namespace MqttZero.Tests.Broker
 
             MqttZeroBroker broker = app.Services.GetRequiredService<MqttZeroBroker>();
             Assert.Empty(broker.GetRetainedMessages());
+            List<MqttZero.Server.Retained.MqttZeroRetainedMessage> matches = [];
+            broker.RetainedTopicTrieForTest.Match(
+                "retained/#"u8,
+                matches);
+            Assert.Empty(matches);
 
             await subscriber.ConnectAsync(CreateClientOptions(port, "retained-expiry-subscriber"), cancellationToken);
             await subscriber.SubscribeAsync(

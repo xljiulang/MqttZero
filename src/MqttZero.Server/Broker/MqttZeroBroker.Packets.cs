@@ -239,6 +239,7 @@ public sealed partial class MqttZeroBroker
             },
             cancellationToken).ConfigureAwait(false);
 
+        List<MqttZeroRetainedMessage> retainedMessages = [];
         for (int index = 0; index < packet.Subscriptions.Count; index++)
         {
             MqttSubscriptionRequest request = packet.Subscriptions[index];
@@ -257,62 +258,79 @@ public sealed partial class MqttZeroBroker
                 continue;
             }
 
-            foreach (MqttZeroRetainedMessage retainedMessage in _retainedMessages.Values)
+            retainedMessages.Clear();
+            MatchRetainedMessages(filter, retainedMessages);
+            try
             {
                 DateTimeOffset now = _timeProvider.GetUtcNow();
-                if (retainedMessage.ExpiresAt.HasValue && retainedMessage.ExpiresAt.Value <= now)
+                for (int retainedIndex = 0;
+                    retainedIndex < retainedMessages.Count;
+                    retainedIndex++)
                 {
-                    continue;
-                }
+                    MqttZeroRetainedMessage retainedMessage =
+                        retainedMessages[retainedIndex];
+                    if (retainedMessage.ExpiresAt.HasValue &&
+                        retainedMessage.ExpiresAt.Value <= now)
+                    {
+                        continue;
+                    }
 
-                if (!MqttZeroTopicMatcher.Matches(filter, retainedMessage.Topic.Span))
-                {
-                    continue;
-                }
+                    MqttQualityOfServiceLevel qos =
+                        (MqttQualityOfServiceLevel)Math.Min(
+                            (byte)retainedMessage.QualityOfServiceLevel,
+                            (byte)request.QualityOfServiceLevel);
+                    ReadOnlySequence<byte> retainedProperties =
+                        retainedMessage.Lease.Properties.Length == 0
+                            ? ReadOnlySequence<byte>.Empty
+                            : new ReadOnlySequence<byte>(
+                                retainedMessage.Lease.Properties);
+                    if (!MqttPublishPropertiesCodec.TryDecode(
+                            retainedProperties,
+                            out MqttPublishProperties properties,
+                            out _,
+                            out _))
+                    {
+                        throw new InvalidOperationException(
+                            "The retained MQTT PUBLISH properties are invalid.");
+                    }
 
-                MqttQualityOfServiceLevel qos = (MqttQualityOfServiceLevel)Math.Min(
-                    (byte)retainedMessage.QualityOfServiceLevel,
-                    (byte)request.QualityOfServiceLevel);
-                ReadOnlySequence<byte> retainedProperties =
-                    retainedMessage.Lease.Properties.Length == 0
-                        ? ReadOnlySequence<byte>.Empty
-                        : new ReadOnlySequence<byte>(retainedMessage.Lease.Properties);
-                if (!MqttPublishPropertiesCodec.TryDecode(
-                        retainedProperties,
-                        out MqttPublishProperties properties,
-                        out _,
-                        out _))
-                {
-                    throw new InvalidOperationException(
-                        "The retained MQTT PUBLISH properties are invalid.");
+                    properties = new MqttPublishProperties
+                    {
+                        PayloadFormatIndicator =
+                            properties.PayloadFormatIndicator,
+                        MessageExpiryInterval =
+                            GetRemainingMessageExpiry(
+                                retainedMessage.ExpiresAt,
+                                now),
+                        ContentType = properties.ContentType,
+                        ResponseTopic = properties.ResponseTopic,
+                        CorrelationData = properties.CorrelationData,
+                        UserProperties = properties.UserProperties
+                    };
+                    MqttPublishPacket retainedPacket = new()
+                    {
+                        TopicName = new ReadOnlySequence<byte>(
+                            retainedMessage.Topic),
+                        Payload = new ReadOnlySequence<byte>(
+                            retainedMessage.Payload),
+                        Properties = properties,
+                        QualityOfServiceLevel = qos,
+                        Retain = true,
+                        SubscriptionIdentifier =
+                            packet.SubscriptionIdentifier
+                    };
+                    await DeliverAsync(
+                        session,
+                        retainedPacket,
+                        qos,
+                        true,
+                        packet.SubscriptionIdentifier,
+                        cancellationToken).ConfigureAwait(false);
                 }
-
-                properties = new MqttPublishProperties
-                {
-                    PayloadFormatIndicator = properties.PayloadFormatIndicator,
-                    MessageExpiryInterval =
-                        GetRemainingMessageExpiry(retainedMessage.ExpiresAt, now),
-                    ContentType = properties.ContentType,
-                    ResponseTopic = properties.ResponseTopic,
-                    CorrelationData = properties.CorrelationData,
-                    UserProperties = properties.UserProperties
-                };
-                MqttPublishPacket retainedPacket = new()
-                {
-                    TopicName = new ReadOnlySequence<byte>(retainedMessage.Topic),
-                    Payload = new ReadOnlySequence<byte>(retainedMessage.Payload),
-                    Properties = properties,
-                    QualityOfServiceLevel = qos,
-                    Retain = true,
-                    SubscriptionIdentifier = packet.SubscriptionIdentifier
-                };
-                await DeliverAsync(
-                    session,
-                    retainedPacket,
-                    qos,
-                    true,
-                    packet.SubscriptionIdentifier,
-                    cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                ReleaseRetainedMessages(retainedMessages);
             }
         }
     }

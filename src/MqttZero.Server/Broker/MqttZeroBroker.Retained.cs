@@ -69,6 +69,7 @@ public sealed partial class MqttZeroBroker
         string topicKey,
         DateTimeOffset? expiresAt)
     {
+        MqttZeroRetainedMessage? replaced;
         lock (_sessionGate)
         {
             _retainedMessages.TryGetValue(topicKey, out MqttZeroRetainedMessage? existing);
@@ -94,10 +95,19 @@ public sealed partial class MqttZeroBroker
                 lease,
                 lease.QualityOfServiceLevel,
                 expiresAt);
+            MqttZeroRetainedTopicTrie currentTrie =
+                Volatile.Read(ref _retainedTopicTrie);
+            MqttZeroRetainedTopicTrie replacementTrie =
+                currentTrie.Set(
+                    lease.Topic.Span,
+                    replacement);
             _retainedMessages[topicKey] = replacement;
+            Volatile.Write(ref _retainedTopicTrie, replacementTrie);
             _retainedBytes = retainedBytes;
-            existing?.Release();
+            replaced = existing;
         }
+
+        replaced?.Release();
     }
 
     private void ValidateRetainedCapacity(string topicKey, long replacementBytes)
@@ -127,11 +137,41 @@ public sealed partial class MqttZeroBroker
         {
             if (_retainedMessages.TryRemove(topicKey, out removed))
             {
+                MqttZeroRetainedTopicTrie currentTrie =
+                    Volatile.Read(ref _retainedTopicTrie);
+                Volatile.Write(
+                    ref _retainedTopicTrie,
+                    currentTrie.Remove(removed.Topic.Span));
                 _retainedBytes -= removed.ByteLength;
             }
         }
 
         removed?.Release();
+    }
+
+    private void MatchRetainedMessages(
+        ReadOnlySpan<byte> filter,
+        List<MqttZeroRetainedMessage> results)
+    {
+        lock (_sessionGate)
+        {
+            MqttZeroRetainedTopicTrie trie =
+                Volatile.Read(ref _retainedTopicTrie);
+            trie.Match(filter, results);
+            for (int index = 0; index < results.Count; index++)
+            {
+                results[index].Retain();
+            }
+        }
+    }
+
+    private static void ReleaseRetainedMessages(
+        List<MqttZeroRetainedMessage> messages)
+    {
+        for (int index = 0; index < messages.Count; index++)
+        {
+            messages[index].Release();
+        }
     }
 
 }

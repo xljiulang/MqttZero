@@ -38,6 +38,8 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly IMqttZeroRetainedMessageStore _retainedMessageStore;
     private readonly ConcurrentDictionary<string, MqttZeroRetainedMessage> _retainedMessages =
         new(StringComparer.Ordinal);
+    private MqttZeroRetainedTopicTrie _retainedTopicTrie =
+        MqttZeroRetainedTopicTrie.Empty;
     private readonly ConcurrentDictionary<string, MqttZeroSessionState> _sessions =
         new(StringComparer.Ordinal);
     private readonly MqttZeroRouteScopePool _routeScopes = new();
@@ -226,6 +228,14 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         get
         {
             return _routeEpochs.Current;
+        }
+    }
+
+    internal MqttZeroRetainedTopicTrie RetainedTopicTrieForTest
+    {
+        get
+        {
+            return Volatile.Read(ref _retainedTopicTrie);
         }
     }
 

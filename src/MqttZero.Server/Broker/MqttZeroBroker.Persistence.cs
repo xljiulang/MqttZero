@@ -17,6 +17,8 @@ public sealed partial class MqttZeroBroker
             new(StringComparer.Ordinal);
         Dictionary<string, MqttZeroRetainedMessage> stagedRetainedMessages =
             new(StringComparer.Ordinal);
+        MqttZeroRetainedTopicTrie stagedRetainedTrie =
+            MqttZeroRetainedTopicTrie.Empty;
         List<(
             MqttZeroSessionState Session,
             MqttZeroMessageLease Lease,
@@ -328,6 +330,9 @@ public sealed partial class MqttZeroBroker
                         persisted.QualityOfServiceLevel,
                         persisted.ExpiresAt);
                     stagedRetainedMessages.Add(topic, retainedMessage);
+                    stagedRetainedTrie = stagedRetainedTrie.Set(
+                        retainedMessage.Topic.Span,
+                        retainedMessage);
                     stagedRetainedBytes += retainedMessage.ByteLength;
                     retainedMessage = null;
                 }
@@ -353,6 +358,9 @@ public sealed partial class MqttZeroBroker
                     _retainedMessages[pair.Key] = pair.Value;
                 }
 
+                Volatile.Write(
+                    ref _retainedTopicTrie,
+                    stagedRetainedTrie);
                 _retainedBytes = stagedRetainedBytes;
             }
 
@@ -406,6 +414,9 @@ public sealed partial class MqttZeroBroker
             {
                 _sessions.Clear();
                 _retainedMessages.Clear();
+                Volatile.Write(
+                    ref _retainedTopicTrie,
+                    MqttZeroRetainedTopicTrie.Empty);
                 _retainedBytes = 0;
                 _routeEpochs.Reset(MqttZeroRouteEpoch.Empty);
             }

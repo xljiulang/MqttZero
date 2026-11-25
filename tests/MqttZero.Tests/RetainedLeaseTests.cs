@@ -34,6 +34,13 @@ namespace MqttZero.Tests
 
             await broker.PublishAsync(
                 "retained/topic",
+                new ReadOnlySequence<byte>("replacement"u8.ToArray()),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                true,
+                TestContext.Current.CancellationToken);
+
+            await broker.PublishAsync(
+                "retained/topic",
                 ReadOnlySequence<byte>.Empty,
                 MqttQualityOfServiceLevel.AtMostOnce,
                 true,

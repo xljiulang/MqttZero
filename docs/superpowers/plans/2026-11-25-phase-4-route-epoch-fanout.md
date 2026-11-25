@@ -808,6 +808,7 @@ git commit -m "feat: dispatch fanout by target shard"
 
 - Create: `src/MqttZero.Server/Retained/MqttZeroRetainedTopicTrie.cs`
 - Create: `src/MqttZero.Server/Retained/MqttZeroRetainedTopicNode.cs`
+- Create: `src/MqttZero.Server/Retained/MqttZeroRetainedTopicChild.cs`
 - Modify: `src/MqttZero.Server/Broker/MqttZeroBroker.Retained.cs`
 - Modify: `src/MqttZero.Server/Broker/MqttZeroBroker.Packets.cs`
 - Modify: `src/MqttZero.Server/Broker/MqttZeroBroker.ClientManagement.cs`
@@ -823,7 +824,7 @@ git commit -m "feat: dispatch fanout by target shard"
   - `void Match(ReadOnlySpan<byte> filter, List<MqttZeroRetainedMessage> results)`
 - Trie nodes use immutable exact-topic child maps and an optional retained leaf.
 
-- [ ] **Step 1: Write failing retained wildcard tests**
+- [x] **Step 1: Write failing retained wildcard tests**
 
 ```csharp
 [Fact]
@@ -843,7 +844,7 @@ public void MatchesRetainedTopicsWithoutEnumeratingTheDictionary()
 }
 ```
 
-- [ ] **Step 2: Write failing update/persistence transaction tests**
+- [x] **Step 2: Write failing update/persistence transaction tests**
 
 Assert:
 
@@ -853,23 +854,24 @@ Assert:
 - restore publishes the complete retained trie once,
 - expiry removal updates both dictionary and trie.
 
-- [ ] **Step 3: Run tests and verify RED**
+- [x] **Step 3: Run tests and verify RED**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~RetainedTopicTrieTests"
 ```
 
-- [ ] **Step 4: Replace retained scans**
+- [x] **Step 4: Replace retained scans**
 
 Replace both retained delivery scans with `Match(filter, scratchResults)`. Keep `_retainedMessages` for administration and persistence compatibility until Phase 8, but routing reads only the immutable trie and a volatile reference.
+Retain each matched message while reading the immutable snapshot so concurrent replacement cannot recycle its Lease before delivery finishes.
 
-- [ ] **Step 5: Run retained tests**
+- [x] **Step 5: Run retained tests**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~RetainedTopicTrieTests|FullyQualifiedName~BrokerIntegrationTests.Retained|FullyQualifiedName~RetainedLeaseTests"
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src/MqttZero.Server/Retained src/MqttZero.Server/Broker tests/MqttZero.Tests/Retained

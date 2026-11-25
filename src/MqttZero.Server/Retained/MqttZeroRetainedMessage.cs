@@ -45,6 +45,11 @@ internal sealed class MqttZeroRetainedMessage
         }
     }
 
+    public void Retain()
+    {
+        Lease.Retain();
+    }
+
     public void Release()
     {
         Lease.Release();
