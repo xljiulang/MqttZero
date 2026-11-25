@@ -49,7 +49,8 @@ public sealed partial class MqttZeroBroker
                 _options.MaxMessageQueueLength / shardCount);
             MqttZeroShardSet shardSet = new(
                 shardCount,
-                shardQueueCapacity);
+                shardQueueCapacity,
+                _fanoutDiagnostics);
             MqttZeroRoutePlannerLanes? routePlannerLanes = null;
             MqttZeroRoutePlanBufferPool? qosZeroPlanBuffers = null;
             try

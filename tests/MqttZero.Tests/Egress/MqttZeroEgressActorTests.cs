@@ -10,6 +10,9 @@ public sealed class MqttZeroEgressActorTests
     public async Task SignalYieldsBeforeFirstDataDrain()
     {
         await using MqttZeroEventLoop shard = new(0, 32);
+        await using MqttZeroEgressScheduler scheduler = new(
+            shard,
+            diagnostics: null);
         TaskCompletionSource blockerStarted = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource releaseBlocker = new(
@@ -19,7 +22,7 @@ public sealed class MqttZeroEgressActorTests
         int drainCount = 0;
         List<string> order = [];
         await using MqttZeroEgressActor actor = CreateActor(
-            shard,
+            scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
             {
@@ -67,13 +70,16 @@ public sealed class MqttZeroEgressActorTests
     public async Task MultipleSignalsCoalesceIntoOneActiveDrain()
     {
         await using MqttZeroEventLoop shard = new(0, 32);
+        await using MqttZeroEgressScheduler scheduler = new(
+            shard,
+            diagnostics: null);
         TaskCompletionSource firstDrainStarted = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource releaseFirstDrain = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         int drainCount = 0;
         await using MqttZeroEgressActor actor = CreateActor(
-            shard,
+            scheduler,
             (_, _) => ValueTask.CompletedTask,
             async cancellationToken =>
             {
@@ -107,12 +113,15 @@ public sealed class MqttZeroEgressActorTests
     public async Task ControlFramesAreWrittenBeforeDataDrain()
     {
         await using MqttZeroEventLoop shard = new(0, 32);
+        await using MqttZeroEgressScheduler scheduler = new(
+            shard,
+            diagnostics: null);
         List<string> sequence = [];
         using MqttZeroBufferPool bufferPool = new(1024 * 1024);
         using MqttZeroEgressControlFramePool framePool =
             new(bufferPool);
         await using MqttZeroEgressActor actor = CreateActor(
-            shard,
+            scheduler,
             (frames, _) =>
             {
                 sequence.Add("control");
@@ -150,6 +159,9 @@ public sealed class MqttZeroEgressActorTests
     public async Task StopRejectsSignalsAndFailsWaitingControls()
     {
         await using MqttZeroEventLoop shard = new(0, 32);
+        await using MqttZeroEgressScheduler scheduler = new(
+            shard,
+            diagnostics: null);
         TaskCompletionSource controlWriteStarted = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource releaseControlWrite = new(
@@ -158,7 +170,7 @@ public sealed class MqttZeroEgressActorTests
         using MqttZeroEgressControlFramePool framePool =
             new(bufferPool);
         await using MqttZeroEgressActor actor = CreateActor(
-            shard,
+            scheduler,
             async (_, cancellationToken) =>
             {
                 controlWriteStarted.TrySetResult();
@@ -204,7 +216,7 @@ public sealed class MqttZeroEgressActorTests
     }
 
     private static MqttZeroEgressActor CreateActor(
-        MqttZeroEventLoop shard,
+        MqttZeroEgressScheduler scheduler,
         Func<
             IReadOnlyList<MqttZeroEgressControlFrame>,
             CancellationToken,
@@ -213,7 +225,7 @@ public sealed class MqttZeroEgressActorTests
         Action<Exception> faulted)
     {
         return new MqttZeroEgressActor(
-            shard,
+            scheduler,
             writeControls,
             drainData,
             faulted);

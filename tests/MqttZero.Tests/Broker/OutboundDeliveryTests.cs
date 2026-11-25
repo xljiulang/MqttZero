@@ -539,6 +539,9 @@ namespace MqttZero.Tests.Broker
         public async Task AttachedConnectionRoutesControlPacketsThroughEgress()
         {
             await using MqttZeroEventLoop shard = new(0, 32);
+            await using MqttZeroEgressScheduler scheduler = new(
+                shard,
+                diagnostics: null);
             TrackingPipeWriter writer = new();
             MqttZeroClientConnection connection = new(
                 writer,
@@ -551,7 +554,7 @@ namespace MqttZero.Tests.Broker
                 TimeProvider.System);
             int egressBatchCount = 0;
             await using MqttZeroEgressActor egress = new(
-                shard,
+                scheduler,
                 async (frames, cancellationToken) =>
                 {
                     Interlocked.Increment(ref egressBatchCount);

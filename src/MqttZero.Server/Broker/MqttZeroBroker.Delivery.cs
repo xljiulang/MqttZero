@@ -10,6 +10,7 @@ using MqttZero.Server.Sessions;
 using MqttZero.Server.Storage;
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Text;
 
@@ -842,24 +843,32 @@ public sealed partial class MqttZeroBroker
         async ValueTask<bool> DrainAsync(
             CancellationToken pumpCancellationToken)
         {
-            _fanoutDiagnostics.RecordEgressDrain();
-            if (Interlocked.Exchange(ref resumePending, 0) != 0)
+            long started = Stopwatch.GetTimestamp();
+            try
             {
-                await ResumeInflightMessagesAsync(
+                if (Interlocked.Exchange(ref resumePending, 0) != 0)
+                {
+                    await ResumeInflightMessagesAsync(
+                        session,
+                        connection,
+                        pumpCancellationToken).ConfigureAwait(false);
+                }
+
+                return await DrainQueuedMessagesOnceAsync(
                     session,
                     connection,
+                    egress!,
                     pumpCancellationToken).ConfigureAwait(false);
             }
-
-            return await DrainQueuedMessagesOnceAsync(
-                session,
-                connection,
-                egress!,
-                pumpCancellationToken).ConfigureAwait(false);
+            finally
+            {
+                _fanoutDiagnostics.RecordEgressDrainTiming(
+                    Stopwatch.GetTimestamp() - started);
+            }
         }
 
         egress = new MqttZeroEgressActor(
-            _shardSet![session.ShardId],
+            _shardSet!.GetEgressScheduler(session.ShardId),
             connection.WriteEncodedControlBatchAsync,
             DrainAsync,
             exception =>

@@ -10,6 +10,9 @@ public sealed class MqttZeroEgressFlushTests
     public async Task FlushPendingDoesNotBlockOtherActorsOnSameShard()
     {
         await using MqttZeroEventLoop shard = new(0, 32);
+        await using MqttZeroEgressScheduler scheduler = new(
+            shard,
+            diagnostics: null);
         TaskCompletionSource<FlushResult> flushCompletion = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource firstFlushStarted = new(
@@ -18,7 +21,7 @@ public sealed class MqttZeroEgressFlushTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         MqttZeroEgressActor? firstActor = null;
         firstActor = new MqttZeroEgressActor(
-            shard,
+            scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
             {
@@ -31,7 +34,7 @@ public sealed class MqttZeroEgressFlushTests
             _ => { });
         MqttZeroEgressActor first = firstActor;
         MqttZeroEgressActor second = new(
-            shard,
+            scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
             {
@@ -55,6 +58,8 @@ public sealed class MqttZeroEgressFlushTests
         await WaitUntilAsync(
             () => first.State == MqttZeroEgressActorState.Idle,
             TestContext.Current.CancellationToken);
+        await first.StopAsync();
+        await second.StopAsync();
         await shard.StopAsync();
     }
 
@@ -62,6 +67,9 @@ public sealed class MqttZeroEgressFlushTests
     public async Task CompletedFlushSignalsActorToResume()
     {
         await using MqttZeroEventLoop shard = new(0, 32);
+        await using MqttZeroEgressScheduler scheduler = new(
+            shard,
+            diagnostics: null);
         TaskCompletionSource<FlushResult> flushCompletion = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource resumed = new(
@@ -69,7 +77,7 @@ public sealed class MqttZeroEgressFlushTests
         int drainCount = 0;
         MqttZeroEgressActor? actorReference = null;
         actorReference = new MqttZeroEgressActor(
-            shard,
+            scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
             {

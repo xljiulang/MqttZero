@@ -2,13 +2,14 @@ using MqttZero.Server.Scheduling;
 
 namespace MqttZero.Server.Egress;
 
-internal sealed class MqttZeroEgressWork : MqttZeroShardWork
+internal sealed class MqttZeroEgressSchedulerWork : MqttZeroShardWork
 {
-    private readonly MqttZeroEgressActor _actor;
+    private readonly MqttZeroEgressScheduler _scheduler;
 
-    public MqttZeroEgressWork(MqttZeroEgressActor actor)
+    public MqttZeroEgressSchedulerWork(
+        MqttZeroEgressScheduler scheduler)
     {
-        _actor = actor;
+        _scheduler = scheduler;
     }
 
     public override bool IsLowPriority
@@ -23,11 +24,11 @@ internal sealed class MqttZeroEgressWork : MqttZeroShardWork
         MqttZeroEventLoop shard,
         CancellationToken cancellationToken)
     {
-        return _actor.ExecuteAsync(cancellationToken);
+        return _scheduler.ExecuteAsync(cancellationToken);
     }
 
     public override void Release()
     {
-        _actor.OnWorkReleased();
+        _scheduler.OnWorkReleased();
     }
 }
