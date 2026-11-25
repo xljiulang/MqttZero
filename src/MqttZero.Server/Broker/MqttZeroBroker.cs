@@ -53,6 +53,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _retainedMutationGate = new(1, 1);
     private MqttZeroInboundDispatcher? _inboundDispatcher;
+    private MqttZeroSessionShardMap? _sessionShardMap;
     private MqttZeroShardSet? _shardSet;
     private readonly MqttZeroOptions _options;
     private readonly TimeProvider _timeProvider;
@@ -74,6 +75,17 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     internal long GetNextMessageId()
     {
         return Interlocked.Increment(ref _nextMessageId);
+    }
+
+    internal MqttZeroSessionState CreateSessionState(string clientId)
+    {
+        MqttZeroSessionShardMap shardMap = _sessionShardMap ??
+            throw new InvalidOperationException(
+                "The session shard map is not initialized.");
+        return new MqttZeroSessionState(
+            clientId,
+            _options.MaxMessageQueueLength,
+            shardMap.GetShardId(clientId));
     }
 
     /// <summary>Initializes a broker and its extension pipeline.</summary>

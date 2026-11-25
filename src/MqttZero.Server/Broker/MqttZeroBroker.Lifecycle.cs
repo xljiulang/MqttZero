@@ -39,14 +39,15 @@ public sealed partial class MqttZeroBroker
                 throw new InvalidOperationException("The MQTTZero broker is stopping.");
             }
 
+            int shardCount = MqttZeroShardCountResolver.Resolve(
+                _options.EventLoopShardCount);
+            _sessionShardMap = new MqttZeroSessionShardMap(shardCount);
             await RestorePersistenceAsync(cancellationToken).ConfigureAwait(false);
             _connectionsDrained = CreateDrainSignal();
             Volatile.Write(ref _stopping, 0);
             Volatile.Write(ref _state, (int)MqttZeroBrokerState.Running);
             _maintenanceCancellation = new CancellationTokenSource();
             _maintenanceTask = RunMaintenanceAsync(_maintenanceCancellation.Token);
-            int shardCount = MqttZeroShardCountResolver.Resolve(
-                _options.EventLoopShardCount);
             int shardQueueCapacity = Math.Max(
                 1024,
                 _options.MaxMessageQueueLength / shardCount);
@@ -219,6 +220,7 @@ public sealed partial class MqttZeroBroker
             }
 
             _sessions.Clear();
+            _sessionShardMap = null;
             _subscriptionRouteSnapshot = MqttZeroSubscriptionRouteSnapshot.Empty;
             Volatile.Write(ref _state, (int)MqttZeroBrokerState.Stopped);
         }

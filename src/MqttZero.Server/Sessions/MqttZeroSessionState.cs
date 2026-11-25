@@ -11,17 +11,29 @@ internal sealed class MqttZeroSessionState
     private int _nextPacketIdentifier;
 
     public MqttZeroSessionState(string clientId)
-        : this(clientId, 1000)
+        : this(clientId, 1000, 0)
     {
     }
 
     public MqttZeroSessionState(string clientId, int maxQueueLength)
+        : this(clientId, maxQueueLength, 0)
     {
+    }
+
+    public MqttZeroSessionState(
+        string clientId,
+        int maxQueueLength,
+        int shardId)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(shardId);
         ClientId = clientId;
+        ShardId = shardId;
         PendingMessages = new MqttZeroMessageQueue(maxQueueLength);
     }
 
     public string ClientId { get; }
+
+    public int ShardId { get; }
 
     public object SyncRoot { get; } = new();
 

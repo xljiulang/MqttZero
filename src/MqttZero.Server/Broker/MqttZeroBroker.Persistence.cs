@@ -68,17 +68,14 @@ public sealed partial class MqttZeroBroker
                     continue;
                 }
 
-                MqttZeroSessionState session = new(
-                    persisted.ClientId,
-                    _options.MaxMessageQueueLength)
-                {
-                    CleanStart = persisted.CleanStart,
-                    ExpiryInterval = persisted.ExpiryInterval,
-                    DisconnectedAt = persisted.DisconnectedAt,
-                    WillMessage = persisted.Will == null
-                        ? null
-                        : new MqttZeroWillMessage(persisted.Will)
-                };
+                MqttZeroSessionState session = CreateSessionState(
+                    persisted.ClientId);
+                session.CleanStart = persisted.CleanStart;
+                session.ExpiryInterval = persisted.ExpiryInterval;
+                session.DisconnectedAt = persisted.DisconnectedAt;
+                session.WillMessage = persisted.Will == null
+                    ? null
+                    : new MqttZeroWillMessage(persisted.Will);
                 if (session.DisconnectedAt.HasValue &&
                     session.WillMessage != null)
                 {

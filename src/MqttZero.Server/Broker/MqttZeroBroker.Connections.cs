@@ -751,6 +751,15 @@ public sealed partial class MqttZeroBroker
                 lock (_sessionGate)
                 {
                     _sessions.TryGetValue(clientId, out MqttZeroSessionState? existing);
+                    int expectedShardId =
+                        _sessionShardMap!.GetShardId(clientId);
+                    if (existing != null &&
+                        existing.ShardId != expectedShardId)
+                    {
+                        throw new InvalidOperationException(
+                            "The MQTT session is attached to an unexpected event loop shard.");
+                    }
+
                     if (existing != null &&
                         (connectPacket.CleanStart || IsSessionExpired(existing, now)))
                     {
@@ -770,7 +779,7 @@ public sealed partial class MqttZeroBroker
                             }
                         }
 
-                        session = new MqttZeroSessionState(clientId, _options.MaxMessageQueueLength);
+                        session = CreateSessionState(clientId);
                         sessionPresent = false;
                     }
                     else if (existing == null)
@@ -780,7 +789,7 @@ public sealed partial class MqttZeroBroker
                             throw new InvalidOperationException("The maximum number of MQTT sessions was reached.");
                         }
 
-                        session = new MqttZeroSessionState(clientId, _options.MaxMessageQueueLength);
+                        session = CreateSessionState(clientId);
                         sessionPresent = false;
                     }
                     else
