@@ -242,6 +242,7 @@ git commit -m "feat: add persistent route hash map"
 - Create: `src/MqttZero.Server/Routing/MqttZeroTopicSegment.cs`
 - Create: `src/MqttZero.Server/Routing/MqttZeroTopicSegmentComparer.cs`
 - Create: `src/MqttZero.Server/Routing/MqttZeroSharedGroupKey.cs`
+- Create: `src/MqttZero.Server/Routing/MqttZeroRouteChild.cs`
 - Create: `src/MqttZero.Server/Routing/MqttZeroRouteEndpoint.cs`
 - Create: `src/MqttZero.Server/Routing/MqttZeroSharedRouteEntries.cs`
 - Create: `src/MqttZero.Server/Routing/MqttZeroRouteTrieNode.cs`
@@ -264,11 +265,12 @@ git commit -m "feat: add persistent route hash map"
   - `MqttZeroRouteEndpoint? Endpoint`
   - `MqttZeroRouteTrieNode? SingleLevel`
   - `MqttZeroRouteTrieNode? MultiLevel`
-  - `MqttZeroPersistentHashMap<MqttZeroTopicSegment, MqttZeroRouteTrieNode>? ExactChildren`
+  - `ReadOnlySpan<MqttZeroRouteChild> ExactChildren`
+- Exact children are immutable arrays sorted by raw UTF-8 segment bytes; matching uses allocation-free binary search over the topic span.
 - `MqttZeroRouteEndpoint` stores regular Session entries and shared Session entries grouped by `MqttZeroSharedGroupKey`.
 - Produces: `internal MqttZeroRouteTrieNode? GetNodeForTest(ReadOnlySpan<byte> filter)` for structural-sharing tests only.
 
-- [ ] **Step 1: Port all existing topic/trie behavior into failing Epoch tests**
+- [x] **Step 1: Port all existing topic/trie behavior into failing Epoch tests**
 
 ```csharp
 [Theory]
@@ -300,7 +302,7 @@ public void EpochPreservesMqttWildcardSemantics(
 }
 ```
 
-- [ ] **Step 2: Add reference-sharing update tests**
+- [x] **Step 2: Add reference-sharing update tests**
 
 ```csharp
 [Fact]
@@ -327,7 +329,7 @@ public void UpdatingOneFilterSharesUnchangedTriePaths()
 }
 ```
 
-- [ ] **Step 3: Run tests and verify RED**
+- [x] **Step 3: Run tests and verify RED**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~RouteEpochTests"
@@ -335,7 +337,7 @@ dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "Full
 
 Expected: compilation fails because `MqttZeroRouteEpoch` does not exist.
 
-- [ ] **Step 4: Implement path-copy updates**
+- [x] **Step 4: Implement path-copy updates**
 
 Split a filter into topic levels without converting it to UTF-16. Parse `$share/<group>/<filter>` before trie insertion. `Add` and `Remove` copy only the `ExactChildren` nodes on the filter path plus the terminal endpoint. Existing exact child subtrees, single-level and multi-level nodes remain reference-equal.
 
@@ -358,7 +360,7 @@ internal ref struct MqttZeroRouteEpochMatch
 }
 ```
 
-- [ ] **Step 5: Add mixed regular/shared tests**
+- [x] **Step 5: Add mixed regular/shared tests**
 
 Cover:
 
@@ -370,14 +372,14 @@ Cover:
 - `$share` group and filter bytes remain distinct,
 - trailing empty levels behave exactly as the current matcher.
 
-- [ ] **Step 6: Run tests and allocation sentinel**
+- [x] **Step 6: Run tests and allocation sentinel**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~RouteEpochTests|FullyQualifiedName~TopicTrieTests"
 perf/verify-allocation.ps1
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add src/MqttZero.Server/Routing tests/MqttZero.Tests/Routing
