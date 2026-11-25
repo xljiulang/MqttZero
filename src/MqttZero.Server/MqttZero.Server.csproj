@@ -13,6 +13,7 @@
     <PackageReference Include="Microsoft.Extensions.Options" />
     <ProjectReference Include="..\MqttZero\MqttZero.csproj" />
     <InternalsVisibleTo Include="MqttZero.Benchmarks" />
+    <InternalsVisibleTo Include="MqttZero.BrokerBenchmarks" />
     <InternalsVisibleTo Include="MqttZero.AspNetCore" />
     <InternalsVisibleTo Include="MqttZero.Tests" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />

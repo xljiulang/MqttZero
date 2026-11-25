@@ -22,6 +22,13 @@ using System.Text.Json;
 
 Dictionary<string, string> arguments = ParseArguments(args);
 string mode = GetValue(arguments, "mode", args.FirstOrDefault() ?? "compare");
+if (GetBool(arguments, "diagnostics", false))
+{
+    AppContext.SetSwitch(
+        MqttZero.Server.Broker.MqttZeroFanoutDiagnostics
+            .AppContextSwitchName,
+        true);
+}
 BenchmarkRuntimeConfiguration runtimeConfiguration =
     new(Math.Max(1, Environment.ProcessorCount));
 BenchmarkRuntimeSnapshot runtimeSnapshot =
@@ -394,6 +401,28 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
     stopwatch.Stop();
     waitTicks.Sort();
     publishTicks.Sort();
+    MqttZero.Server.Broker.MqttZeroFanoutDiagnosticsSnapshot
+        diagnosticsSnapshot = broker.GetFanoutDiagnosticsForTest();
+    double averageFanoutMicroseconds =
+        diagnosticsSnapshot.PublishCount == 0
+            ? 0
+            : diagnosticsSnapshot.TotalFanoutTicks *
+                1_000_000d /
+                Stopwatch.Frequency /
+                diagnosticsSnapshot.PublishCount;
+    BenchmarkFanoutDiagnostics diagnostics = new(
+        diagnosticsSnapshot.PublishCount,
+        diagnosticsSnapshot.LocalBatchCount,
+        diagnosticsSnapshot.RemoteBatchCount,
+        diagnosticsSnapshot.DeliveryCount,
+        averageFanoutMicroseconds,
+        diagnosticsSnapshot.MaxFanoutTicks * 1_000_000d /
+            Stopwatch.Frequency,
+        diagnosticsSnapshot.EgressSignalCount,
+        diagnosticsSnapshot.EgressDrainCount,
+        diagnosticsSnapshot.EncodedPublishCount,
+        diagnosticsSnapshot.FlushWaitCount,
+        diagnosticsSnapshot.MaxPendingQueueDepth);
     OutboundBenchmarkResult result = new(
         PublishedMessages: loopResult.PublishedMessages,
         ReceivedMessages: Interlocked.Read(ref receivedMessages),
@@ -416,7 +445,8 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
             publishTicks.ToArray(),
             publishTicks.Count,
             0.99),
-        FirstError: null);
+        FirstError: null,
+        Diagnostics: diagnostics);
     Console.WriteLine(JsonSerializer.Serialize(
         result,
         BrokerBenchmarkJsonContext.Default.OutboundBenchmarkResult));

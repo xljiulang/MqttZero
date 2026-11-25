@@ -476,7 +476,7 @@ public sealed partial class MqttZeroBroker
 
             if (messageHeld)
             {
-                session.Egress?.Signal();
+                SignalEgress(session);
             }
         }
         finally
@@ -499,7 +499,21 @@ public sealed partial class MqttZeroBroker
         }
 
         session.PendingMessages.Add(message);
+        _fanoutDiagnostics.RecordPendingQueueDepth(
+            session.PendingMessages.Count);
         return evicted;
+    }
+
+    private void SignalEgress(MqttZeroSessionState session)
+    {
+        MqttZeroEgressActor? egress = session.Egress;
+        if (egress == null)
+        {
+            return;
+        }
+
+        _fanoutDiagnostics.RecordEgressSignal();
+        egress.Signal();
     }
 
     private static MqttZeroClientConnectionInfo CreateOfflineClientInfo(
@@ -640,7 +654,7 @@ public sealed partial class MqttZeroBroker
                 failed.Release();
             }
 
-            session.Egress?.Signal();
+            SignalEgress(session);
             return;
         }
 
@@ -697,7 +711,7 @@ public sealed partial class MqttZeroBroker
             completed.Release();
         }
 
-        session.Egress?.Signal();
+        SignalEgress(session);
     }
 
     private async ValueTask ProcessInboundPubRelAsync(
@@ -828,6 +842,7 @@ public sealed partial class MqttZeroBroker
         async ValueTask<bool> DrainAsync(
             CancellationToken pumpCancellationToken)
         {
+            _fanoutDiagnostics.RecordEgressDrain();
             if (Interlocked.Exchange(ref resumePending, 0) != 0)
             {
                 await ResumeInflightMessagesAsync(
@@ -1134,6 +1149,9 @@ public sealed partial class MqttZeroBroker
                             batch,
                             cancellationToken).ConfigureAwait(false);
                     }
+
+                    _fanoutDiagnostics.RecordEncodedPublishes(
+                        batch.Count);
                     for (int index = 0; index < batch.Count; index++)
                     {
                         MqttZeroQueuedMessage message = batch[index];
@@ -1149,6 +1167,7 @@ public sealed partial class MqttZeroBroker
                             connection.FlushOutputAsync(
                                 cancellationToken)))
                     {
+                        _fanoutDiagnostics.RecordFlushWait();
                         batch.Clear();
                         return false;
                     }

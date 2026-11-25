@@ -57,7 +57,8 @@ public sealed partial class MqttZeroBroker
                 MqttZeroFanoutDispatcher fanoutDispatcher = new(
                     shardSet,
                     DeliverPlannedAsync,
-                    HandleFanoutFailure);
+                    HandleFanoutFailure,
+                    _fanoutDiagnostics);
                 _routePlannerLanes = routePlannerLanes;
                 _fanoutDispatcher = fanoutDispatcher;
                 _shardSet = shardSet;

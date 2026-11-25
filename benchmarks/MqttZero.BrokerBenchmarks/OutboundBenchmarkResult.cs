@@ -9,4 +9,5 @@ internal sealed record OutboundBenchmarkResult(
     double WaitP99Microseconds,
     double PublishP50Microseconds,
     double PublishP99Microseconds,
-    string? FirstError);
+    string? FirstError,
+    BenchmarkFanoutDiagnostics Diagnostics);

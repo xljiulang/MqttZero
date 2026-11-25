@@ -263,7 +263,7 @@ public sealed partial class MqttZeroBroker
         evicted?.Release();
         if (enqueued)
         {
-            session.Egress?.Signal();
+            SignalEgress(session);
         }
 
         return ValueTask.CompletedTask;

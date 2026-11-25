@@ -54,6 +54,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _retainedMutationGate = new(1, 1);
     private readonly SemaphoreSlim _routeMutationGate = new(1, 1);
+    private readonly MqttZeroFanoutDiagnostics _fanoutDiagnostics = new();
     private readonly MqttZeroRouteEpochManager _routeEpochs = new();
     private MqttZeroFanoutDispatcher? _fanoutDispatcher;
     private MqttZeroRoutePlannerLanes? _routePlannerLanes;
@@ -236,6 +237,12 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         {
             return Volatile.Read(ref _retainedTopicTrie);
         }
+    }
+
+    internal MqttZeroFanoutDiagnosticsSnapshot
+        GetFanoutDiagnosticsForTest()
+    {
+        return _fanoutDiagnostics.GetSnapshot();
     }
 
     /// <summary>

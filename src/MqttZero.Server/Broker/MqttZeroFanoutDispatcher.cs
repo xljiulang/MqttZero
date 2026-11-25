@@ -2,6 +2,7 @@ using MqttZero.Memory;
 using MqttZero.Server.Clients;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Scheduling;
+using System.Diagnostics;
 
 namespace MqttZero.Server.Broker;
 
@@ -13,6 +14,7 @@ internal sealed class MqttZeroFanoutDispatcher
         MqttZeroClientConnection?,
         CancellationToken,
         ValueTask> _deliver;
+    private readonly MqttZeroFanoutDiagnostics? _diagnostics;
     private readonly Action<Exception> _faulted;
     private readonly MqttZeroShardSet _shards;
 
@@ -24,7 +26,8 @@ internal sealed class MqttZeroFanoutDispatcher
             MqttZeroClientConnection?,
             CancellationToken,
             ValueTask> deliver,
-        Action<Exception> faulted)
+        Action<Exception> faulted,
+        MqttZeroFanoutDiagnostics? diagnostics = null)
     {
         _shards = shards ??
             throw new ArgumentNullException(nameof(shards));
@@ -32,6 +35,7 @@ internal sealed class MqttZeroFanoutDispatcher
             throw new ArgumentNullException(nameof(deliver));
         _faulted = faulted ??
             throw new ArgumentNullException(nameof(faulted));
+        _diagnostics = diagnostics;
     }
 
     public async ValueTask DispatchAsync(
@@ -44,6 +48,7 @@ internal sealed class MqttZeroFanoutDispatcher
     {
         ArgumentNullException.ThrowIfNull(buffer);
         ArgumentNullException.ThrowIfNull(lease);
+        long started = Stopwatch.GetTimestamp();
         cancellationToken.ThrowIfCancellationRequested();
         if (plan.Batches.Length != _shards.Count)
         {
@@ -114,5 +119,12 @@ internal sealed class MqttZeroFanoutDispatcher
 
         operation.Seal();
         await operation.Completion.ConfigureAwait(false);
+        int localBatchCount =
+            plan.Batches[publisherShardId].Count > 0 ? 1 : 0;
+        _diagnostics?.RecordPublish(
+            localBatchCount,
+            plan.NonEmptyBatchCount - localBatchCount,
+            plan.TotalDeliveryCount,
+            Stopwatch.GetTimestamp() - started);
     }
 }
