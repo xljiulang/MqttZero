@@ -241,6 +241,7 @@ public sealed partial class MqttZeroBroker
                 routeEpoch,
                 lease.Topic.Span,
                 sender,
+                _sharedGroupCursors,
                 _routeScopes);
             if (deliveries.Count == 0 && _deliveryObservers.Length > 0)
             {
@@ -520,6 +521,7 @@ public sealed partial class MqttZeroBroker
             routeEpoch,
             lease.Topic.Span,
             sender,
+            _sharedGroupCursors,
             _routeScopes);
         if (deliveries.Count == 0 && _deliveryObservers.Length > 0)
         {
@@ -670,6 +672,7 @@ public sealed partial class MqttZeroBroker
                 routeEpoch,
                 effectiveLease.Topic.Span,
                 sender,
+                _sharedGroupCursors,
                 _routeScopes);
             if (deliveries.Count == 0 && _deliveryObservers.Length > 0)
             {

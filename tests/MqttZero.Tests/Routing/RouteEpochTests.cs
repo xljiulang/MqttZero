@@ -28,7 +28,11 @@ public sealed class RouteEpochTests
             .Add(session, subscription);
         MqttZeroRouteEpochMatch match = new();
 
-        epoch.Match(Encoding.UTF8.GetBytes(topic), null, ref match);
+        epoch.Match(
+            Encoding.UTF8.GetBytes(topic),
+            null,
+            new MqttZeroSharedGroupCursors(),
+            ref match);
 
         Assert.Equal(expectedCount, match.Count);
     }
@@ -86,7 +90,11 @@ public sealed class RouteEpochTests
             .Add(receiver, noLocal);
 
         MqttZeroRouteEpochMatch match = new();
-        epoch.Match("route/topic"u8, sender, ref match);
+        epoch.Match(
+            "route/topic"u8,
+            sender,
+            new MqttZeroSharedGroupCursors(),
+            ref match);
 
         Assert.Equal(1, match.Count);
         MqttZeroDeliveryCandidate delivery = match[0];
@@ -105,7 +113,11 @@ public sealed class RouteEpochTests
             .Add(c, CreateSubscription("$share/audit/jobs/#"));
 
         MqttZeroRouteEpochMatch match = new();
-        epoch.Match("jobs/one"u8, null, ref match);
+        epoch.Match(
+            "jobs/one"u8,
+            null,
+            new MqttZeroSharedGroupCursors(),
+            ref match);
 
         Assert.Equal(2, match.Count);
         HashSet<MqttZeroSessionState> sessions = [];
@@ -128,7 +140,11 @@ public sealed class RouteEpochTests
                 noLocal: true));
         MqttZeroRouteEpochMatch match = new();
 
-        epoch.Match("jobs/one"u8, sender, ref match);
+        epoch.Match(
+            "jobs/one"u8,
+            sender,
+            new MqttZeroSharedGroupCursors(),
+            ref match);
 
         Assert.Equal(0, match.Count);
     }
@@ -143,7 +159,11 @@ public sealed class RouteEpochTests
             .Add(b, CreateSubscription("$share/workers/+/one"));
         MqttZeroRouteEpochMatch match = new();
 
-        epoch.Match("jobs/one"u8, null, ref match);
+        epoch.Match(
+            "jobs/one"u8,
+            null,
+            new MqttZeroSharedGroupCursors(),
+            ref match);
 
         Assert.Equal(2, match.Count);
     }
@@ -163,7 +183,11 @@ public sealed class RouteEpochTests
             .Add(session, shared);
         MqttZeroRouteEpochMatch match = new();
 
-        epoch.Match("route/topic"u8, null, ref match);
+        epoch.Match(
+            "route/topic"u8,
+            null,
+            new MqttZeroSharedGroupCursors(),
+            ref match);
 
         Assert.Equal(2, match.Count);
         List<uint> identifiers = [];
@@ -195,8 +219,16 @@ public sealed class RouteEpochTests
 
         MqttZeroRouteEpochMatch firstMatch = new();
         MqttZeroRouteEpochMatch secondMatch = new();
-        firstEpoch.Match("route/topic"u8, null, ref firstMatch);
-        secondEpoch.Match("route/topic"u8, null, ref secondMatch);
+        firstEpoch.Match(
+            "route/topic"u8,
+            null,
+            new MqttZeroSharedGroupCursors(),
+            ref firstMatch);
+        secondEpoch.Match(
+            "route/topic"u8,
+            null,
+            new MqttZeroSharedGroupCursors(),
+            ref secondMatch);
 
         Assert.Same(first, firstMatch[0].Subscription);
         Assert.Same(second, secondMatch[0].Subscription);
@@ -217,8 +249,16 @@ public sealed class RouteEpochTests
         MqttZeroRouteEpochMatch regularRemovedMatch = new();
         MqttZeroRouteEpochMatch allRemovedMatch = new();
 
-        regularRemoved.Match("route/topic"u8, null, ref regularRemovedMatch);
-        allRemoved.Match("route/topic"u8, null, ref allRemovedMatch);
+        regularRemoved.Match(
+            "route/topic"u8,
+            null,
+            new MqttZeroSharedGroupCursors(),
+            ref regularRemovedMatch);
+        allRemoved.Match(
+            "route/topic"u8,
+            null,
+            new MqttZeroSharedGroupCursors(),
+            ref allRemovedMatch);
 
         Assert.Equal(1, regularRemovedMatch.Count);
         Assert.True(regularRemovedMatch[0].Session == session);
@@ -279,6 +319,7 @@ public sealed class RouteEpochTests
         MqttZeroRouteEpoch epoch,
         MqttZeroRouteScopePool pool)
     {
+        MqttZeroSharedGroupCursors cursors = new();
         long before = GC.GetAllocatedBytesForCurrentThread();
         int delivered = 0;
         for (int index = 0; index < 100; index++)
@@ -287,6 +328,7 @@ public sealed class RouteEpochTests
                 epoch,
                 "route/topic"u8,
                 null,
+                cursors,
                 pool);
             delivered += scope.Count;
         }

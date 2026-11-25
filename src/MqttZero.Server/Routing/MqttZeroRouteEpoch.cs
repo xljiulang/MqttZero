@@ -60,18 +60,22 @@ internal sealed class MqttZeroRouteEpoch
     public void Match(
         ReadOnlySpan<byte> topic,
         MqttZeroSessionState? sender,
+        MqttZeroSharedGroupCursors cursors,
         ref MqttZeroRouteEpochMatch match)
     {
-        MatchNode(Root, topic, true, sender, ref match);
+        ArgumentNullException.ThrowIfNull(cursors);
+        MatchNode(Root, topic, true, sender, cursors, ref match);
     }
 
     public void MatchToScope(
         ReadOnlySpan<byte> topic,
         MqttZeroSessionState? sender,
+        MqttZeroSharedGroupCursors cursors,
         MqttZeroRouteScope scope)
     {
+        ArgumentNullException.ThrowIfNull(cursors);
         ArgumentNullException.ThrowIfNull(scope);
-        MatchNodeToScope(Root, topic, true, sender, scope);
+        MatchNodeToScope(Root, topic, true, sender, cursors, scope);
     }
 
     internal MqttZeroRouteTrieNode? GetNodeForTest(
@@ -317,18 +321,19 @@ internal sealed class MqttZeroRouteEpoch
         ReadOnlySpan<byte> remainingTopic,
         bool hasCurrentLevel,
         MqttZeroSessionState? sender,
+        MqttZeroSharedGroupCursors cursors,
         ref MqttZeroRouteEpochMatch match)
     {
         if (node.MultiLevel?.Endpoint != null)
         {
-            match.AddEndpoint(node.MultiLevel.Endpoint, sender);
+            match.AddEndpoint(node.MultiLevel.Endpoint, sender, cursors);
         }
 
         if (!hasCurrentLevel)
         {
             if (node.Endpoint != null)
             {
-                match.AddEndpoint(node.Endpoint, sender);
+                match.AddEndpoint(node.Endpoint, sender, cursors);
             }
 
             return;
@@ -352,6 +357,7 @@ internal sealed class MqttZeroRouteEpoch
                 rest,
                 hasMoreLevels,
                 sender,
+                cursors,
                 ref match);
         }
 
@@ -362,6 +368,7 @@ internal sealed class MqttZeroRouteEpoch
                 rest,
                 hasMoreLevels,
                 sender,
+                cursors,
                 ref match);
         }
     }
@@ -371,18 +378,23 @@ internal sealed class MqttZeroRouteEpoch
         ReadOnlySpan<byte> remainingTopic,
         bool hasCurrentLevel,
         MqttZeroSessionState? sender,
+        MqttZeroSharedGroupCursors cursors,
         MqttZeroRouteScope scope)
     {
         if (node.MultiLevel?.Endpoint != null)
         {
-            AddEndpointToScope(node.MultiLevel.Endpoint, sender, scope);
+            AddEndpointToScope(
+                node.MultiLevel.Endpoint,
+                sender,
+                cursors,
+                scope);
         }
 
         if (!hasCurrentLevel)
         {
             if (node.Endpoint != null)
             {
-                AddEndpointToScope(node.Endpoint, sender, scope);
+                AddEndpointToScope(node.Endpoint, sender, cursors, scope);
             }
 
             return;
@@ -406,6 +418,7 @@ internal sealed class MqttZeroRouteEpoch
                 rest,
                 hasMoreLevels,
                 sender,
+                cursors,
                 scope);
         }
 
@@ -416,6 +429,7 @@ internal sealed class MqttZeroRouteEpoch
                 rest,
                 hasMoreLevels,
                 sender,
+                cursors,
                 scope);
         }
     }
@@ -423,6 +437,7 @@ internal sealed class MqttZeroRouteEpoch
     private static void AddEndpointToScope(
         MqttZeroRouteEndpoint endpoint,
         MqttZeroSessionState? sender,
+        MqttZeroSharedGroupCursors cursors,
         MqttZeroRouteScope scope)
     {
         if (endpoint.RegularEntries != null)
@@ -445,7 +460,11 @@ internal sealed class MqttZeroRouteEpoch
                 MqttZeroSharedGroupKey,
                 MqttZeroSharedRouteEntries> group in endpoint.SharedEntries)
             {
-                AddSharedGroupToScope(group.Value, sender, scope);
+                AddSharedGroupToScope(
+                    group.Value,
+                    sender,
+                    cursors,
+                    scope);
             }
         }
     }
@@ -453,6 +472,7 @@ internal sealed class MqttZeroRouteEpoch
     private static void AddSharedGroupToScope(
         MqttZeroSharedRouteEntries group,
         MqttZeroSessionState? sender,
+        MqttZeroSharedGroupCursors cursors,
         MqttZeroRouteScope scope)
     {
         int matchingCount = 0;
@@ -472,7 +492,7 @@ internal sealed class MqttZeroRouteEpoch
             return;
         }
 
-        int selectedOffset = group.NextOffset(matchingCount);
+        int selectedOffset = cursors.GetNext(group.Key, matchingCount);
         foreach (MqttZeroPersistentHashMapEntry<
             MqttZeroSessionState,
             MqttZeroSubscription> entry in group.Entries)

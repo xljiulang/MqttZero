@@ -9,11 +9,13 @@ internal static class MqttZeroRouteSelector
         MqttZeroRouteEpoch epoch,
         ReadOnlySpan<byte> topic,
         MqttZeroSessionState? sender,
+        MqttZeroSharedGroupCursors cursors,
         MqttZeroRouteScopePool scopePool)
     {
         ArgumentNullException.ThrowIfNull(epoch);
+        ArgumentNullException.ThrowIfNull(cursors);
         MqttZeroRouteScope route = scopePool.Rent();
-        epoch.MatchToScope(topic, sender, route);
+        epoch.MatchToScope(topic, sender, cursors, route);
         return route;
     }
 

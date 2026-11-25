@@ -29,7 +29,8 @@ internal ref struct MqttZeroRouteEpochMatch
 
     internal void AddEndpoint(
         MqttZeroRouteEndpoint endpoint,
-        MqttZeroSessionState? sender)
+        MqttZeroSessionState? sender,
+        MqttZeroSharedGroupCursors cursors)
     {
         if (endpoint.RegularEntries != null)
         {
@@ -47,7 +48,7 @@ internal ref struct MqttZeroRouteEpochMatch
                 MqttZeroSharedGroupKey,
                 MqttZeroSharedRouteEntries> group in endpoint.SharedEntries)
             {
-                AddSharedGroup(group.Value, sender);
+                AddSharedGroup(group.Value, sender, cursors);
             }
         }
     }
@@ -70,7 +71,8 @@ internal ref struct MqttZeroRouteEpochMatch
 
     private void AddSharedGroup(
         MqttZeroSharedRouteEntries group,
-        MqttZeroSessionState? sender)
+        MqttZeroSessionState? sender,
+        MqttZeroSharedGroupCursors cursors)
     {
         int matchingCount = 0;
         foreach (MqttZeroPersistentHashMapEntry<
@@ -91,7 +93,7 @@ internal ref struct MqttZeroRouteEpochMatch
             return;
         }
 
-        int selectedOffset = group.NextOffset(matchingCount);
+        int selectedOffset = cursors.GetNext(group.Key, matchingCount);
         foreach (MqttZeroPersistentHashMapEntry<
             MqttZeroSessionState,
             MqttZeroSubscription> entry in group.Entries)

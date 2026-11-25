@@ -124,6 +124,7 @@ public sealed partial class MqttZeroBroker
                 routeEpoch,
                 effectiveLease.Topic.Span,
                 sender,
+                _sharedGroupCursors,
                 _routeScopes);
             for (int index = 0; index < deliveries.Count; index++)
             {

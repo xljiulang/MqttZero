@@ -4,7 +4,6 @@ namespace MqttZero.Server.Routing;
 
 internal sealed class MqttZeroSharedRouteEntries
 {
-    private readonly SharedGroupCursor _cursor;
     private readonly MqttZeroPersistentHashMap<
         MqttZeroSessionState,
         MqttZeroSubscription> _entries =
@@ -19,8 +18,7 @@ internal sealed class MqttZeroSharedRouteEntries
             MqttZeroPersistentHashMap<
                 MqttZeroSessionState,
                 MqttZeroSubscription>.Create(
-                EqualityComparer<MqttZeroSessionState>.Default),
-            new SharedGroupCursor())
+                EqualityComparer<MqttZeroSessionState>.Default))
     {
     }
 
@@ -28,12 +26,10 @@ internal sealed class MqttZeroSharedRouteEntries
         MqttZeroSharedGroupKey key,
         MqttZeroPersistentHashMap<
             MqttZeroSessionState,
-            MqttZeroSubscription> entries,
-        SharedGroupCursor cursor)
+            MqttZeroSubscription> entries)
     {
         Key = key;
         _entries = entries;
-        _cursor = cursor;
     }
 
     public MqttZeroSharedGroupKey Key { get; }
@@ -56,19 +52,13 @@ internal sealed class MqttZeroSharedRouteEntries
         }
     }
 
-    public int NextOffset(int count)
-    {
-        return _cursor.NextOffset(count);
-    }
-
     public MqttZeroSharedRouteEntries Set(
         MqttZeroSessionState session,
         MqttZeroSubscription subscription)
     {
         return new MqttZeroSharedRouteEntries(
             Key,
-            _entries.Set(session, subscription, out _),
-            _cursor);
+            _entries.Set(session, subscription, out _));
     }
 
     public MqttZeroSharedRouteEntries? Remove(
@@ -81,19 +71,7 @@ internal sealed class MqttZeroSharedRouteEntries
                 session,
                 out removed);
         return removed && entries.Count > 0
-            ? new MqttZeroSharedRouteEntries(Key, entries, _cursor)
+            ? new MqttZeroSharedRouteEntries(Key, entries)
             : null;
-    }
-
-    private sealed class SharedGroupCursor
-    {
-        private int _value;
-
-        public int NextOffset(int count)
-        {
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
-            int value = Interlocked.Increment(ref _value) - 1;
-            return (int)((uint)value % (uint)count);
-        }
     }
 }

@@ -516,7 +516,7 @@ git commit -m "feat: publish route epochs after persistence"
 - Cursor storage is a `ConcurrentDictionary<MqttZeroSharedGroupKey, MqttZeroSharedGroupCursor>`.
 - `MqttZeroSharedGroupCursor.NextOffset(int count)` uses unsigned modulo and `Interlocked.Increment`.
 
-- [ ] **Step 1: Write failing cursor-stability tests**
+- [x] **Step 1: Write failing cursor-stability tests**
 
 ```csharp
 [Fact]
@@ -538,7 +538,7 @@ public void CursorSurvivesEpochReplacement()
 }
 ```
 
-- [ ] **Step 2: Write failing key-isolation test**
+- [x] **Step 2: Write failing key-isolation test**
 
 Two groups and two filters must not share cursors:
 
@@ -548,23 +548,23 @@ Assert.NotEqual(
     cursors.GetCursor(new MqttZeroSharedGroupKey("two"u8, "a/#"u8)));
 ```
 
-- [ ] **Step 3: Run tests and verify RED**
+- [x] **Step 3: Run tests and verify RED**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~SharedGroupCursorTests"
 ```
 
-- [ ] **Step 4: Implement cursor registry and integrate matching**
+- [x] **Step 4: Implement cursor registry and integrate matching**
 
 Keep cursor objects across Epoch replacement. Do not bake a mutable cursor into a Trie node. Shared selection must first count only eligible candidates after `No Local` and topic matching, then select the offset.
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~SharedGroupCursorTests|FullyQualifiedName~RouteEpochTests"
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src/MqttZero.Server/Routing tests/MqttZero.Tests/Routing/SharedGroupCursorTests.cs
