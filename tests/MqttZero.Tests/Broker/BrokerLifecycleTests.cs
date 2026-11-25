@@ -1,15 +1,19 @@
 using MqttQualityOfServiceLevel = MqttZero.Protocol.MqttQualityOfServiceLevel;
 using MqttZero.Server;
 using MqttZero.Server.Broker;
+using MqttZero.Server.Clients;
 using MqttZero.Server.Retained;
 using MqttZero.Server.Interceptors;
 using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
+using MqttZero.Tests.Support;
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.IO.Pipelines;
 using System.Net;
+using System.Reflection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using MqttZero.AspNetCore;
 
@@ -17,6 +21,29 @@ namespace MqttZero.Tests.Broker
 {
     public sealed class BrokerLifecycleTests
     {
+        [Fact(Timeout = 10_000)]
+        public async Task BackgroundFanoutFailureStopsNewConnections()
+        {
+            ThrowingEnqueueInterceptor interceptor = new();
+            await using MqttZeroBroker broker =
+                MqttZeroBrokerTestFactory.CreateWithEnqueueInterceptor(
+                    interceptor);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
+
+            await PublishQosOneToSubscriberAsync(broker);
+            await interceptor.WaitForFailureAsync();
+            await WaitUntilAsync(
+                () => broker.State != MqttZeroBrokerState.Running,
+                TestContext.Current.CancellationToken);
+
+            await broker.StopAsync(TestContext.Current.CancellationToken)
+                .AsTask()
+                .WaitAsync(
+                    TimeSpan.FromSeconds(5),
+                    TestContext.Current.CancellationToken);
+            Assert.Equal(MqttZeroBrokerState.Stopped, broker.State);
+        }
+
         [Fact]
         public async Task LifecycleTransitionsAndSnapshotsAreAvailable()
         {
@@ -250,6 +277,83 @@ namespace MqttZero.Tests.Broker
                 {
                     throw new EndOfStreamException();
                 }
+            }
+        }
+
+        private static async Task PublishQosOneToSubscriberAsync(
+            MqttZeroBroker broker)
+        {
+            MqttZeroSessionState receiver =
+                broker.CreateSessionState("background-receiver");
+            receiver.Subscriptions.Add(new MqttZeroSubscription(
+                "failure/#"u8.ToArray(),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                false,
+                null));
+            AddSession(broker, receiver);
+            broker.ResetRouteEpochFromSessions();
+            PipeWriter writer = PipeWriter.Create(Stream.Null);
+            await using MqttZeroClientConnection senderConnection = new(
+                writer,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState sender =
+                broker.CreateSessionState("background-sender");
+            MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                new ReadOnlySequence<byte>("failure/topic"u8.ToArray()),
+                ReadOnlySequence<byte>.Empty,
+                new ReadOnlySequence<byte>([1]),
+                MqttQualityOfServiceLevel.AtLeastOnce,
+                false,
+                null,
+                null);
+            lease.PacketIdentifier = 7;
+            try
+            {
+                await broker.RoutePublishLeaseAsync(
+                    sender,
+                    senderConnection,
+                    lease,
+                    TestContext.Current.CancellationToken);
+            }
+            finally
+            {
+                lease.Release();
+            }
+        }
+
+        private static void AddSession(
+            MqttZeroBroker broker,
+            MqttZeroSessionState session)
+        {
+            FieldInfo sessionsField = typeof(MqttZeroBroker).GetField(
+                "_sessions",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            ConcurrentDictionary<string, MqttZeroSessionState> sessions =
+                (ConcurrentDictionary<string, MqttZeroSessionState>)
+                    sessionsField.GetValue(broker)!;
+            sessions[session.ClientId] = session;
+        }
+
+        private static async Task WaitUntilAsync(
+            Func<bool> predicate,
+            CancellationToken cancellationToken)
+        {
+            using CancellationTokenSource timeout =
+                CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(5));
+            while (!predicate())
+            {
+                await Task.Delay(
+                    TimeSpan.FromMilliseconds(10),
+                    timeout.Token);
             }
         }
 

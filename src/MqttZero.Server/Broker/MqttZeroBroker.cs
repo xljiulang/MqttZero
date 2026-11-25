@@ -75,6 +75,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private long _publishedWillCount;
     private long _retainedBytes;
     private int _stopping;
+    private int _fanoutFailed;
     private int _state;
     private long _nextMessageId;
 

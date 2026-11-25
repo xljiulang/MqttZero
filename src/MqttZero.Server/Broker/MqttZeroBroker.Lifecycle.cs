@@ -40,6 +40,7 @@ public sealed partial class MqttZeroBroker
                 throw new InvalidOperationException("The MQTTZero broker is stopping.");
             }
 
+            Volatile.Write(ref _fanoutFailed, 0);
             int shardCount = MqttZeroShardCountResolver.Resolve(
                 _options.EventLoopShardCount);
             _sessionShardMap = new MqttZeroSessionShardMap(shardCount);

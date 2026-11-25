@@ -82,6 +82,7 @@ public sealed class FanoutDiagnosticsTests
         diagnostics.RecordFanoutSchedulerEnqueue(25);
         diagnostics.RecordFanoutSchedulerPass(batchCount: 4);
         diagnostics.RecordFanoutSchedulerFailure();
+        diagnostics.RecordFanoutFailure();
 
         MqttZeroFanoutDiagnosticsSnapshot snapshot =
             diagnostics.GetSnapshot();
@@ -90,6 +91,7 @@ public sealed class FanoutDiagnosticsTests
         Assert.Equal(1, snapshot.FanoutSchedulerPassCount);
         Assert.Equal(4, snapshot.FanoutSchedulerBatchCount);
         Assert.Equal(1, snapshot.FanoutSchedulerFailureCount);
+        Assert.Equal(1, snapshot.FanoutFailureCount);
         Assert.Equal(
             25d * 1_000_000d / System.Diagnostics.Stopwatch.Frequency,
             snapshot.MaxFanoutSchedulerWaitMicroseconds);
@@ -112,6 +114,7 @@ public sealed class FanoutDiagnosticsTests
         diagnostics.RecordFanoutSchedulerEnqueue(7);
         diagnostics.RecordFanoutSchedulerPass(8);
         diagnostics.RecordFanoutSchedulerFailure();
+        diagnostics.RecordFanoutFailure();
 
         diagnostics.Reset();
         MqttZeroFanoutDiagnosticsSnapshot snapshot =
@@ -129,6 +132,7 @@ public sealed class FanoutDiagnosticsTests
         Assert.Equal(0, snapshot.FanoutSchedulerPassCount);
         Assert.Equal(0, snapshot.FanoutSchedulerBatchCount);
         Assert.Equal(0, snapshot.FanoutSchedulerFailureCount);
+        Assert.Equal(0, snapshot.FanoutFailureCount);
         Assert.Equal(0, snapshot.MaxFanoutSchedulerWaitMicroseconds);
     }
 }

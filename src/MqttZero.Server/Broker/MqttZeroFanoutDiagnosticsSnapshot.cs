@@ -26,4 +26,5 @@ internal sealed record MqttZeroFanoutDiagnosticsSnapshot(
     long FanoutSchedulerPassCount,
     long FanoutSchedulerBatchCount,
     long FanoutSchedulerFailureCount,
-    double MaxFanoutSchedulerWaitMicroseconds);
+    double MaxFanoutSchedulerWaitMicroseconds,
+    long FanoutFailureCount);
