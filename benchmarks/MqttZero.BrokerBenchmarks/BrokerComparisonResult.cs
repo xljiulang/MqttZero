@@ -12,5 +12,7 @@ internal sealed class BrokerComparisonResult
 
     public int Repetition { get; init; }
 
+    public required BenchmarkProcessObservation BrokerObservation { get; init; }
+
     public required BrokerBenchmarkResult Result { get; init; }
 }

@@ -95,6 +95,11 @@ public sealed class BenchmarkGateEvaluatorTests
             Subscribers = 1,
             PayloadSize = 32,
             Repetition = 1,
+            BrokerObservation = new BenchmarkProcessObservation(
+                0,
+                0,
+                0,
+                0),
             Result = new BrokerBenchmarkResult
             {
                 PublishedMessages = 1,

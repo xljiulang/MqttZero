@@ -13,7 +13,6 @@ using MqttZero.BrokerBenchmarks;
 using MqttZero.Publishing;
 using MqttZero.Server.Broker;
 using System.Buffers;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
@@ -22,9 +21,10 @@ using System.Text.Json;
 
 Dictionary<string, string> arguments = ParseArguments(args);
 string mode = GetValue(arguments, "mode", args.FirstOrDefault() ?? "compare");
+BenchmarkRuntimeConfiguration runtimeConfiguration =
+    new(Math.Max(1, Environment.ProcessorCount));
 BenchmarkRuntimeSnapshot runtimeSnapshot =
-    new BenchmarkRuntimeConfiguration(Math.Max(1, Environment.ProcessorCount))
-        .ApplyToCurrentProcess();
+    runtimeConfiguration.ApplyToCurrentProcess();
 BenchmarkEnvironmentInfo environment =
     BenchmarkObservationCapture.CaptureEnvironment(runtimeSnapshot);
 
@@ -34,8 +34,10 @@ if (mode == "serve")
 }
 else if (mode == "load")
 {
-    object result = await RunLoadAsync(
-        GetInt(arguments, "port", 1883),
+    int port = GetInt(arguments, "port", 1883);
+    BenchmarkClientKind clientKind = BenchmarkClientSelection.Parse(
+        GetValue(arguments, "client", "mqttnet"));
+    BenchmarkRunOptions options = new(
         GetInt(arguments, "subscribers", 10),
         GetInt(arguments, "publishers", 1),
         GetInt(arguments, "qos", 0),
@@ -43,13 +45,23 @@ else if (mode == "load")
         GetInt(arguments, "warmup", 2),
         GetInt(arguments, "seconds", 10),
         GetInt(arguments, "max-pending", 1024));
-    Console.WriteLine(JsonSerializer.Serialize(
-        (BrokerBenchmarkResult)result,
-        BrokerBenchmarkJsonContext.Default.BrokerBenchmarkResult));
+    BrokerBenchmarkResult result = await BenchmarkLoadRunner.RunAsync(
+        port,
+        options,
+        new BenchmarkMqttClientFactory(clientKind, port),
+        CancellationToken.None);
+    await BenchmarkOutputWriter.WriteAsync(
+        GetNullableValue(arguments, "output"),
+        result,
+        BrokerBenchmarkJsonContext.Default.BrokerBenchmarkResult,
+        CancellationToken.None);
 }
 else if (mode == "compare")
 {
-    await CompareAsync(arguments, environment);
+    await CompareAsync(
+        arguments,
+        environment,
+        runtimeConfiguration).ConfigureAwait(false);
 }
 else if (mode == "outbound")
 {
@@ -134,7 +146,8 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
 
 static async Task CompareAsync(
     Dictionary<string, string> arguments,
-    BenchmarkEnvironmentInfo environment)
+    BenchmarkEnvironmentInfo environment,
+    BenchmarkRuntimeConfiguration runtimeConfiguration)
 {
     string[] brokers = ["mqttzero", "mqttnet"];
     int[] qosLevels = GetIntArray(arguments, "qos", [0, 1, 2]);
@@ -152,6 +165,16 @@ static async Task CompareAsync(
         arguments,
         "fragmentation",
         true);
+    BenchmarkClientKind clientKind = BenchmarkClientSelection.Parse(
+        GetValue(arguments, "client", "mqttnet"));
+    if (clientKind == BenchmarkClientKind.Raw &&
+        qosLevels.Contains(2))
+    {
+        throw new ArgumentException(
+            "The raw benchmark client supports QoS 0 and QoS 1 only.");
+    }
+
+    string? outputPath = GetNullableValue(arguments, "output");
     List<BrokerComparisonResult> results = [];
     string assemblyPath = Assembly.GetEntryAssembly()!.Location;
     int port = GetInt(arguments, "start-port", 19000);
@@ -167,16 +190,18 @@ static async Task CompareAsync(
                     foreach (int payloadSize in payloadSizes)
                     {
                         port++;
+                        long brokerStarted = Stopwatch.GetTimestamp();
                         using Process serverProcess = StartServerProcess(
                             assemblyPath,
                             broker,
                             port,
-                            allowPacketFragmentation);
+                            allowPacketFragmentation,
+                            runtimeConfiguration);
                         await WaitForReadyAsync(serverProcess);
+                        BenchmarkProcessObservation brokerObservation;
                         try
                         {
-                            BrokerBenchmarkResult result = await RunLoadAsync(
-                                port,
+                            BenchmarkRunOptions options = new(
                                 subscribers,
                                 publishers,
                                 qos,
@@ -184,6 +209,19 @@ static async Task CompareAsync(
                                 warmup,
                                 seconds,
                                 maxPendingMessages);
+                            BrokerBenchmarkResult result =
+                                await BenchmarkLoadRunner.RunAsync(
+                                    port,
+                                    options,
+                                    new BenchmarkMqttClientFactory(
+                                        clientKind,
+                                        port),
+                                    CancellationToken.None);
+                            brokerObservation =
+                                BenchmarkObservationCapture.CaptureProcess(
+                                    serverProcess,
+                                    Stopwatch.GetElapsedTime(
+                                        brokerStarted));
                             results.Add(new BrokerComparisonResult
                             {
                                 Broker = broker,
@@ -191,7 +229,8 @@ static async Task CompareAsync(
                                 Subscribers = subscribers,
                                 PayloadSize = payloadSize,
                                 Repetition = repetition,
-                                Result = result
+                                Result = result,
+                                BrokerObservation = brokerObservation
                             });
                         }
                         finally
@@ -209,9 +248,11 @@ static async Task CompareAsync(
 
     BenchmarkGateResult gate = BenchmarkGateEvaluator.Evaluate(results);
     BenchmarkReport report = new(environment, results, gate);
-    Console.WriteLine(JsonSerializer.Serialize(
+    await BenchmarkOutputWriter.WriteAsync(
+        outputPath,
         report,
-        BrokerBenchmarkJsonContext.Default.BenchmarkReport));
+        BrokerBenchmarkJsonContext.Default.BenchmarkReport,
+        CancellationToken.None).ConfigureAwait(false);
     if (!gate.Passed)
     {
         Environment.ExitCode = 1;
@@ -411,7 +452,8 @@ static Process StartServerProcess(
     string assemblyPath,
     string broker,
     int port,
-    bool allowPacketFragmentation)
+    bool allowPacketFragmentation,
+    BenchmarkRuntimeConfiguration runtimeConfiguration)
 {
     ProcessStartInfo startInfo = new()
     {
@@ -430,6 +472,12 @@ static Process StartServerProcess(
     startInfo.ArgumentList.Add("--fragmentation");
     startInfo.ArgumentList.Add(
         allowPacketFragmentation ? "true" : "false");
+    foreach (KeyValuePair<string, string> variable in
+        runtimeConfiguration.CreateBrokerEnvironmentVariables())
+    {
+        startInfo.Environment[variable.Key] = variable.Value;
+    }
+
     return Process.Start(startInfo) ??
         throw new InvalidOperationException("Could not start the broker process.");
 }
@@ -446,179 +494,6 @@ static async Task WaitForReadyAsync(Process process)
     string error = await process.StandardError.ReadToEndAsync(timeout.Token);
     throw new InvalidOperationException(
         $"Broker process did not become ready. Output: {line}. Error: {error}");
-}
-
-static async Task<BrokerBenchmarkResult> RunLoadAsync(
-    int port,
-    int subscribers,
-    int publishers,
-    int qos,
-    int payloadSize,
-    int warmupSeconds,
-    int measurementSeconds,
-    int maxPendingMessages)
-{
-    long setupStarted = Stopwatch.GetTimestamp();
-    MqttClientFactory factory = new();
-    MqttQualityOfServiceLevel qualityOfServiceLevel = qos switch
-    {
-        0 => MqttQualityOfServiceLevel.AtMostOnce,
-        1 => MqttQualityOfServiceLevel.AtLeastOnce,
-        2 => MqttQualityOfServiceLevel.ExactlyOnce,
-        _ => throw new InvalidOperationException(
-            $"Unsupported QoS value: {qos}.")
-    };
-    List<IMqttClient> subscriberClients = [];
-    List<IMqttClient> publisherClients = [];
-    long receivedMessages = 0;
-    long failedOperations = 0;
-    long publishedMessages = 0;
-    ConcurrentQueue<string> errors = new();
-    try
-    {
-        for (int index = 0; index < subscribers; index++)
-        {
-            IMqttClient subscriber = factory.CreateMqttClient();
-            subscriber.ApplicationMessageReceivedAsync += _ =>
-            {
-                Interlocked.Increment(ref receivedMessages);
-                return Task.CompletedTask;
-            };
-            subscriberClients.Add(subscriber);
-            await subscriber.ConnectAsync(
-                CreateClientOptions(port, $"subscriber-{index}"),
-                CancellationToken.None);
-            await subscriber.SubscribeAsync(
-                new MqttClientSubscribeOptionsBuilder()
-                    .WithTopicFilter("bench/topic", qualityOfServiceLevel)
-                    .Build(),
-                CancellationToken.None);
-        }
-
-        for (int index = 0; index < publishers; index++)
-        {
-            IMqttClient publisher = factory.CreateMqttClient();
-            publisherClients.Add(publisher);
-            await publisher.ConnectAsync(
-                CreateClientOptions(port, $"publisher-{index}"),
-                CancellationToken.None);
-        }
-
-        long connectionSetupCompleted = Stopwatch.GetTimestamp();
-        byte[] payload = new byte[payloadSize];
-        MqttApplicationMessage message = new MqttApplicationMessageBuilder()
-            .WithTopic("bench/topic")
-            .WithPayload(payload)
-            .WithQualityOfServiceLevel(qualityOfServiceLevel)
-            .Build();
-        bool ShouldPause()
-        {
-            return Interlocked.Read(ref publishedMessages) * subscribers >
-                Interlocked.Read(ref receivedMessages) + maxPendingMessages;
-        }
-
-        long warmupStarted = Stopwatch.GetTimestamp();
-        using CancellationTokenSource warmup = new(TimeSpan.FromSeconds(warmupSeconds));
-        await RunPublishersAsync(
-            publisherClients,
-            message,
-            warmup.Token,
-            ShouldPause,
-            null,
-            exception =>
-            {
-                Interlocked.Increment(ref failedOperations);
-                errors.Enqueue(exception.ToString());
-            },
-            () => Interlocked.Increment(ref publishedMessages));
-        long warmupPublishingCompleted = Stopwatch.GetTimestamp();
-        long warmupDrainStarted = Stopwatch.GetTimestamp();
-        await WaitForSubscriberDrainAsync(
-            advertisedMessages:
-                Interlocked.Read(ref publishedMessages) * subscribers,
-            () => Interlocked.Read(ref receivedMessages),
-            CancellationToken.None);
-        long warmupDrainCompleted = Stopwatch.GetTimestamp();
-        long warmupPublishedMessages =
-            Interlocked.Read(ref publishedMessages);
-        long warmupReceivedMessages =
-            Interlocked.Read(ref receivedMessages);
-        Interlocked.Exchange(ref receivedMessages, 0);
-        Interlocked.Exchange(ref publishedMessages, 0);
-
-        long[] latencySamples = new long[100_000];
-        int latencySampleCount = 0;
-        long measuredPublishes = 0;
-        BenchmarkLoadSnapshot loadBeforeMeasurement =
-            BenchmarkObservationCapture.CreateLoadSnapshot();
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        using CancellationTokenSource measurement = new(TimeSpan.FromSeconds(measurementSeconds));
-        await RunPublishersAsync(
-            publisherClients,
-            message,
-            measurement.Token,
-            ShouldPause,
-            elapsedTicks =>
-            {
-                int index = Interlocked.Increment(ref latencySampleCount) - 1;
-                if (index < latencySamples.Length)
-                {
-                    latencySamples[index] = elapsedTicks;
-                }
-            },
-            exception =>
-            {
-                Interlocked.Increment(ref failedOperations);
-                errors.Enqueue(exception.ToString());
-            },
-            () =>
-            {
-                Interlocked.Increment(ref measuredPublishes);
-                Interlocked.Increment(ref publishedMessages);
-            });
-        stopwatch.Stop();
-        BenchmarkLoadObservation loadObservation =
-            BenchmarkObservationCapture.CaptureLoadDelta(loadBeforeMeasurement);
-
-        Array.Sort(latencySamples, 0, Math.Min(latencySampleCount, latencySamples.Length));
-        int sampleCount = Math.Min(latencySampleCount, latencySamples.Length);
-        return new BrokerBenchmarkResult
-        {
-            PublishedMessages = measuredPublishes,
-            ReceivedMessages = Interlocked.Read(ref receivedMessages),
-            FailedOperations = Interlocked.Read(ref failedOperations),
-            WarmupPublishedMessages = warmupPublishedMessages,
-            WarmupReceivedMessages = warmupReceivedMessages,
-            ThroughputPerSecond = measuredPublishes / stopwatch.Elapsed.TotalSeconds,
-            LatencyP50Microseconds = PercentileMicroseconds(latencySamples, sampleCount, 0.50),
-            LatencyP95Microseconds = PercentileMicroseconds(latencySamples, sampleCount, 0.95),
-            LatencyP99Microseconds = PercentileMicroseconds(latencySamples, sampleCount, 0.99),
-            LoadObservation = loadObservation,
-            ConnectionSetupMilliseconds = Stopwatch.GetElapsedTime(
-                setupStarted,
-                connectionSetupCompleted).TotalMilliseconds,
-            WarmupMilliseconds = Stopwatch.GetElapsedTime(
-                warmupStarted,
-                warmupPublishingCompleted).TotalMilliseconds,
-            MeasurementMilliseconds = stopwatch.Elapsed.TotalMilliseconds,
-            DrainMilliseconds = Stopwatch.GetElapsedTime(
-                warmupDrainStarted,
-                warmupDrainCompleted).TotalMilliseconds,
-            FirstError = errors.TryPeek(out string? firstError) ? firstError : null
-        };
-    }
-    finally
-    {
-        foreach (IMqttClient client in publisherClients.Concat(subscriberClients))
-        {
-            if (client.IsConnected)
-            {
-                await client.DisconnectAsync();
-            }
-
-            client.Dispose();
-        }
-    }
 }
 
 static async Task WaitForSubscriberDrainAsync(
@@ -643,60 +518,6 @@ static MqttClientOptions CreateClientOptions(int port, string clientId)
         .WithClientId(clientId)
         .WithCleanStart()
         .Build();
-}
-
-static async Task RunPublishersAsync(
-    IReadOnlyList<IMqttClient> publishers,
-    MqttApplicationMessage message,
-    CancellationToken cancellationToken,
-    Func<bool>? shouldPause,
-    Action<long>? recordLatency,
-    Action<Exception> recordFailure,
-    Action? recordPublish = null)
-{
-    Task[] tasks = new Task[publishers.Count];
-    for (int index = 0; index < publishers.Count; index++)
-    {
-        IMqttClient publisher = publishers[index];
-        tasks[index] = Task.Run(
-            async () =>
-            {
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    while (shouldPause?.Invoke() == true)
-                    {
-                        await Task.Delay(
-                            TimeSpan.FromMilliseconds(1),
-                            cancellationToken);
-                    }
-
-                    long started = Stopwatch.GetTimestamp();
-                    try
-                    {
-                        await publisher.PublishAsync(message, CancellationToken.None);
-                        recordLatency?.Invoke(Stopwatch.GetTimestamp() - started);
-                        recordPublish?.Invoke();
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        return;
-                    }
-                    catch (Exception exception)
-                    {
-                        recordFailure(exception);
-                    }
-                }
-            },
-            cancellationToken);
-    }
-
-    try
-    {
-        await Task.WhenAll(tasks);
-    }
-    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-    {
-    }
 }
 
 static double PercentileMicroseconds(long[] samples, int count, double percentile)
@@ -747,6 +568,13 @@ static string GetValue(
     string defaultValue)
 {
     return arguments.TryGetValue(name, out string? value) ? value : defaultValue;
+}
+
+static string? GetNullableValue(
+    IReadOnlyDictionary<string, string> arguments,
+    string name)
+{
+    return arguments.TryGetValue(name, out string? value) ? value : null;
 }
 
 static int GetInt(
