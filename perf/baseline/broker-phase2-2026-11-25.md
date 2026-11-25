@@ -53,5 +53,6 @@
 - `MqttZeroSessionOutboundPump` and `MqttZeroConnectionWriter` are deleted.
 - Egress Signal coalescing, control-before-data ordering and nonblocking
   FlushPending are covered by unit tests.
-- Control Send APIs still retain the connection write lock; full control-frame
-  migration remains incomplete.
+- Main control Send APIs now forward through the Egress control queue when a
+  connection is attached. The low-level write lock is retained for direct
+  connection tests and a small number of direct paths.
