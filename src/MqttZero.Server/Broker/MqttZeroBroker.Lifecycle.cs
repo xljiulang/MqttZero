@@ -43,6 +43,7 @@ public sealed partial class MqttZeroBroker
             int shardCount = MqttZeroShardCountResolver.Resolve(
                 _options.EventLoopShardCount);
             _sessionShardMap = new MqttZeroSessionShardMap(shardCount);
+            _routeEpochs.Reset(MqttZeroRouteEpoch.Empty);
             await RestorePersistenceAsync(cancellationToken).ConfigureAwait(false);
             _connectionsDrained = CreateDrainSignal();
             Volatile.Write(ref _stopping, 0);
@@ -182,7 +183,7 @@ public sealed partial class MqttZeroBroker
 
             _sessions.Clear();
             _sessionShardMap = null;
-            _subscriptionRouteSnapshot = MqttZeroSubscriptionRouteSnapshot.Empty;
+            _routeEpochs.Reset(MqttZeroRouteEpoch.Empty);
             Volatile.Write(ref _state, (int)MqttZeroBrokerState.Stopped);
         }
         finally

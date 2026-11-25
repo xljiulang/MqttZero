@@ -65,6 +65,15 @@ internal sealed class MqttZeroRouteEpoch
         MatchNode(Root, topic, true, sender, ref match);
     }
 
+    public void MatchToScope(
+        ReadOnlySpan<byte> topic,
+        MqttZeroSessionState? sender,
+        MqttZeroRouteScope scope)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+        MatchNodeToScope(Root, topic, true, sender, scope);
+    }
+
     internal MqttZeroRouteTrieNode? GetNodeForTest(
         ReadOnlySpan<byte> filter)
     {
@@ -354,6 +363,134 @@ internal sealed class MqttZeroRouteEpoch
                 hasMoreLevels,
                 sender,
                 ref match);
+        }
+    }
+
+    private static void MatchNodeToScope(
+        MqttZeroRouteTrieNode node,
+        ReadOnlySpan<byte> remainingTopic,
+        bool hasCurrentLevel,
+        MqttZeroSessionState? sender,
+        MqttZeroRouteScope scope)
+    {
+        if (node.MultiLevel?.Endpoint != null)
+        {
+            AddEndpointToScope(node.MultiLevel.Endpoint, sender, scope);
+        }
+
+        if (!hasCurrentLevel)
+        {
+            if (node.Endpoint != null)
+            {
+                AddEndpointToScope(node.Endpoint, sender, scope);
+            }
+
+            return;
+        }
+
+        int delimiter = remainingTopic.IndexOf((byte)'/');
+        ReadOnlySpan<byte> level = delimiter < 0
+            ? remainingTopic
+            : remainingTopic[..delimiter];
+        ReadOnlySpan<byte> rest = delimiter < 0
+            ? ReadOnlySpan<byte>.Empty
+            : remainingTopic[(delimiter + 1)..];
+        bool hasMoreLevels = delimiter >= 0;
+
+        if (node.TryGetExactChild(
+                level,
+                out MqttZeroRouteTrieNode? exactChild))
+        {
+            MatchNodeToScope(
+                exactChild!,
+                rest,
+                hasMoreLevels,
+                sender,
+                scope);
+        }
+
+        if (node.SingleLevel != null)
+        {
+            MatchNodeToScope(
+                node.SingleLevel,
+                rest,
+                hasMoreLevels,
+                sender,
+                scope);
+        }
+    }
+
+    private static void AddEndpointToScope(
+        MqttZeroRouteEndpoint endpoint,
+        MqttZeroSessionState? sender,
+        MqttZeroRouteScope scope)
+    {
+        if (endpoint.RegularEntries != null)
+        {
+            foreach (MqttZeroPersistentHashMapEntry<
+                MqttZeroSessionState,
+                MqttZeroSubscription> entry in endpoint.RegularEntries)
+            {
+                if (!entry.Value.NoLocal ||
+                    !ReferenceEquals(entry.Key, sender))
+                {
+                    scope.AddRegular(entry.Key, entry.Value);
+                }
+            }
+        }
+
+        if (endpoint.SharedEntries != null)
+        {
+            foreach (MqttZeroPersistentHashMapEntry<
+                MqttZeroSharedGroupKey,
+                MqttZeroSharedRouteEntries> group in endpoint.SharedEntries)
+            {
+                AddSharedGroupToScope(group.Value, sender, scope);
+            }
+        }
+    }
+
+    private static void AddSharedGroupToScope(
+        MqttZeroSharedRouteEntries group,
+        MqttZeroSessionState? sender,
+        MqttZeroRouteScope scope)
+    {
+        int matchingCount = 0;
+        foreach (MqttZeroPersistentHashMapEntry<
+            MqttZeroSessionState,
+            MqttZeroSubscription> entry in group.Entries)
+        {
+            if (!entry.Value.NoLocal ||
+                !ReferenceEquals(entry.Key, sender))
+            {
+                matchingCount++;
+            }
+        }
+
+        if (matchingCount == 0)
+        {
+            return;
+        }
+
+        int selectedOffset = group.NextOffset(matchingCount);
+        foreach (MqttZeroPersistentHashMapEntry<
+            MqttZeroSessionState,
+            MqttZeroSubscription> entry in group.Entries)
+        {
+            if (entry.Value.NoLocal &&
+                ReferenceEquals(entry.Key, sender))
+            {
+                continue;
+            }
+
+            if (selectedOffset > 0)
+            {
+                selectedOffset--;
+                continue;
+            }
+
+            scope.AddRegular(entry.Key, entry.Value);
+            return;
         }
     }
 }

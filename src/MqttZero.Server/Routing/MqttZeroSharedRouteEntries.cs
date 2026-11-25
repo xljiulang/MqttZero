@@ -4,6 +4,7 @@ namespace MqttZero.Server.Routing;
 
 internal sealed class MqttZeroSharedRouteEntries
 {
+    private readonly SharedGroupCursor _cursor;
     private readonly MqttZeroPersistentHashMap<
         MqttZeroSessionState,
         MqttZeroSubscription> _entries =
@@ -13,18 +14,26 @@ internal sealed class MqttZeroSharedRouteEntries
             EqualityComparer<MqttZeroSessionState>.Default);
 
     public MqttZeroSharedRouteEntries(MqttZeroSharedGroupKey key)
+        : this(
+            key,
+            MqttZeroPersistentHashMap<
+                MqttZeroSessionState,
+                MqttZeroSubscription>.Create(
+                EqualityComparer<MqttZeroSessionState>.Default),
+            new SharedGroupCursor())
     {
-        Key = key;
     }
 
     private MqttZeroSharedRouteEntries(
         MqttZeroSharedGroupKey key,
         MqttZeroPersistentHashMap<
             MqttZeroSessionState,
-            MqttZeroSubscription> entries)
+            MqttZeroSubscription> entries,
+        SharedGroupCursor cursor)
     {
         Key = key;
         _entries = entries;
+        _cursor = cursor;
     }
 
     public MqttZeroSharedGroupKey Key { get; }
@@ -47,13 +56,19 @@ internal sealed class MqttZeroSharedRouteEntries
         }
     }
 
+    public int NextOffset(int count)
+    {
+        return _cursor.NextOffset(count);
+    }
+
     public MqttZeroSharedRouteEntries Set(
         MqttZeroSessionState session,
         MqttZeroSubscription subscription)
     {
         return new MqttZeroSharedRouteEntries(
             Key,
-            _entries.Set(session, subscription, out _));
+            _entries.Set(session, subscription, out _),
+            _cursor);
     }
 
     public MqttZeroSharedRouteEntries? Remove(
@@ -66,7 +81,19 @@ internal sealed class MqttZeroSharedRouteEntries
                 session,
                 out removed);
         return removed && entries.Count > 0
-            ? new MqttZeroSharedRouteEntries(Key, entries)
+            ? new MqttZeroSharedRouteEntries(Key, entries, _cursor)
             : null;
+    }
+
+    private sealed class SharedGroupCursor
+    {
+        private int _value;
+
+        public int NextOffset(int count)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+            int value = Interlocked.Increment(ref _value) - 1;
+            return (int)((uint)value % (uint)count);
+        }
     }
 }

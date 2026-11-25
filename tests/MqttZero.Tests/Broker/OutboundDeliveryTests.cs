@@ -883,10 +883,7 @@ namespace MqttZero.Tests.Broker
 
         private static void RebuildRoutes(MqttZeroBroker broker)
         {
-            MethodInfo rebuildMethod = typeof(MqttZeroBroker).GetMethod(
-                "RebuildSubscriptionRouteSnapshot",
-                BindingFlags.Instance | BindingFlags.NonPublic)!;
-            rebuildMethod.Invoke(broker, null);
+            broker.ResetRouteEpochFromSessions();
         }
 
         private sealed class BlockingPipeWriter : PipeWriter

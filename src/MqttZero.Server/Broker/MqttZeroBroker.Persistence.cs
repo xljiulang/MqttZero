@@ -356,7 +356,7 @@ public sealed partial class MqttZeroBroker
                 _retainedBytes = stagedRetainedBytes;
             }
 
-            RebuildSubscriptionRouteSnapshot();
+            ResetRouteEpochFromSessions();
             while (inboundDispatches.Count > 0)
             {
                 int dispatchIndex = 0;
@@ -407,7 +407,7 @@ public sealed partial class MqttZeroBroker
                 _sessions.Clear();
                 _retainedMessages.Clear();
                 _retainedBytes = 0;
-                _subscriptionRouteSnapshot = MqttZeroSubscriptionRouteSnapshot.Empty;
+                _routeEpochs.Reset(MqttZeroRouteEpoch.Empty);
             }
 
             MqttZeroBrokerLogging.LogPersistenceFailure(
@@ -577,6 +577,29 @@ public sealed partial class MqttZeroBroker
         MqttZeroSessionState session,
         CancellationToken cancellationToken)
     {
+        await SaveSessionAsync(
+            session,
+            null,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask SaveSessionSubscriptionsAsync(
+        MqttZeroSessionState session,
+        IReadOnlyList<MqttZeroSubscription> subscriptions,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(subscriptions);
+        await SaveSessionAsync(
+            session,
+            subscriptions,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask SaveSessionAsync(
+        MqttZeroSessionState session,
+        IReadOnlyList<MqttZeroSubscription>? candidateSubscriptions,
+        CancellationToken cancellationToken)
+    {
         if (!_sessionStore.IsEnabled)
         {
             return;
@@ -593,8 +616,11 @@ public sealed partial class MqttZeroBroker
             expiryInterval = session.ExpiryInterval;
             disconnectedAt = session.DisconnectedAt;
             will = CreatePersistedWill(session.WillMessage);
-            foreach (MqttZeroSubscription subscription in session.Subscriptions)
+            IReadOnlyList<MqttZeroSubscription> source =
+                candidateSubscriptions ?? session.Subscriptions;
+            for (int index = 0; index < source.Count; index++)
             {
+                MqttZeroSubscription subscription = source[index];
                 subscriptions.Add(new MqttZeroPersistedSubscription
                 {
                     TopicFilter = subscription.TopicFilter,

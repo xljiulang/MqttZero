@@ -119,10 +119,9 @@ public sealed partial class MqttZeroBroker
                 StoreRetainedMessageInMemory(effectiveLease);
             }
 
-            MqttZeroSubscriptionRouteSnapshot routeSnapshot =
-                Volatile.Read(ref _subscriptionRouteSnapshot);
+            MqttZeroRouteEpoch routeEpoch = _routeEpochs.Current;
             deliveries = MqttZeroRouteSelector.Select(
-                routeSnapshot,
+                routeEpoch,
                 effectiveLease.Topic.Span,
                 sender,
                 _routeScopes);

@@ -141,15 +141,13 @@ public sealed partial class MqttZeroBroker
         byte[] reasonCodes = new byte[packet.Subscriptions.Count];
         bool[] existed = new bool[packet.Subscriptions.Count];
         bool changed = false;
-        List<MqttZeroSubscription>? subscriptionSnapshot = null;
-        if (_sessionStore.IsEnabled)
+        List<MqttZeroSubscription> original;
+        lock (session.SyncRoot)
         {
-            lock (session.SyncRoot)
-            {
-                subscriptionSnapshot = [.. session.Subscriptions];
-            }
+            original = [.. session.Subscriptions];
         }
 
+        List<MqttZeroSubscription> candidate = new(original);
         for (int index = 0; index < packet.Subscriptions.Count; index++)
         {
             MqttSubscriptionRequest request = packet.Subscriptions[index];
@@ -186,32 +184,31 @@ public sealed partial class MqttZeroBroker
             }
 
             byte[] topicFilter = request.TopicFilter.ToArray();
-            lock (session.SyncRoot)
+            int existingIndex = candidate.FindIndex(
+                subscription => subscription.TopicFilter
+                    .AsSpan()
+                    .SequenceEqual(topicFilter));
+            if (existingIndex < 0 &&
+                candidate.Count >= _options.MaxSubscriptionsPerSession)
             {
-                int existingIndex = session.Subscriptions.FindIndex(
-                    subscription => subscription.TopicFilter.AsSpan().SequenceEqual(topicFilter));
-                if (existingIndex < 0 &&
-                    session.Subscriptions.Count >= _options.MaxSubscriptionsPerSession)
-                {
-                    reasonCodes[index] = (byte)MqttReasonCode.QuotaExceeded;
-                    continue;
-                }
+                reasonCodes[index] = (byte)MqttReasonCode.QuotaExceeded;
+                continue;
+            }
 
-                existed[index] = existingIndex >= 0;
-                MqttZeroSubscription subscription = new(
-                    topicFilter,
-                    request.QualityOfServiceLevel,
-                    request.NoLocal,
-                    request.RetainAsPublished,
-                    packet.SubscriptionIdentifier);
-                if (existingIndex >= 0)
-                {
-                    session.Subscriptions[existingIndex] = subscription;
-                }
-                else
-                {
-                    session.Subscriptions.Add(subscription);
-                }
+            existed[index] = existingIndex >= 0;
+            MqttZeroSubscription subscription = new(
+                topicFilter,
+                request.QualityOfServiceLevel,
+                request.NoLocal,
+                request.RetainAsPublished,
+                packet.SubscriptionIdentifier);
+            if (existingIndex >= 0)
+            {
+                candidate[existingIndex] = subscription;
+            }
+            else
+            {
+                candidate.Add(subscription);
             }
 
             reasonCodes[index] = request.QualityOfServiceLevel switch
@@ -227,26 +224,11 @@ public sealed partial class MqttZeroBroker
 
         if (changed)
         {
-            RebuildSubscriptionRouteSnapshot();
-            try
-            {
-                await SaveSessionAsync(session, cancellationToken).ConfigureAwait(false);
-            }
-            catch
-            {
-                if (subscriptionSnapshot != null)
-                {
-                    lock (session.SyncRoot)
-                    {
-                        session.Subscriptions.Clear();
-                        session.Subscriptions.AddRange(subscriptionSnapshot);
-                    }
-
-                    RebuildSubscriptionRouteSnapshot();
-                }
-
-                throw;
-            }
+            await CommitSubscriptionsAsync(
+                session,
+                original,
+                candidate,
+                cancellationToken).ConfigureAwait(false);
         }
 
         await connection.SendSubAckAsync(
@@ -343,14 +325,13 @@ public sealed partial class MqttZeroBroker
     {
         byte[] reasonCodes = new byte[packet.TopicFilters.Count];
         bool changed = false;
-        List<MqttZeroSubscription>? subscriptionSnapshot = null;
-        if (_sessionStore.IsEnabled)
+        List<MqttZeroSubscription> original;
+        lock (session.SyncRoot)
         {
-            lock (session.SyncRoot)
-            {
-                subscriptionSnapshot = [.. session.Subscriptions];
-            }
+            original = [.. session.Subscriptions];
         }
+
+        List<MqttZeroSubscription> candidate = new(original);
         for (int index = 0; index < packet.TopicFilters.Count; index++)
         {
             byte[] topicFilter = packet.TopicFilters[index].ToArray();
@@ -382,17 +363,15 @@ public sealed partial class MqttZeroBroker
                 continue;
             }
 
-            bool removed;
-            lock (session.SyncRoot)
+            int existingIndex = candidate.FindIndex(
+                subscription => subscription.TopicFilter
+                    .AsSpan()
+                    .SequenceEqual(topicFilter));
+            bool removed = existingIndex >= 0;
+            if (removed)
             {
-                int existingIndex = session.Subscriptions.FindIndex(
-                    subscription => subscription.TopicFilter.AsSpan().SequenceEqual(topicFilter));
-                removed = existingIndex >= 0;
-                if (removed)
-                {
-                    session.Subscriptions.RemoveAt(existingIndex);
-                    changed = true;
-                }
+                candidate.RemoveAt(existingIndex);
+                changed = true;
             }
 
             reasonCodes[index] = removed
@@ -402,26 +381,11 @@ public sealed partial class MqttZeroBroker
 
         if (changed)
         {
-            RebuildSubscriptionRouteSnapshot();
-            try
-            {
-                await SaveSessionAsync(session, cancellationToken).ConfigureAwait(false);
-            }
-            catch
-            {
-                if (subscriptionSnapshot != null)
-                {
-                    lock (session.SyncRoot)
-                    {
-                        session.Subscriptions.Clear();
-                        session.Subscriptions.AddRange(subscriptionSnapshot);
-                    }
-
-                    RebuildSubscriptionRouteSnapshot();
-                }
-
-                throw;
-            }
+            await CommitSubscriptionsAsync(
+                session,
+                original,
+                candidate,
+                cancellationToken).ConfigureAwait(false);
         }
 
         await connection.SendUnsubAckAsync(

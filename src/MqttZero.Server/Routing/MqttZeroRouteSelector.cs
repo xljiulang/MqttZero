@@ -6,6 +6,18 @@ namespace MqttZero.Server.Routing;
 internal static class MqttZeroRouteSelector
 {
     public static MqttZeroRouteScope Select(
+        MqttZeroRouteEpoch epoch,
+        ReadOnlySpan<byte> topic,
+        MqttZeroSessionState? sender,
+        MqttZeroRouteScopePool scopePool)
+    {
+        ArgumentNullException.ThrowIfNull(epoch);
+        MqttZeroRouteScope route = scopePool.Rent();
+        epoch.MatchToScope(topic, sender, route);
+        return route;
+    }
+
+    public static MqttZeroRouteScope Select(
         MqttZeroSubscriptionRouteSnapshot snapshot,
         ReadOnlySpan<byte> topic,
         MqttZeroSessionState? sender,

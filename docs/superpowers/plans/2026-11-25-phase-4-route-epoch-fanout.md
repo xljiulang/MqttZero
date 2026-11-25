@@ -393,6 +393,7 @@ git commit -m "feat: add immutable route epoch trie"
 **Files:**
 
 - Create: `src/MqttZero.Server/Routing/MqttZeroRouteEpochManager.cs`
+- Create: `src/MqttZero.Server/Broker/MqttZeroBroker.RouteEpochs.cs`
 - Modify: `src/MqttZero.Server/Broker/MqttZeroBroker.cs`
 - Modify: `src/MqttZero.Server/Broker/MqttZeroBroker.Packets.cs`
 - Modify: `src/MqttZero.Server/Broker/MqttZeroBroker.ClientManagement.cs`
@@ -410,7 +411,7 @@ git commit -m "feat: add immutable route epoch trie"
 - Produces: `SaveSessionSubscriptionsAsync(MqttZeroSessionState session, IReadOnlyList<MqttZeroSubscription> candidate, CancellationToken)`.
 - Broker replaces `_subscriptionRouteSnapshot` with `MqttZeroRouteEpochManager _routeEpochs`.
 
-- [ ] **Step 1: Write failing persistence-order tests**
+- [x] **Step 1: Write failing persistence-order tests**
 
 ```csharp
 [Fact]
@@ -452,13 +453,13 @@ public async Task SubscriptionBecomesVisibleAfterPersistenceSucceeds()
 }
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~RouteEpochManagerTests|FullyQualifiedName~SubscriptionIsNotVisibleWhenPersistenceFails"
 ```
 
-- [ ] **Step 3: Implement the transaction**
+- [x] **Step 3: Implement the transaction**
 
 For each SUBSCRIBE/UNSUBSCRIBE batch:
 
@@ -472,7 +473,7 @@ For each SUBSCRIBE/UNSUBSCRIBE batch:
 
 Add an optional subscription candidate parameter to the persistence serializer rather than mutating first and rolling back.
 
-- [ ] **Step 4: Replace every rebuild call site**
+- [x] **Step 4: Replace every rebuild call site**
 
 Remove `RebuildSubscriptionRouteSnapshot()` calls from:
 
@@ -484,13 +485,13 @@ Remove `RebuildSubscriptionRouteSnapshot()` calls from:
 
 Restore builds one Epoch after all staged Sessions are installed and publishes it once.
 
-- [ ] **Step 5: Run subscription and persistence tests**
+- [x] **Step 5: Run subscription and persistence tests**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~RouteEpochManagerTests|FullyQualifiedName~BrokerIntegrationTests.Subscriptions|FullyQualifiedName~PersistenceStoreTests"
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src/MqttZero.Server/Broker src/MqttZero.Server/Routing/MqttZeroRouteEpochManager.cs tests/MqttZero.Tests

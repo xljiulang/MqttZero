@@ -1,10 +1,12 @@
 using MqttZero.Server;
 using MqttZero.Server.Broker;
+using MqttZero.Server.Clients;
 using MqttZero.Server.Interceptors;
 using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
+using MqttZero.Server.Storage;
 using MqttQualityOfServiceLevel = MqttZero.Protocol.MqttQualityOfServiceLevel;
 using System.Buffers;
 using System.Globalization;
@@ -26,6 +28,196 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
+        [Fact(Timeout = 15_000)]
+        public async Task FailedSubscriptionPersistenceDoesNotPublishRouteEpoch()
+        {
+            int port = GetFreePort();
+            ControllableSessionStore sessionStore = new();
+            await using WebApplication app = await StartStoredBrokerAsync(
+                port,
+                sessionStore);
+            MqttZeroBroker broker =
+                app.Services.GetRequiredService<MqttZeroBroker>();
+            MqttClientFactory factory = new();
+            using IMqttClient client = factory.CreateMqttClient();
+            await client.ConnectAsync(
+                CreatePersistentClientOptions(port, "failed-subscription"),
+                TestContext.Current.CancellationToken);
+            Assert.True(broker.TryGetClient("failed-subscription", out var connected));
+            MqttZeroRouteEpoch baseline = broker.RouteEpoch;
+            sessionStore.FailNextSave = true;
+
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await connected!.SubscribeAsync(
+                    [
+                        new MqttSubscriptionRequest
+                        {
+                            TopicFilter = new ReadOnlySequence<byte>(
+                                "failure/#"u8.ToArray()),
+                            QualityOfServiceLevel =
+                                MqttQualityOfServiceLevel.AtLeastOnce
+                        }
+                    ],
+                    cancellationToken:
+                        TestContext.Current.CancellationToken).AsTask());
+
+            MqttZeroSessionSnapshot session = Assert.Single(
+                broker.GetSessions(),
+                item => item.ClientId == "failed-subscription");
+            Assert.Equal(0, session.SubscriptionCount);
+            Assert.Same(baseline, broker.RouteEpoch);
+            await app.StopAsync(TestContext.Current.CancellationToken);
+        }
+
+        [Fact(Timeout = 15_000)]
+        public async Task SuccessfulSubscriptionPersistencePublishesRouteEpoch()
+        {
+            int port = GetFreePort();
+            ControllableSessionStore sessionStore = new();
+            await using WebApplication app = await StartStoredBrokerAsync(
+                port,
+                sessionStore);
+            MqttZeroBroker broker =
+                app.Services.GetRequiredService<MqttZeroBroker>();
+            MqttClientFactory factory = new();
+            using IMqttClient client = factory.CreateMqttClient();
+            await client.ConnectAsync(
+                CreatePersistentClientOptions(port, "saved-subscription"),
+                TestContext.Current.CancellationToken);
+            Assert.True(broker.TryGetClient("saved-subscription", out var connected));
+            MqttZeroRouteEpoch baseline = broker.RouteEpoch;
+
+            IReadOnlyList<MqttZeroSubscribeResult> results =
+                await connected!.SubscribeAsync(
+                    [
+                        new MqttSubscriptionRequest
+                        {
+                            TopicFilter = new ReadOnlySequence<byte>(
+                                "success/#"u8.ToArray()),
+                            QualityOfServiceLevel =
+                                MqttQualityOfServiceLevel.AtLeastOnce
+                        }
+                    ],
+                    cancellationToken:
+                        TestContext.Current.CancellationToken);
+
+            Assert.Single(results);
+            Assert.Single(
+                sessionStore.Sessions["saved-subscription"].Subscriptions);
+            Assert.NotSame(baseline, broker.RouteEpoch);
+            Assert.Equal(baseline.Version + 1, broker.RouteEpoch.Version);
+            await app.StopAsync(TestContext.Current.CancellationToken);
+        }
+
+        [Fact(Timeout = 15_000)]
+        public async Task FailedUnsubscribePersistenceKeepsRouteEpochAndSubscription()
+        {
+            int port = GetFreePort();
+            ControllableSessionStore sessionStore = new();
+            await using WebApplication app = await StartStoredBrokerAsync(
+                port,
+                sessionStore);
+            MqttZeroBroker broker =
+                app.Services.GetRequiredService<MqttZeroBroker>();
+            MqttClientFactory factory = new();
+            using IMqttClient client = factory.CreateMqttClient();
+            await client.ConnectAsync(
+                CreatePersistentClientOptions(port, "failed-unsubscribe"),
+                TestContext.Current.CancellationToken);
+            Assert.True(broker.TryGetClient("failed-unsubscribe", out var connected));
+            await connected!.SubscribeAsync(
+                [
+                    new MqttSubscriptionRequest
+                    {
+                        TopicFilter = new ReadOnlySequence<byte>(
+                            "persistent/#"u8.ToArray()),
+                        QualityOfServiceLevel =
+                            MqttQualityOfServiceLevel.AtLeastOnce
+                    }
+                ],
+                cancellationToken:
+                    TestContext.Current.CancellationToken);
+            MqttZeroRouteEpoch baseline = broker.RouteEpoch;
+            sessionStore.FailNextSave = true;
+
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await connected.UnsubscribeAsync(
+                    ["persistent/#"],
+                    TestContext.Current.CancellationToken).AsTask());
+
+            MqttZeroSessionSnapshot session = Assert.Single(
+                broker.GetSessions(),
+                item => item.ClientId == "failed-unsubscribe");
+            Assert.Equal(1, session.SubscriptionCount);
+            Assert.Same(baseline, broker.RouteEpoch);
+            await app.StopAsync(TestContext.Current.CancellationToken);
+        }
+
+        [Fact(Timeout = 15_000)]
+        public async Task FailedPacketSubscribePersistenceDoesNotCommitRoute()
+        {
+            int port = GetFreePort();
+            ControllableSessionStore sessionStore = new();
+            await using WebApplication app = await StartStoredBrokerAsync(
+                port,
+                sessionStore);
+            MqttZeroBroker broker =
+                app.Services.GetRequiredService<MqttZeroBroker>();
+            using TcpClient client = new();
+            await client.ConnectAsync(
+                IPAddress.Loopback,
+                port,
+                TestContext.Current.CancellationToken);
+            NetworkStream stream = client.GetStream();
+            await SendPacketAsync(
+                stream,
+                new MqttConnectPacket
+                {
+                    ClientId = new ReadOnlySequence<byte>(
+                        "packet-failed-subscribe"u8.ToArray()),
+                    CleanStart = false,
+                    SessionExpiryInterval = 60
+                },
+                TestContext.Current.CancellationToken);
+            _ = Assert.IsType<MqttConnAckPacket>(
+                await ReadPacketAsync(
+                    stream,
+                    TestContext.Current.CancellationToken));
+            MqttZeroRouteEpoch baseline = broker.RouteEpoch;
+            sessionStore.FailNextSave = true;
+
+            await SendPacketAsync(
+                stream,
+                new MqttSubscribePacket
+                {
+                    PacketIdentifier = 1,
+                    Subscriptions =
+                    [
+                        new MqttSubscriptionRequest
+                        {
+                            TopicFilter = new ReadOnlySequence<byte>(
+                                "packet-failure/#"u8.ToArray()),
+                            QualityOfServiceLevel =
+                                MqttQualityOfServiceLevel.AtLeastOnce
+                        }
+                    ]
+                },
+                TestContext.Current.CancellationToken);
+            using CancellationTokenSource timeout =
+                CancellationTokenSource.CreateLinkedTokenSource(
+                    TestContext.Current.CancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(2));
+            byte[] buffer = new byte[1];
+            Assert.Equal(0, await stream.ReadAsync(buffer, timeout.Token));
+
+            MqttZeroSessionSnapshot session = Assert.Single(
+                broker.GetSessions(),
+                item => item.ClientId == "packet-failed-subscribe");
+            Assert.Equal(0, session.SubscriptionCount);
+            Assert.Same(baseline, broker.RouteEpoch);
+            await app.StopAsync(TestContext.Current.CancellationToken);
+        }
+
         [Fact(Timeout = 15_000)]
         public async Task UnsubscribeRemovesPersistentSubscription()
         {
@@ -57,6 +249,25 @@ namespace MqttZero.Tests.Broker
 
             await client.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
+        }
+
+        private static async Task<WebApplication> StartStoredBrokerAsync(
+            int port,
+            IMqttZeroSessionStore sessionStore)
+        {
+            WebApplicationBuilder builder = WebApplication.CreateBuilder();
+            builder.Logging.ClearProviders();
+            builder.WebHost.ConfigureKestrel(kestrel =>
+                kestrel.Listen(
+                    IPAddress.Loopback,
+                    port,
+                    listen => listen.UseMqttZero()));
+            builder.Services.AddSingleton<IMqttZeroSessionStore>(sessionStore);
+            builder.Services.AddMqttZero();
+            WebApplication app = builder.Build();
+            await app.StartAsync(
+                TestContext.Current.CancellationToken);
+            return app;
         }
         [Fact(Timeout = 15_000)]
         public async Task SharedSubscriptionSelectsOneSubscriberPerPublish()

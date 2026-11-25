@@ -40,8 +40,6 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, MqttZeroSessionState> _sessions =
         new(StringComparer.Ordinal);
-    private MqttZeroSubscriptionRouteSnapshot _subscriptionRouteSnapshot =
-        MqttZeroSubscriptionRouteSnapshot.Empty;
     private readonly MqttZeroRouteScopePool _routeScopes = new();
     private readonly List<(
         MqttZeroClientConnection Connection,
@@ -53,6 +51,8 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly Dictionary<string, SessionMutationLock> _sessionMutationLocks = [];
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _retainedMutationGate = new(1, 1);
+    private readonly SemaphoreSlim _routeMutationGate = new(1, 1);
+    private readonly MqttZeroRouteEpochManager _routeEpochs = new();
     private MqttZeroSessionShardMap? _sessionShardMap;
     private MqttZeroShardSet? _shardSet;
     private readonly MqttZeroOptions _options;
@@ -218,6 +218,14 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         }
     }
 
+    internal MqttZeroRouteEpoch RouteEpoch
+    {
+        get
+        {
+            return _routeEpochs.Current;
+        }
+    }
+
     /// <summary>
     /// Gets the time provider used by the broker.
     /// </summary>
@@ -244,6 +252,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         {
             await StopAsync().ConfigureAwait(false);
             _routeScopes.Dispose();
+            _routeMutationGate.Dispose();
             _bufferPool.Dispose();
         }
         catch

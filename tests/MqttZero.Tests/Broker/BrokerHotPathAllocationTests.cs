@@ -47,10 +47,7 @@ namespace MqttZero.Tests.Broker
             ConcurrentDictionary<string, MqttZeroSessionState> sessions =
                 (ConcurrentDictionary<string, MqttZeroSessionState>)sessionsField.GetValue(broker)!;
             Assert.True(sessions.TryAdd(receiver.ClientId, receiver));
-            MethodInfo rebuildMethod = typeof(MqttZeroBroker).GetMethod(
-                "RebuildSubscriptionRouteSnapshot",
-                BindingFlags.Instance | BindingFlags.NonPublic)!;
-            rebuildMethod.Invoke(broker, null);
+            broker.ResetRouteEpochFromSessions();
 
             AllocationPipeWriter senderWriter = new(16 * 1024);
             MqttZeroClientConnection senderConnection = new(
@@ -236,10 +233,7 @@ namespace MqttZero.Tests.Broker
             ConcurrentDictionary<string, MqttZeroSessionState> sessions =
                 (ConcurrentDictionary<string, MqttZeroSessionState>)sessionsField.GetValue(broker)!;
             Assert.True(sessions.TryAdd(receiver.ClientId, receiver));
-            MethodInfo rebuildMethod = typeof(MqttZeroBroker).GetMethod(
-                "RebuildSubscriptionRouteSnapshot",
-                BindingFlags.Instance | BindingFlags.NonPublic)!;
-            rebuildMethod.Invoke(broker, null);
+            broker.ResetRouteEpochFromSessions();
 
             AllocationPipeWriter senderWriter = new(16 * 1024);
             MqttZeroClientConnection senderConnection = new(
@@ -380,10 +374,7 @@ namespace MqttZero.Tests.Broker
                 TimeProvider.System);
             receiver.Connection = receiverConnection;
             Assert.True(sessions.TryAdd(receiver.ClientId, receiver));
-            MethodInfo rebuildMethod = typeof(MqttZeroBroker).GetMethod(
-                "RebuildSubscriptionRouteSnapshot",
-                BindingFlags.Instance | BindingFlags.NonPublic)!;
-            rebuildMethod.Invoke(broker, null);
+            broker.ResetRouteEpochFromSessions();
 
             MqttZeroSessionState sender = new("sender");
             MqttPublishPacket packet = new()

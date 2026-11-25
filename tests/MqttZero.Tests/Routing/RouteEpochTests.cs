@@ -2,6 +2,7 @@ using MqttZero.Protocol;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
 using System.Text;
+using System.Runtime.CompilerServices;
 
 namespace MqttZero.Tests.Routing;
 
@@ -252,6 +253,51 @@ public sealed class RouteEpochTests
         Assert.Equal(segment.GetHashCode(), equal.GetHashCode());
         Assert.NotEqual(segment, other);
         Assert.True(segment.Span.SequenceEqual("设备/温度"u8));
+    }
+
+    [Fact]
+    public void RoutingOneHundredSubscribersDoesNotAllocateAfterWarmup()
+    {
+        MqttZeroRouteEpoch epoch = MqttZeroRouteEpoch.Empty;
+        for (int index = 0; index < 100; index++)
+        {
+            epoch = epoch.Add(
+                new MqttZeroSessionState(
+                    index.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                CreateSubscription("route/#"));
+        }
+
+        using MqttZeroRouteScopePool pool = new();
+        _ = MeasureRoute(epoch, pool);
+        long allocated = MeasureRoute(epoch, pool);
+
+        Assert.Equal(0, allocated);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    private static long MeasureRoute(
+        MqttZeroRouteEpoch epoch,
+        MqttZeroRouteScopePool pool)
+    {
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        int delivered = 0;
+        for (int index = 0; index < 100; index++)
+        {
+            using MqttZeroRouteScope scope = MqttZeroRouteSelector.Select(
+                epoch,
+                "route/topic"u8,
+                null,
+                pool);
+            delivered += scope.Count;
+        }
+
+        if (delivered != 10_000)
+        {
+            throw new InvalidOperationException(
+                $"Expected 10000 deliveries, observed {delivered}.");
+        }
+
+        return GC.GetAllocatedBytesForCurrentThread() - before;
     }
 
     private static MqttZeroSubscription CreateSubscription(

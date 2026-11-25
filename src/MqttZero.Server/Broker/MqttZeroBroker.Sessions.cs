@@ -77,14 +77,21 @@ public sealed partial class MqttZeroBroker
             }
             catch
             {
+                bool sessionRemoved = false;
                 lock (_sessionGate)
                 {
                     if (_sessions.TryGetValue(session.ClientId, out MqttZeroSessionState? current) &&
                         ReferenceEquals(current, session))
                     {
                         _sessions.TryRemove(session.ClientId, out _);
-                        RebuildSubscriptionRouteSnapshot();
+                        sessionRemoved = true;
                     }
+                }
+
+                if (sessionRemoved)
+                {
+                    await RemoveSessionSubscriptionsFromRouteAsync(session)
+                        .ConfigureAwait(false);
                 }
 
                 ReleaseSessionMessages(session);
@@ -116,13 +123,14 @@ public sealed partial class MqttZeroBroker
                     ReferenceEquals(current, session))
                 {
                     _sessions.TryRemove(session.ClientId, out _);
-                    RebuildSubscriptionRouteSnapshot();
                     removed = true;
                 }
             }
 
             if (removed)
             {
+                await RemoveSessionSubscriptionsFromRouteAsync(session)
+                    .ConfigureAwait(false);
                 try
                 {
                     await DeleteClientPersistenceAsync(
@@ -132,7 +140,8 @@ public sealed partial class MqttZeroBroker
                 catch (Exception)
                 {
                     _sessions[session.ClientId] = session;
-                    RebuildSubscriptionRouteSnapshot();
+                    await AddSessionSubscriptionsToRouteAsync(session)
+                        .ConfigureAwait(false);
                     throw;
                 }
 

@@ -913,10 +913,6 @@ public sealed partial class MqttZeroBroker
                     }
                 }
 
-                if (!sessionPresent)
-                {
-                    RebuildSubscriptionRouteSnapshot();
-                }
             }
             catch
             {
@@ -1006,11 +1002,6 @@ public sealed partial class MqttZeroBroker
                 }
 
                 await newConnection.DisposeAsync().ConfigureAwait(false);
-                if (replacingSession || !sessionPresent)
-                {
-                    RebuildSubscriptionRouteSnapshot();
-                }
-
                 throw;
             }
 
@@ -1082,6 +1073,12 @@ public sealed partial class MqttZeroBroker
                     {
                         MqttZeroBrokerLogging.LogObserverFailure(_logger, exception);
                     }
+                }
+
+                if (replacingSession && replacedSession != null)
+                {
+                    await RemoveSessionSubscriptionsFromRouteAsync(
+                        replacedSession).ConfigureAwait(false);
                 }
 
                 return new ConnectionAttachment(session, newConnection);
@@ -1182,11 +1179,6 @@ public sealed partial class MqttZeroBroker
                             clientId,
                             exception);
                     }
-                }
-
-                if (replacingSession || !sessionPresent)
-                {
-                    RebuildSubscriptionRouteSnapshot();
                 }
 
                 await newConnection.DisposeAsync().ConfigureAwait(false);

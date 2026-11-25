@@ -72,6 +72,7 @@ internal ref struct MqttZeroRouteEpochMatch
         MqttZeroSharedRouteEntries group,
         MqttZeroSessionState? sender)
     {
+        int matchingCount = 0;
         foreach (MqttZeroPersistentHashMapEntry<
             MqttZeroSessionState,
             MqttZeroSubscription> entry in group.Entries)
@@ -79,6 +80,31 @@ internal ref struct MqttZeroRouteEpochMatch
             if (entry.Value.NoLocal &&
                 ReferenceEquals(entry.Key, sender))
             {
+                continue;
+            }
+
+            matchingCount++;
+        }
+
+        if (matchingCount == 0)
+        {
+            return;
+        }
+
+        int selectedOffset = group.NextOffset(matchingCount);
+        foreach (MqttZeroPersistentHashMapEntry<
+            MqttZeroSessionState,
+            MqttZeroSubscription> entry in group.Entries)
+        {
+            if (entry.Value.NoLocal &&
+                ReferenceEquals(entry.Key, sender))
+            {
+                continue;
+            }
+
+            if (selectedOffset > 0)
+            {
+                selectedOffset--;
                 continue;
             }
 

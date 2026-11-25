@@ -236,10 +236,9 @@ public sealed partial class MqttZeroBroker
                 await StoreRetainedMessageAsync(lease, cancellationToken).ConfigureAwait(false);
             }
 
-            MqttZeroSubscriptionRouteSnapshot routeSnapshot =
-                Volatile.Read(ref _subscriptionRouteSnapshot);
+            MqttZeroRouteEpoch routeEpoch = _routeEpochs.Current;
             using MqttZeroRouteScope deliveries = MqttZeroRouteSelector.Select(
-                routeSnapshot,
+                routeEpoch,
                 lease.Topic.Span,
                 sender,
                 _routeScopes);
@@ -516,10 +515,9 @@ public sealed partial class MqttZeroBroker
                 cancellationToken).ConfigureAwait(false);
         }
 
-        MqttZeroSubscriptionRouteSnapshot routeSnapshot =
-            Volatile.Read(ref _subscriptionRouteSnapshot);
+        MqttZeroRouteEpoch routeEpoch = _routeEpochs.Current;
         using MqttZeroRouteScope deliveries = MqttZeroRouteSelector.Select(
-            routeSnapshot,
+            routeEpoch,
             lease.Topic.Span,
             sender,
             _routeScopes);
@@ -667,10 +665,9 @@ public sealed partial class MqttZeroBroker
                     cancellationToken).ConfigureAwait(false);
             }
 
-            MqttZeroSubscriptionRouteSnapshot routeSnapshot =
-                Volatile.Read(ref _subscriptionRouteSnapshot);
+            MqttZeroRouteEpoch routeEpoch = _routeEpochs.Current;
             using MqttZeroRouteScope deliveries = MqttZeroRouteSelector.Select(
-                routeSnapshot,
+                routeEpoch,
                 effectiveLease.Topic.Span,
                 sender,
                 _routeScopes);
@@ -754,18 +751,6 @@ public sealed partial class MqttZeroBroker
         }
 
         packet.TopicName = new ReadOnlySequence<byte>(topic);
-    }
-
-    private void RebuildSubscriptionRouteSnapshot()
-    {
-        lock (_sessionGate)
-        {
-            MqttZeroSubscriptionRouteSnapshot snapshot =
-                MqttZeroSubscriptionRouteSnapshotBuilder.Build(
-                    _sessions.Values,
-                    _subscriptionRouteSnapshot);
-            Volatile.Write(ref _subscriptionRouteSnapshot, snapshot);
-        }
     }
 
 }

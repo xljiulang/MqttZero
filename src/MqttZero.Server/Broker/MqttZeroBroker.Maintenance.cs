@@ -160,13 +160,14 @@ public sealed partial class MqttZeroBroker
                             !session.WillDueAt.HasValue)
                         {
                             _sessions.TryRemove(session.ClientId, out _);
-                            RebuildSubscriptionRouteSnapshot();
                             removed = true;
                         }
                     }
 
                     if (removed)
                     {
+                        await RemoveSessionSubscriptionsFromRouteAsync(session)
+                            .ConfigureAwait(false);
                         MqttZeroEgressActor? pump;
                         lock (session.SyncRoot)
                         {
@@ -184,7 +185,8 @@ public sealed partial class MqttZeroBroker
                         catch (Exception exception)
                         {
                             _sessions[session.ClientId] = session;
-                            RebuildSubscriptionRouteSnapshot();
+                            await AddSessionSubscriptionsToRouteAsync(session)
+                                .ConfigureAwait(false);
                             MqttZeroBrokerLogging.LogPersistenceFailure(
                                 _logger,
                                 nameof(DeleteClientPersistenceAsync),
