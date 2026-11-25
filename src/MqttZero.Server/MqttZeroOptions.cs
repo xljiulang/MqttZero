@@ -16,8 +16,8 @@ public sealed class MqttZeroOptions
     public int MaxSessions { get; set; } = 20_000;
 
     /// <summary>
-    /// Gets or sets the number of event loop shards. Zero resolves the physical
-    /// processor core count, capped by the logical processor count.
+    /// Gets or sets the number of event loop shards. Zero resolves to the
+    /// logical processor count.
     /// </summary>
     public int EventLoopShardCount { get; set; }
 

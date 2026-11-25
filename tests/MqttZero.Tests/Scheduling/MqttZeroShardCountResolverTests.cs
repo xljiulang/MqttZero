@@ -13,28 +13,15 @@ public sealed class MqttZeroShardCountResolverTests
         int expected)
     {
         int actual = MqttZeroShardCountResolver.Resolve(
-            configured,
-            new FixedTopologyProbe(4));
+            configured);
 
         Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void AutoUsesPhysicalCoreCountCappedByLogicalCount()
+    public void AutoUsesLogicalProcessorCount()
     {
-        int actual = MqttZeroShardCountResolver.Resolve(
-            0,
-            new FixedTopologyProbe(4));
-
-        Assert.Equal(Math.Min(4, Environment.ProcessorCount), actual);
-    }
-
-    [Fact]
-    public void AutoFallsBackWhenPhysicalProbeFails()
-    {
-        int actual = MqttZeroShardCountResolver.Resolve(
-            0,
-            new FixedTopologyProbe(0));
+        int actual = MqttZeroShardCountResolver.Resolve(0);
 
         Assert.Equal(
             Math.Clamp(Environment.ProcessorCount, 1, 256),
@@ -48,22 +35,6 @@ public sealed class MqttZeroShardCountResolverTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(
             () => MqttZeroShardCountResolver.Resolve(
-                configured,
-                new FixedTopologyProbe(4)));
-    }
-
-    private sealed class FixedTopologyProbe : IMqttZeroProcessorTopologyProbe
-    {
-        private readonly int _physicalCoreCount;
-
-        public FixedTopologyProbe(int physicalCoreCount)
-        {
-            _physicalCoreCount = physicalCoreCount;
-        }
-
-        public int GetPhysicalCoreCount()
-        {
-            return _physicalCoreCount;
-        }
+                configured));
     }
 }

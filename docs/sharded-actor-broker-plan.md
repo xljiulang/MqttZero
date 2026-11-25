@@ -39,7 +39,7 @@
 
 | API | 默认值 | 说明 |
 |---|---:|---|
-| `MqttZeroOptions.EventLoopShardCount` | `0` | 自动检测物理核数；无法检测时回退 `Environment.ProcessorCount`；允许 `0..256` |
+| `MqttZeroOptions.EventLoopShardCount` | `0` | 自动使用 `Environment.ProcessorCount`；允许 `0..256` |
 | `MqttZeroOptions.OutboundBatchBytes` | `512 KiB` | 单次 Egress 数据批次字节上限 |
 | `MqttZeroOptions.OutboundBatchMessages` | `128` | 单次 Egress 数据批次消息数上限 |
 | `MqttZeroOptions.OutboundBatchDuration` | `500 us` | 单次 Egress 数据批次持续时间上限 |
@@ -69,7 +69,7 @@
 
 ### Phase 1：Event Loop Shard 与工作调度
 
-- [ ] 新增内部 `MqttZeroEventLoopShard`。
+- [ ] 新增内部 `MqttZeroEventLoopShard`，Shard 数默认使用逻辑处理器数。
 - [ ] 仿照 Kestrel `IOQueue` 使用可复用 `IThreadPoolWorkItem`、`ConcurrentQueue<Work>`、CAS `scheduled` 标志和 `ThreadPool.UnsafeQueueUserWorkItem(this, preferLocal: false)`。
 - [ ] Work 使用强类型 Kind 加连接、Session、Lease、DeliveryBatch 和 TimerToken 引用，热路径不使用 `Action<object?>` 闭包。
 - [ ] 每轮最多执行 1024 个 WorkItem 或 500 us。
