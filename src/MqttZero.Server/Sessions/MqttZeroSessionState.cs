@@ -1,6 +1,7 @@
 using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Clients;
+using MqttZero.Server.Egress;
 using System.Collections.Concurrent;
 using System.Text;
 
@@ -56,6 +57,8 @@ internal sealed class MqttZeroSessionState
     public MqttZeroClientConnection? Connection { get; set; }
 
     public MqttZeroSessionOutboundPump? OutboundPump { get; set; }
+
+    public MqttZeroEgressActor? Egress { get; set; }
 
     public bool CleanStart { get; set; }
 
