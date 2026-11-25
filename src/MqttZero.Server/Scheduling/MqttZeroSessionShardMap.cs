@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text;
 
 namespace MqttZero.Server.Scheduling;
@@ -17,7 +18,49 @@ internal sealed class MqttZeroSessionShardMap
     public int GetShardId(string clientId)
     {
         ArgumentException.ThrowIfNullOrEmpty(clientId);
-        byte[] utf8 = Encoding.UTF8.GetBytes(clientId);
+        int maximumByteCount = Encoding.UTF8.GetMaxByteCount(
+            clientId.Length);
+        if (maximumByteCount <= 256)
+        {
+            return GetShardIdFromStack(
+                clientId,
+                maximumByteCount);
+        }
+
+        return GetShardIdFromPool(clientId, maximumByteCount);
+    }
+
+    private int GetShardIdFromStack(
+        string clientId,
+        int maximumByteCount)
+    {
+        Span<byte> utf8 = stackalloc byte[maximumByteCount];
+        int byteCount = Encoding.UTF8.GetBytes(clientId, utf8);
+        return Hash(utf8[..byteCount]);
+    }
+
+    private int GetShardIdFromPool(
+        string clientId,
+        int maximumByteCount)
+    {
+        byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(
+            maximumByteCount);
+
+        try
+        {
+            int byteCount = Encoding.UTF8.GetBytes(
+                clientId,
+                rentedBuffer);
+            return Hash(rentedBuffer.AsSpan(0, byteCount));
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(rentedBuffer);
+        }
+    }
+
+    private int Hash(ReadOnlySpan<byte> utf8)
+    {
         uint hash = FnvOffsetBasis;
         for (int index = 0; index < utf8.Length; index++)
         {

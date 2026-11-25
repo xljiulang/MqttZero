@@ -34,6 +34,21 @@ public sealed class MqttZeroSessionShardMapTests
     }
 
     [Fact]
+    public void LongClientIdUsesStablePooledUtf8Path()
+    {
+        MqttZeroSessionShardMap map = new(8);
+        string clientId = new(
+            '客',
+            200);
+
+        int first = map.GetShardId(clientId);
+        int second = map.GetShardId(clientId);
+
+        Assert.Equal(first, second);
+        Assert.InRange(first, 0, 7);
+    }
+
+    [Fact]
     public void RejectsInvalidShardCount()
     {
         Assert.Throws<ArgumentOutOfRangeException>(
