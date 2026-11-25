@@ -8,6 +8,42 @@ namespace MqttZero.Tests.Sessions
     public sealed class MessageQueueTests
     {
         [Fact]
+        public void LargeCapacityDoesNotPreallocateCandidateStorage()
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+
+            _ = new MqttZeroMessageQueue(1_000_000);
+
+            long allocated =
+                GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.InRange(allocated, 0, 1024);
+        }
+
+        [Fact]
+        public void DequeueRemovesQosZeroFromEvictionCandidates()
+        {
+            MqttZeroMessageQueue queue = new(4);
+            MqttZeroQueuedMessage firstQos0 = CreateQueuedMessage(
+                MqttQualityOfServiceLevel.AtMostOnce,
+                out MqttZeroMessageLease firstLease);
+            MqttZeroQueuedMessage secondQos0 = CreateQueuedMessage(
+                MqttQualityOfServiceLevel.AtMostOnce,
+                out MqttZeroMessageLease secondLease);
+            queue.Add(firstQos0);
+            queue.Add(secondQos0);
+            _ = queue.Dequeue();
+
+            MqttZeroQueuedMessage? evicted =
+                queue.EvictOldestQos0OrOldest();
+
+            Assert.Same(secondQos0, evicted);
+            firstQos0.Release();
+            evicted!.Release();
+            firstLease.Release();
+            secondLease.Release();
+        }
+
+        [Fact]
         public void RemoveAtDecrementsExpiringCountWhenRemovedMessageExpires()
         {
             MqttZeroMessageQueue queue = new(4);
