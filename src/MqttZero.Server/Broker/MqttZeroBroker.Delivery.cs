@@ -939,6 +939,16 @@ public sealed partial class MqttZeroBroker
     {
         while (true)
         {
+            long batchStartedTimestamp = _timeProvider.GetTimestamp();
+            long batchDurationTicks = Math.Max(
+                1,
+                (long)(
+                    _options.OutboundBatchDuration.TotalSeconds *
+                    _timeProvider.TimestampFrequency));
+            MqttZeroEgressBatchBudget budget = new(
+                _options.OutboundBatchBytes,
+                _options.OutboundBatchMessages,
+                batchStartedTimestamp + batchDurationTicks);
             MqttZeroQueuedMessage? next = null;
             bool hasNext = false;
             bool nextTooLarge = false;
@@ -966,6 +976,9 @@ public sealed partial class MqttZeroBroker
                         out nextTooLarge);
                     if (!nextTooLarge)
                     {
+                        _ = budget.TryAdd(
+                            next.EncodedLength,
+                            _timeProvider.GetTimestamp());
                         batch.Add(next);
                         if (next.QualityOfServiceLevel !=
                             MqttQualityOfServiceLevel.AtMostOnce)
@@ -974,29 +987,7 @@ public sealed partial class MqttZeroBroker
                             session.InflightMessages[next.PacketIdentifier] = next;
                         }
 
-                        long batchBytes = next.Lease.Payload.Length + 32;
-                        bool hasBacklog =
-                            session.PendingMessages.Count > 0;
-                        long maximumBatchBytes =
-                            next.Lease.Payload.Length >= 32 * 1024
-                                ? hasBacklog
-                                    ? 512 * 1024
-                                    : 64 * 1024
-                                : 1024 * 1024;
-                        int maximumBatchMessages =
-                            next.Lease.Payload.Length >= 32 * 1024
-                                ? hasBacklog
-                                    ? 8
-                                    : 1
-                                : 128;
-                        if (connection.HasPendingControlWrites)
-                        {
-                            maximumBatchBytes = 64 * 1024;
-                            maximumBatchMessages = 1;
-                        }
-
-                        while (batch.Count < maximumBatchMessages &&
-                            batchBytes < maximumBatchBytes &&
+                        while (!connection.HasPendingControlWrites &&
                             session.PendingMessages.Count > 0)
                         {
                             MqttZeroQueuedMessage head =
@@ -1009,18 +1000,20 @@ public sealed partial class MqttZeroBroker
                                 break;
                             }
 
-                            MqttZeroQueuedMessage candidate =
-                                session.PendingMessages.Dequeue();
                             ValidateEncodedLength(
                                 connection,
-                                candidate,
-                                out bool candidateTooLarge);
-                            if (candidateTooLarge)
+                                head,
+                                out bool headTooLarge);
+                            if (headTooLarge ||
+                                !budget.TryAdd(
+                                    head.EncodedLength,
+                                    _timeProvider.GetTimestamp()))
                             {
-                                session.PendingMessages.Prepend(candidate);
                                 break;
                             }
 
+                            MqttZeroQueuedMessage candidate =
+                                session.PendingMessages.Dequeue();
                             batch.Add(candidate);
                             if (candidate.QualityOfServiceLevel !=
                                 MqttQualityOfServiceLevel.AtMostOnce)
@@ -1031,7 +1024,6 @@ public sealed partial class MqttZeroBroker
                                     candidate;
                             }
 
-                            batchBytes += candidate.Lease.Payload.Length + 32;
                         }
                     }
                 }
@@ -1150,6 +1142,10 @@ public sealed partial class MqttZeroBroker
 
                 try
                 {
+                    _fanoutDiagnostics.RecordEgressDataBatch(
+                        batch.Count,
+                        budget.EncodedBytes);
+                    _fanoutDiagnostics.RecordEgressFlushStart();
                     if (!connection.TryEncodePublishBatch(
                             batch,
                             out _))

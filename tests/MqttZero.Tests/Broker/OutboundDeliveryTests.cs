@@ -381,7 +381,42 @@ namespace MqttZero.Tests.Broker
         }
 
         [Fact(Timeout = 5_000)]
-        public async Task LargeMessageBacklogUsesLargerBoundedBatches()
+        public async Task OutboundBatchMessagesHonorsConfiguredLimit()
+        {
+            MqttZeroOptions options = new()
+            {
+                MaxMessageQueueLength = 10,
+                OutboundBatchMessages = 2
+            };
+
+            await AssertQosZeroBatchFlushCountAsync(
+                options,
+                messageCount: 5,
+                payloadSize: 1024,
+                expectedFlushCount: 3,
+                TestContext.Current.CancellationToken);
+        }
+
+        [Fact(Timeout = 5_000)]
+        public async Task OutboundBatchBytesUsesEncodedLength()
+        {
+            MqttZeroOptions options = new()
+            {
+                MaxMessageQueueLength = 10,
+                OutboundBatchBytes = 1500,
+                OutboundBatchMessages = 10
+            };
+
+            await AssertQosZeroBatchFlushCountAsync(
+                options,
+                messageCount: 5,
+                payloadSize: 1024,
+                expectedFlushCount: 5,
+                TestContext.Current.CancellationToken);
+        }
+
+        [Fact(Timeout = 5_000)]
+        public async Task LargeMessageBacklogHonorsEncodedByteLimit()
         {
             const int messageCount = 8;
             const int payloadSize = 64 * 1024;
@@ -464,7 +499,7 @@ namespace MqttZero.Tests.Broker
                 await subscriberWriter.Completion.WaitAsync(
                     TimeSpan.FromSeconds(2),
                     TestContext.Current.CancellationToken);
-                Assert.Equal(1, subscriberWriter.FlushCount);
+                Assert.Equal(2, subscriberWriter.FlushCount);
             }
             finally
             {
@@ -872,6 +907,117 @@ namespace MqttZero.Tests.Broker
                 "_bufferPool",
                 BindingFlags.Instance | BindingFlags.NonPublic)!;
             return (MqttZeroBufferPool)bufferPoolField.GetValue(broker)!;
+        }
+
+        private static async Task AssertQosZeroBatchFlushCountAsync(
+            MqttZeroOptions options,
+            int messageCount,
+            int payloadSize,
+            int expectedFlushCount,
+            CancellationToken cancellationToken)
+        {
+            await using MqttZeroBroker broker = MqttZeroBroker.Create(
+                options,
+                TimeProvider.System);
+            await broker.StartAsync(cancellationToken);
+            TrackingPipeWriter subscriberWriter = new()
+            {
+                CompletionWrittenBytes = messageCount * payloadSize
+            };
+            MqttZeroClientConnection subscriberConnection = new(
+                subscriberWriter,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState receiver = new(
+                "receiver",
+                options.MaxMessageQueueLength);
+            receiver.Subscriptions.Add(new MqttZeroSubscription(
+                "batch/#"u8.ToArray(),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                false,
+                null));
+            receiver.Connection = subscriberConnection;
+            AddSession(broker, receiver);
+            RebuildRoutes(broker);
+            TrackingPipeWriter publisherWriter = new();
+            MqttZeroClientConnection publisherConnection = new(
+                publisherWriter,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState publisher = new("publisher");
+
+            await QueueQosZeroMessagesAsync(
+                broker,
+                publisher,
+                publisherConnection,
+                messageCount,
+                payloadSize,
+                cancellationToken);
+
+            using CancellationTokenSource pumpLifetime = new();
+            MqttZeroEgressActor pump = broker.StartEgress(
+                receiver,
+                subscriberConnection,
+                pumpLifetime.Token);
+            try
+            {
+                await subscriberWriter.Completion.WaitAsync(
+                    TimeSpan.FromSeconds(2),
+                    cancellationToken);
+                Assert.Equal(
+                    expectedFlushCount,
+                    subscriberWriter.FlushCount);
+            }
+            finally
+            {
+                await pump.StopAsync();
+                await publisherConnection.DisposeAsync();
+                await subscriberConnection.DisposeAsync();
+            }
+        }
+
+        private static async Task QueueQosZeroMessagesAsync(
+            MqttZeroBroker broker,
+            MqttZeroSessionState publisher,
+            MqttZeroClientConnection publisherConnection,
+            int messageCount,
+            int payloadSize,
+            CancellationToken cancellationToken)
+        {
+            for (int index = 0; index < messageCount; index++)
+            {
+                MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                    new ReadOnlySequence<byte>("batch/topic"u8.ToArray()),
+                    ReadOnlySequence<byte>.Empty,
+                    new ReadOnlySequence<byte>(new byte[payloadSize]),
+                    MqttQualityOfServiceLevel.AtMostOnce,
+                    false,
+                    null,
+                    null);
+                try
+                {
+                    await broker.RoutePublishLeaseAsync(
+                        publisher,
+                        publisherConnection,
+                        lease,
+                        cancellationToken);
+                }
+                finally
+                {
+                    lease.Release();
+                }
+            }
         }
 
         private static void AddSession(
