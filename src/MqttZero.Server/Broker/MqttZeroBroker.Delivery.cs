@@ -671,6 +671,7 @@ public sealed partial class MqttZeroBroker
         CancellationToken cancellationToken)
     {
         int resumePending = 1;
+        MqttZeroEgressActor? egress = null;
 
         async ValueTask<bool> DrainAsync(
             CancellationToken pumpCancellationToken)
@@ -690,10 +691,10 @@ public sealed partial class MqttZeroBroker
             return await DrainQueuedMessagesOnceAsync(
                 session,
                 connection,
+                egress!,
                 linkedCancellation.Token).ConfigureAwait(false);
         }
 
-        MqttZeroEgressActor? egress = null;
         egress = new MqttZeroEgressActor(
             _shardSet![session.ShardId],
             async (frames, token) =>
@@ -777,6 +778,7 @@ public sealed partial class MqttZeroBroker
     private async ValueTask<bool> DrainQueuedMessagesOnceAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
+        MqttZeroEgressActor egress,
         CancellationToken cancellationToken)
     {
         while (true)
@@ -992,9 +994,14 @@ public sealed partial class MqttZeroBroker
 
                 try
                 {
-                    await connection.SendPublishBatchAsync(
-                        batch,
-                        cancellationToken).ConfigureAwait(false);
+                    if (!connection.TryEncodePublishBatch(
+                            batch,
+                            out _))
+                    {
+                        await connection.SendPublishBatchAsync(
+                            batch,
+                            cancellationToken).ConfigureAwait(false);
+                    }
                     for (int index = 0; index < batch.Count; index++)
                     {
                         MqttZeroQueuedMessage message = batch[index];
@@ -1003,6 +1010,15 @@ public sealed partial class MqttZeroBroker
                         {
                             message.Release();
                         }
+                    }
+
+                    if (connection.AllowPacketFragmentation &&
+                        !egress.BeginFlush(
+                            connection.FlushOutputAsync(
+                                cancellationToken)))
+                    {
+                        batch.Clear();
+                        return false;
                     }
                 }
                 catch
