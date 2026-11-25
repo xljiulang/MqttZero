@@ -101,7 +101,7 @@ public sealed class MqttZeroConnectedClient
         MqttReasonCode reasonCode = MqttReasonCode.Success,
         CancellationToken cancellationToken = default)
     {
-        return MqttZeroBroker.DisconnectConnectedClientAsync(
+        return _broker.DisconnectConnectedClientAsync(
             _session,
             _connection,
             reasonCode,

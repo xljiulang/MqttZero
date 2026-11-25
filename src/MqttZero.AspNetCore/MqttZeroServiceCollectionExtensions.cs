@@ -1,8 +1,11 @@
 using MqttZero.Server;
 using MqttZero.Server.Broker;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Storage;
+using Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace MqttZero.AspNetCore;
 
@@ -31,6 +34,14 @@ public static class MqttZeroServiceCollectionExtensions
             services.Configure(configure);
         }
 
+        services.AddOptions<SocketTransportOptions>()
+            .Configure<IOptions<MqttZeroOptions>>(
+                static (socketOptions, brokerOptions) =>
+                {
+                    socketOptions.IOQueueCount =
+                        MqttZeroShardCountResolver.Resolve(
+                            brokerOptions.Value.EventLoopShardCount);
+                });
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IMqttZeroSessionStore, MqttZeroNoopSessionStore>();
         services.TryAddSingleton<IMqttZeroMessageStore, MqttZeroNoopMessageStore>();

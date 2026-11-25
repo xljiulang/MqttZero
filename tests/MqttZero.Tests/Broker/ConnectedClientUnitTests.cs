@@ -249,6 +249,101 @@ namespace MqttZero.Tests.Broker
             Assert.False(sent);
         }
 
+        [Fact(Timeout = 5_000)]
+        public async Task ConnectedClientApiRunsOnSessionShard()
+        {
+            MqttZeroBroker broker = MqttZeroBroker.Create(
+                new MqttZeroOptions
+                {
+                    EventLoopShardCount = 2
+                },
+                TimeProvider.System);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
+            await using MqttZeroBroker brokerLifetime = broker;
+            MqttZeroSessionState session =
+                broker.CreateSessionState("sharded-api");
+            MqttZeroClientConnection connection = new(
+                new TrackingPipeWriter(),
+                null,
+                false,
+                false,
+                0,
+                32,
+                1024 * 1024,
+                TimeProvider.System,
+                shardId: session.ShardId);
+            await using MqttZeroClientConnection connectionLifetime =
+                connection;
+            connection.ClientInfo = new MqttZeroClientConnectionInfo
+            {
+                ClientId = session.ClientId
+            };
+            session.Connection = connection;
+            connection.ConnectedClient = new MqttZeroConnectedClient(
+                broker,
+                session,
+                connection);
+
+            _ = await connection.ConnectedClient.SubscribeAsync(
+                [CreateSubscription("sharded/#")],
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Single(session.Subscriptions);
+        }
+
+        [Fact(Timeout = 5_000)]
+        public async Task ConnectedClientApiCanBeCalledFromOwningShard()
+        {
+            MqttZeroBroker broker = MqttZeroBroker.Create(
+                new MqttZeroOptions
+                {
+                    EventLoopShardCount = 2
+                },
+                TimeProvider.System);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
+            await using MqttZeroBroker brokerLifetime = broker;
+            MqttZeroSessionState session =
+                broker.CreateSessionState("sharded-reentrant");
+            MqttZeroClientConnection connection = new(
+                new TrackingPipeWriter(),
+                null,
+                false,
+                false,
+                0,
+                32,
+                1024 * 1024,
+                TimeProvider.System,
+                shardId: session.ShardId);
+            await using MqttZeroClientConnection connectionLifetime =
+                connection;
+            connection.ClientInfo = new MqttZeroClientConnectionInfo
+            {
+                ClientId = session.ClientId
+            };
+            session.Connection = connection;
+            connection.ConnectedClient = new MqttZeroConnectedClient(
+                broker,
+                session,
+                connection);
+            TaskCompletionSource completed = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            await broker.Shards![session.ShardId].EnqueueAsync(
+                new DelegateShardWork(
+                    async cancellationToken =>
+                    {
+                        _ = await connection.ConnectedClient.SubscribeAsync(
+                            [CreateSubscription("reentrant/#")],
+                            cancellationToken: cancellationToken);
+                        completed.TrySetResult();
+                    }),
+                TestContext.Current.CancellationToken);
+
+            await completed.Task.WaitAsync(
+                TestContext.Current.CancellationToken);
+            Assert.Single(session.Subscriptions);
+        }
+
         private static MqttZeroBroker CreateBroker(
             MqttZeroOptions options,
             IMqttZeroSubscribeInterceptor? subscribeInterceptor = null,
@@ -330,6 +425,25 @@ namespace MqttZero.Tests.Broker
 
             throw new TimeoutException(
                 $"Expected {expected} sent messages.");
+        }
+
+        private sealed class DelegateShardWork :
+            MqttZero.Server.Scheduling.MqttZeroShardWork
+        {
+            private readonly Func<CancellationToken, ValueTask> _execute;
+
+            public DelegateShardWork(
+                Func<CancellationToken, ValueTask> execute)
+            {
+                _execute = execute;
+            }
+
+            public override ValueTask ExecuteAsync(
+                MqttZero.Server.Scheduling.MqttZeroEventLoop shard,
+                CancellationToken cancellationToken)
+            {
+                return _execute(cancellationToken);
+            }
         }
 
         private sealed class ConsumingSubscribeInterceptor :

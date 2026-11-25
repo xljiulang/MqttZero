@@ -4,6 +4,7 @@ using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Publishing;
 using MqttZero.Server.Retained;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using System.Buffers;
 using System.Text;
@@ -74,7 +75,26 @@ public sealed partial class MqttZeroBroker
         };
     }
 
-    internal async ValueTask<IReadOnlyList<MqttZeroSubscribeResult>> SubscribeConnectedClientAsync(
+    internal ValueTask<IReadOnlyList<MqttZeroSubscribeResult>> SubscribeConnectedClientAsync(
+        MqttZeroSessionState session,
+        MqttZeroClientConnection connection,
+        IReadOnlyList<MqttSubscriptionRequest> subscriptions,
+        uint? subscriptionIdentifier,
+        CancellationToken cancellationToken)
+    {
+        return InvokeOnSessionShardAsync(
+            session,
+            token => SubscribeConnectedClientCoreAsync(
+                session,
+                connection,
+                subscriptions,
+                subscriptionIdentifier,
+                token),
+            cancellationToken);
+    }
+
+    private async ValueTask<IReadOnlyList<MqttZeroSubscribeResult>>
+        SubscribeConnectedClientCoreAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
         IReadOnlyList<MqttSubscriptionRequest> subscriptions,
@@ -269,7 +289,24 @@ public sealed partial class MqttZeroBroker
         return results;
     }
 
-    internal async ValueTask<IReadOnlyList<MqttZeroUnsubscribeResult>> UnsubscribeConnectedClientAsync(
+    internal ValueTask<IReadOnlyList<MqttZeroUnsubscribeResult>> UnsubscribeConnectedClientAsync(
+        MqttZeroSessionState session,
+        MqttZeroClientConnection connection,
+        IReadOnlyList<string> topicFilters,
+        CancellationToken cancellationToken)
+    {
+        return InvokeOnSessionShardAsync(
+            session,
+            token => UnsubscribeConnectedClientCoreAsync(
+                session,
+                connection,
+                topicFilters,
+                token),
+            cancellationToken);
+    }
+
+    private async ValueTask<IReadOnlyList<MqttZeroUnsubscribeResult>>
+        UnsubscribeConnectedClientCoreAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
         IReadOnlyList<string> topicFilters,
@@ -386,7 +423,23 @@ public sealed partial class MqttZeroBroker
         return results;
     }
 
-    internal async ValueTask<bool> SendPublishToClientAsync(
+    internal ValueTask<bool> SendPublishToClientAsync(
+        MqttZeroSessionState session,
+        MqttZeroClientConnection connection,
+        MqttZeroPublishMessage message,
+        CancellationToken cancellationToken)
+    {
+        return InvokeOnSessionShardAsync(
+            session,
+            token => SendPublishToClientCoreAsync(
+                session,
+                connection,
+                message,
+                token),
+            cancellationToken);
+    }
+
+    private async ValueTask<bool> SendPublishToClientCoreAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
         MqttZeroPublishMessage message,
@@ -459,7 +512,23 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    internal static async ValueTask<bool> DisconnectConnectedClientAsync(
+    internal ValueTask<bool> DisconnectConnectedClientAsync(
+        MqttZeroSessionState session,
+        MqttZeroClientConnection connection,
+        MqttReasonCode reasonCode,
+        CancellationToken cancellationToken)
+    {
+        return InvokeOnSessionShardAsync(
+            session,
+            token => DisconnectConnectedClientCoreAsync(
+                session,
+                connection,
+                reasonCode,
+                token),
+            cancellationToken);
+    }
+
+    private static async ValueTask<bool> DisconnectConnectedClientCoreAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
         MqttReasonCode reasonCode,
@@ -480,6 +549,28 @@ public sealed partial class MqttZeroBroker
         await StopSessionOutboundPumpAsync(pump).ConfigureAwait(false);
         await connection.CloseAsync(reasonCode, cancellationToken).ConfigureAwait(false);
         return true;
+    }
+
+    private ValueTask<T> InvokeOnSessionShardAsync<T>(
+        MqttZeroSessionState session,
+        Func<CancellationToken, ValueTask<T>> operation,
+        CancellationToken cancellationToken)
+    {
+        MqttZeroShardSet? shards = Volatile.Read(ref _shardSet);
+        if (shards == null)
+        {
+            return operation(cancellationToken);
+        }
+
+        if (session.ShardId < 0 || session.ShardId >= shards.Count)
+        {
+            throw new InvalidOperationException(
+                "The MQTT session references an invalid event loop shard.");
+        }
+
+        return shards[session.ShardId].InvokeAsync(
+            operation,
+            cancellationToken);
     }
 
     private static void EnsureAttached(
