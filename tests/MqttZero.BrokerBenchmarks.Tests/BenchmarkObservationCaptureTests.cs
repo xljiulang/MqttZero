@@ -11,11 +11,16 @@ public sealed class BenchmarkObservationCaptureTests
             .ApplyToCurrentProcess();
         BenchmarkTopologyInfo topology =
         new BenchmarkTopologyOptions(4, 2).CreateInfo();
+        BenchmarkEgressOptions egress = new(
+            OutboundBatchBytes: 256 * 1024,
+            OutboundBatchMessages: 64,
+            OutboundBatchDurationMicroseconds: 250);
 
         BenchmarkEnvironmentInfo environment =
             BenchmarkObservationCapture.CaptureEnvironment(
                 runtime,
-                topology);
+                topology,
+                egress);
 
         Assert.False(string.IsNullOrWhiteSpace(environment.OsDescription));
         Assert.False(string.IsNullOrWhiteSpace(environment.OsVersion));
@@ -25,6 +30,7 @@ public sealed class BenchmarkObservationCaptureTests
         Assert.True(environment.ProcessorCount > 0);
         Assert.Equal(runtime, environment.Runtime);
         Assert.Equal(topology, environment.Topology);
+        Assert.Equal(egress, environment.Egress);
     }
 
     [Fact]

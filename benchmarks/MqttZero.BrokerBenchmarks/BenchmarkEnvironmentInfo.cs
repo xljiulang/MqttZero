@@ -8,4 +8,5 @@ internal sealed record BenchmarkEnvironmentInfo(
     string RuntimeIdentifier,
     int ProcessorCount,
     BenchmarkRuntimeSnapshot Runtime,
-    BenchmarkTopologyInfo Topology);
+    BenchmarkTopologyInfo Topology,
+    BenchmarkEgressOptions Egress);

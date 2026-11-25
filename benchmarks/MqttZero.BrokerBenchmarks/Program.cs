@@ -36,10 +36,13 @@ BenchmarkRuntimeSnapshot runtimeSnapshot =
 BenchmarkTopologyOptions topologyOptions =
     BenchmarkTopologyOptions.Parse(arguments);
 BenchmarkTopologyInfo topology = topologyOptions.CreateInfo();
+BenchmarkEgressOptions egressOptions =
+    BenchmarkEgressOptions.Parse(arguments);
 BenchmarkEnvironmentInfo environment =
     BenchmarkObservationCapture.CaptureEnvironment(
         runtimeSnapshot,
-        topology);
+        topology,
+        egressOptions);
 
 if (mode == "serve")
 {
@@ -95,6 +98,8 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
         true);
     BenchmarkTopologyOptions topologyOptions =
         BenchmarkTopologyOptions.Parse(arguments);
+    BenchmarkEgressOptions egressOptions =
+        BenchmarkEgressOptions.Parse(arguments);
     CancellationTokenSource lifetime = new();
     Console.CancelKeyPress += (_, eventArgs) =>
     {
@@ -122,6 +127,7 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
             options.MaxMessageQueueLength = 100_000;
             options.EventLoopShardCount =
                 topologyOptions.EventLoopShardCount;
+            egressOptions.ApplyTo(options);
         });
         if (topologyOptions.IoQueueCount > 0)
         {
@@ -186,6 +192,8 @@ static async Task CompareAsync(
         1024);
     BenchmarkTopologyOptions topologyOptions =
         BenchmarkTopologyOptions.Parse(arguments);
+    BenchmarkEgressOptions egressOptions =
+        BenchmarkEgressOptions.Parse(arguments);
     bool allowPacketFragmentation = GetBool(
         arguments,
         "fragmentation",
@@ -222,7 +230,8 @@ static async Task CompareAsync(
                             port,
                             allowPacketFragmentation,
                             runtimeConfiguration,
-                            topologyOptions);
+                            topologyOptions,
+                            egressOptions);
                         await WaitForReadyAsync(serverProcess);
                         BenchmarkProcessObservation brokerObservation;
                         try
@@ -299,6 +308,8 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
         1024);
     BenchmarkTopologyOptions topologyOptions =
         BenchmarkTopologyOptions.Parse(arguments);
+    BenchmarkEgressOptions egressOptions =
+        BenchmarkEgressOptions.Parse(arguments);
     MqttZero.Protocol.MqttQualityOfServiceLevel qualityOfServiceLevel = qos switch
     {
         0 => MqttZero.Protocol.MqttQualityOfServiceLevel.AtMostOnce,
@@ -321,6 +332,7 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
         options.MaxMessageQueueLength = 100_000;
         options.EventLoopShardCount =
             topologyOptions.EventLoopShardCount;
+        egressOptions.ApplyTo(options);
     });
     if (topologyOptions.IoQueueCount > 0)
     {
@@ -383,6 +395,7 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
         () => Interlocked.Read(ref receivedMessages),
         CancellationToken.None);
     Interlocked.Exchange(ref receivedMessages, 0);
+    broker.ResetFanoutDiagnosticsForTest();
     Stopwatch stopwatch = Stopwatch.StartNew();
     List<long> waitTicks = [];
     List<long> publishTicks = [];
@@ -410,6 +423,25 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
                 1_000_000d /
                 Stopwatch.Frequency /
                 diagnosticsSnapshot.PublishCount;
+    double averageEgressSchedulerMicroseconds =
+        diagnosticsSnapshot.EgressSchedulerPassCount == 0
+            ? 0
+            : diagnosticsSnapshot.TotalEgressSchedulerTicks *
+                1_000_000d /
+                Stopwatch.Frequency /
+                diagnosticsSnapshot.EgressSchedulerPassCount;
+    double averageEgressDrainMicroseconds =
+        diagnosticsSnapshot.EgressDrainCount == 0
+            ? 0
+            : diagnosticsSnapshot.TotalEgressDrainTicks *
+                1_000_000d /
+                Stopwatch.Frequency /
+                diagnosticsSnapshot.EgressDrainCount;
+    double averageEgressBatchMessages =
+        diagnosticsSnapshot.EgressDataBatchCount == 0
+            ? 0
+            : diagnosticsSnapshot.EgressBatchMessageCount /
+                (double)diagnosticsSnapshot.EgressDataBatchCount;
     BenchmarkFanoutDiagnostics diagnostics = new(
         diagnosticsSnapshot.PublishCount,
         diagnosticsSnapshot.LocalBatchCount,
@@ -422,7 +454,20 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
         diagnosticsSnapshot.EgressDrainCount,
         diagnosticsSnapshot.EncodedPublishCount,
         diagnosticsSnapshot.FlushWaitCount,
-        diagnosticsSnapshot.MaxPendingQueueDepth);
+        diagnosticsSnapshot.MaxPendingQueueDepth,
+        diagnosticsSnapshot.EgressScheduledActorCount,
+        diagnosticsSnapshot.EgressSchedulerPassCount,
+        diagnosticsSnapshot.EgressScheduledActorPassCount,
+        averageEgressSchedulerMicroseconds,
+        averageEgressDrainMicroseconds,
+        diagnosticsSnapshot.MaxEgressDrainTicks *
+            1_000_000d /
+            Stopwatch.Frequency,
+        diagnosticsSnapshot.EgressDataBatchCount,
+        diagnosticsSnapshot.EgressBatchMessageCount,
+        diagnosticsSnapshot.EgressBatchByteCount,
+        averageEgressBatchMessages,
+        diagnosticsSnapshot.EgressFlushStartCount);
     OutboundBenchmarkResult result = new(
         PublishedMessages: loopResult.PublishedMessages,
         ReceivedMessages: Interlocked.Read(ref receivedMessages),
@@ -513,7 +558,8 @@ static Process StartServerProcess(
     int port,
     bool allowPacketFragmentation,
     BenchmarkRuntimeConfiguration runtimeConfiguration,
-    BenchmarkTopologyOptions topologyOptions)
+    BenchmarkTopologyOptions topologyOptions,
+    BenchmarkEgressOptions egressOptions)
 {
     ProcessStartInfo startInfo = new()
     {
@@ -539,6 +585,18 @@ static Process StartServerProcess(
     startInfo.ArgumentList.Add("--io-queue-count");
     startInfo.ArgumentList.Add(
         topologyOptions.IoQueueCount.ToString(
+            CultureInfo.InvariantCulture));
+    startInfo.ArgumentList.Add("--outbound-batch-bytes");
+    startInfo.ArgumentList.Add(
+        egressOptions.OutboundBatchBytes.ToString(
+            CultureInfo.InvariantCulture));
+    startInfo.ArgumentList.Add("--outbound-batch-messages");
+    startInfo.ArgumentList.Add(
+        egressOptions.OutboundBatchMessages.ToString(
+            CultureInfo.InvariantCulture));
+    startInfo.ArgumentList.Add("--outbound-batch-duration-us");
+    startInfo.ArgumentList.Add(
+        egressOptions.OutboundBatchDurationMicroseconds.ToString(
             CultureInfo.InvariantCulture));
     foreach (KeyValuePair<string, string> variable in
         runtimeConfiguration.CreateBrokerEnvironmentVariables())

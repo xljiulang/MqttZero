@@ -11,4 +11,14 @@ internal sealed record MqttZeroFanoutDiagnosticsSnapshot(
     long EgressDrainCount,
     long EncodedPublishCount,
     long FlushWaitCount,
-    int MaxPendingQueueDepth);
+    int MaxPendingQueueDepth,
+    long EgressScheduledActorCount,
+    long EgressSchedulerPassCount,
+    long EgressScheduledActorPassCount,
+    long TotalEgressSchedulerTicks,
+    long TotalEgressDrainTicks,
+    long MaxEgressDrainTicks,
+    long EgressDataBatchCount,
+    long EgressBatchMessageCount,
+    long EgressBatchByteCount,
+    long EgressFlushStartCount);

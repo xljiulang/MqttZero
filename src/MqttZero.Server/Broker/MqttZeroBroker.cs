@@ -246,6 +246,11 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         return _fanoutDiagnostics.GetSnapshot();
     }
 
+    internal void ResetFanoutDiagnosticsForTest()
+    {
+        _fanoutDiagnostics.Reset();
+    }
+
     /// <summary>
     /// Gets the time provider used by the broker.
     /// </summary>

@@ -11,4 +11,15 @@ internal sealed record BenchmarkFanoutDiagnostics(
     long EgressDrainCount,
     long EncodedPublishCount,
     long FlushWaitCount,
-    int MaxPendingQueueDepth);
+    int MaxPendingQueueDepth,
+    long EgressScheduledActorCount,
+    long EgressSchedulerPassCount,
+    long EgressScheduledActorPassCount,
+    double AverageEgressSchedulerMicroseconds,
+    double AverageEgressDrainMicroseconds,
+    double MaxEgressDrainMicroseconds,
+    long EgressDataBatchCount,
+    long EgressBatchMessageCount,
+    long EgressBatchByteCount,
+    double AverageEgressBatchMessages,
+    long EgressFlushStartCount);

@@ -16,7 +16,17 @@ internal sealed class MqttZeroFanoutDiagnostics
     private long _maxFanoutTicks;
     private long _publishCount;
     private long _remoteBatchCount;
+    private long _scheduledActorCount;
+    private long _scheduledActorPassCount;
+    private long _schedulerPassCount;
+    private long _totalEgressDrainTicks;
+    private long _maxEgressDrainTicks;
+    private long _egressDataBatchCount;
+    private long _egressBatchMessageCount;
+    private long _egressBatchByteCount;
+    private long _egressFlushStartCount;
     private long _totalFanoutTicks;
+    private long _totalEgressSchedulerTicks;
 
     public MqttZeroFanoutDiagnostics()
         : this(AppContext.TryGetSwitch(
@@ -51,7 +61,17 @@ internal sealed class MqttZeroFanoutDiagnostics
             Interlocked.Read(ref _egressDrainCount),
             Interlocked.Read(ref _encodedPublishCount),
             Interlocked.Read(ref _flushWaitCount),
-            Volatile.Read(ref _maxPendingQueueDepth));
+            Volatile.Read(ref _maxPendingQueueDepth),
+            Interlocked.Read(ref _scheduledActorCount),
+            Interlocked.Read(ref _schedulerPassCount),
+            Interlocked.Read(ref _scheduledActorPassCount),
+            Interlocked.Read(ref _totalEgressSchedulerTicks),
+            Interlocked.Read(ref _totalEgressDrainTicks),
+            Interlocked.Read(ref _maxEgressDrainTicks),
+            Interlocked.Read(ref _egressDataBatchCount),
+            Interlocked.Read(ref _egressBatchMessageCount),
+            Interlocked.Read(ref _egressBatchByteCount),
+            Interlocked.Read(ref _egressFlushStartCount));
     }
 
     public void RecordEgressDrain()
@@ -59,6 +79,61 @@ internal sealed class MqttZeroFanoutDiagnostics
         if (_enabled)
         {
             Interlocked.Increment(ref _egressDrainCount);
+        }
+    }
+
+    public void RecordEgressDrainTiming(long elapsedTicks)
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        Interlocked.Add(ref _totalEgressDrainTicks, elapsedTicks);
+        InterlockedMax(ref _maxEgressDrainTicks, elapsedTicks);
+    }
+
+    public void RecordEgressScheduledActor()
+    {
+        if (_enabled)
+        {
+            Interlocked.Increment(ref _scheduledActorCount);
+        }
+    }
+
+    public void RecordEgressSchedulerPass(
+        int actorCount,
+        long elapsedTicks)
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref _schedulerPassCount);
+        Interlocked.Add(ref _scheduledActorPassCount, actorCount);
+        Interlocked.Add(ref _totalEgressSchedulerTicks, elapsedTicks);
+    }
+
+    public void RecordEgressDataBatch(
+        int messageCount,
+        long encodedBytes)
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref _egressDataBatchCount);
+        Interlocked.Add(ref _egressBatchMessageCount, messageCount);
+        Interlocked.Add(ref _egressBatchByteCount, encodedBytes);
+    }
+
+    public void RecordEgressFlushStart()
+    {
+        if (_enabled)
+        {
+            Interlocked.Increment(ref _egressFlushStartCount);
         }
     }
 
@@ -109,6 +184,36 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    public void Reset()
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref _publishCount, 0);
+        Interlocked.Exchange(ref _localBatchCount, 0);
+        Interlocked.Exchange(ref _remoteBatchCount, 0);
+        Interlocked.Exchange(ref _deliveryCount, 0);
+        Interlocked.Exchange(ref _totalFanoutTicks, 0);
+        Interlocked.Exchange(ref _maxFanoutTicks, 0);
+        Interlocked.Exchange(ref _egressSignalCount, 0);
+        Interlocked.Exchange(ref _egressDrainCount, 0);
+        Interlocked.Exchange(ref _encodedPublishCount, 0);
+        Interlocked.Exchange(ref _flushWaitCount, 0);
+        Interlocked.Exchange(ref _maxPendingQueueDepth, 0);
+        Interlocked.Exchange(ref _scheduledActorCount, 0);
+        Interlocked.Exchange(ref _schedulerPassCount, 0);
+        Interlocked.Exchange(ref _scheduledActorPassCount, 0);
+        Interlocked.Exchange(ref _totalEgressSchedulerTicks, 0);
+        Interlocked.Exchange(ref _totalEgressDrainTicks, 0);
+        Interlocked.Exchange(ref _maxEgressDrainTicks, 0);
+        Interlocked.Exchange(ref _egressDataBatchCount, 0);
+        Interlocked.Exchange(ref _egressBatchMessageCount, 0);
+        Interlocked.Exchange(ref _egressBatchByteCount, 0);
+        Interlocked.Exchange(ref _egressFlushStartCount, 0);
+    }
+
     public void RecordPublish(
         int localBatchCount,
         int remoteBatchCount,
@@ -131,6 +236,24 @@ internal sealed class MqttZeroFanoutDiagnostics
             long observed = Interlocked.CompareExchange(
                 ref _maxFanoutTicks,
                 elapsedTimestampTicks,
+                current);
+            if (observed == current)
+            {
+                return;
+            }
+
+            current = observed;
+        }
+    }
+
+    private static void InterlockedMax(ref long target, long value)
+    {
+        long current = Volatile.Read(ref target);
+        while (value > current)
+        {
+            long observed = Interlocked.CompareExchange(
+                ref target,
+                value,
                 current);
             if (observed == current)
             {

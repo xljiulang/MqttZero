@@ -7,10 +7,12 @@ internal static class BenchmarkObservationCapture
 {
     public static BenchmarkEnvironmentInfo CaptureEnvironment(
         BenchmarkRuntimeSnapshot runtime,
-        BenchmarkTopologyInfo topology)
+        BenchmarkTopologyInfo topology,
+        BenchmarkEgressOptions egress)
     {
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(topology);
+        ArgumentNullException.ThrowIfNull(egress);
         return new BenchmarkEnvironmentInfo(
             RuntimeInformation.OSDescription,
             Environment.OSVersion.VersionString,
@@ -19,7 +21,8 @@ internal static class BenchmarkObservationCapture
             RuntimeInformation.RuntimeIdentifier,
             Environment.ProcessorCount,
             runtime,
-            topology);
+            topology,
+            egress);
     }
 
     public static BenchmarkProcessObservation CaptureProcess(
