@@ -293,7 +293,8 @@ namespace MqttZero.Tests.Broker
             const int messageCount = 3;
             MqttZeroOptions options = new()
             {
-                MaxMessageQueueLength = 10
+                MaxMessageQueueLength = 10,
+                OutboundBatchDuration = TimeSpan.FromSeconds(1)
             };
             await using MqttZeroBroker broker = MqttZeroBroker.Create(
                 options,
@@ -371,6 +372,104 @@ namespace MqttZero.Tests.Broker
                     TimeSpan.FromSeconds(2),
                     TestContext.Current.CancellationToken);
                 Assert.Equal(1, subscriberWriter.FlushCount);
+            }
+            finally
+            {
+                await pump.StopAsync();
+                await publisherConnection.DisposeAsync();
+                await subscriberConnection.DisposeAsync();
+            }
+        }
+
+        [Fact(Timeout = 5_000)]
+        public async Task PendingMessagesResumeAfterBatchLimitedAsyncFlush()
+        {
+            MqttZeroOptions options = new()
+            {
+                MaxMessageQueueLength = 10,
+                OutboundBatchMessages = 1,
+                OutboundBatchDuration = TimeSpan.FromSeconds(1)
+            };
+            await using MqttZeroBroker broker = MqttZeroBroker.Create(
+                options,
+                TimeProvider.System);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
+            BlockingPipeWriter subscriberWriter = new();
+            MqttZeroClientConnection subscriberConnection = new(
+                subscriberWriter,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState receiver = new(
+                "receiver",
+                options.MaxMessageQueueLength);
+            receiver.Subscriptions.Add(new MqttZeroSubscription(
+                "batch/#"u8.ToArray(),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                false,
+                null));
+            receiver.Connection = subscriberConnection;
+            AddSession(broker, receiver);
+            RebuildRoutes(broker);
+            TrackingPipeWriter publisherWriter = new();
+            MqttZeroClientConnection publisherConnection = new(
+                publisherWriter,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState publisher = new("publisher");
+
+            for (int index = 0; index < 2; index++)
+            {
+                MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                    new ReadOnlySequence<byte>("batch/topic"u8.ToArray()),
+                    ReadOnlySequence<byte>.Empty,
+                    new ReadOnlySequence<byte>(new byte[1024]),
+                    MqttQualityOfServiceLevel.AtMostOnce,
+                    false,
+                    null,
+                    null);
+                try
+                {
+                    await broker.RoutePublishLeaseAsync(
+                        publisher,
+                        publisherConnection,
+                        lease,
+                        TestContext.Current.CancellationToken);
+                }
+                finally
+                {
+                    lease.Release();
+                }
+            }
+
+            using CancellationTokenSource pumpLifetime = new();
+            MqttZeroEgressActor pump = broker.StartEgress(
+                receiver,
+                subscriberConnection,
+                pumpLifetime.Token);
+            try
+            {
+                await subscriberWriter.FlushStarted.WaitAsync(
+                    TimeSpan.FromSeconds(2),
+                    TestContext.Current.CancellationToken);
+                Assert.InRange(
+                    subscriberWriter.WrittenBytesAtFirstFlush,
+                    1024,
+                    1500);
+                subscriberWriter.ReleaseFlush();
+                await subscriberWriter.SecondFlushStarted.WaitAsync(
+                    TimeSpan.FromSeconds(2),
+                    TestContext.Current.CancellationToken);
             }
             finally
             {
@@ -1044,8 +1143,12 @@ namespace MqttZero.Tests.Broker
                 TaskCreationOptions.RunContinuationsAsynchronously);
             private readonly TaskCompletionSource _flushStarted = new(
                 TaskCreationOptions.RunContinuationsAsynchronously);
+            private readonly TaskCompletionSource _secondFlushStarted = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
             private byte[] _buffer = new byte[1024];
             private int _blockNextPublish = 1;
+            private int _flushCount;
+            private int _firstFlushWrittenBytes;
             private int _flushOffset;
             private int _written;
 
@@ -1057,9 +1160,25 @@ namespace MqttZero.Tests.Broker
                 }
             }
 
+            public Task SecondFlushStarted
+            {
+                get
+                {
+                    return _secondFlushStarted.Task;
+                }
+            }
+
             public void ReleaseFlush()
             {
                 _flushRelease.TrySetResult();
+            }
+
+            public int WrittenBytesAtFirstFlush
+            {
+                get
+                {
+                    return Volatile.Read(ref _firstFlushWrittenBytes);
+                }
             }
 
             public override void Advance(int bytes)
@@ -1084,6 +1203,17 @@ namespace MqttZero.Tests.Broker
             public override async ValueTask<FlushResult> FlushAsync(
                 CancellationToken cancellationToken = default)
             {
+                if (Interlocked.Increment(ref _flushCount) == 2)
+                {
+                    _secondFlushStarted.TrySetResult();
+                }
+                else
+                {
+                    Volatile.Write(
+                        ref _firstFlushWrittenBytes,
+                        _written);
+                }
+
                 bool block = _written > _flushOffset &&
                     (_buffer[_flushOffset] >> 4) == 3 &&
                     Interlocked.Exchange(ref _blockNextPublish, 0) != 0;

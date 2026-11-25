@@ -110,19 +110,27 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
         return false;
     }
 
-    public async ValueTask PostControlAsync(
+    public async ValueTask<bool> PostControlAsync(
         MqttZeroEgressControlFrame frame,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(frame);
         ThrowIfStopping();
         cancellationToken.ThrowIfCancellationRequested();
-        if (_scheduler.Shard.IsCurrent)
+        if (_scheduler.Shard.IsCurrent &&
+            Volatile.Read(ref _flushPending) == 0)
         {
             await ExecuteControlDirectAsync(
                 frame,
                 cancellationToken).ConfigureAwait(false);
-            return;
+            return false;
+        }
+
+        if (_scheduler.Shard.IsCurrent)
+        {
+            frame.MarkForActorRelease();
+            EnqueueControl(frame);
+            return true;
         }
 
         await _scheduler.Shard.InvokeAsync(
@@ -133,6 +141,7 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
             },
             CancellationToken.None).ConfigureAwait(false);
         await frame.WaitAsync().ConfigureAwait(false);
+        return false;
     }
 
     public async ValueTask StopAsync()
@@ -157,7 +166,8 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
 
     internal async ValueTask ExecuteAsync(CancellationToken cancellationToken)
     {
-        if (Volatile.Read(ref _stopping) != 0)
+        if (Volatile.Read(ref _stopping) != 0 ||
+            Volatile.Read(ref _flushPending) != 0)
         {
             return;
         }
@@ -259,7 +269,11 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
         Volatile.Write(
             ref _state,
             (int)MqttZeroEgressActorState.Idle);
-        SignalCore();
+        if (_controlQueue.Count > 0 ||
+            Volatile.Read(ref _dataSignaled) != 0)
+        {
+            SignalCore();
+        }
     }
 
     private async ValueTask RunControlBatchAsync(
@@ -273,6 +287,7 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
             {
                 MqttZeroEgressControlFrame frame = _controlBatch[index];
                 frame.Complete();
+                frame.ReleaseIfActorOwned();
             }
         }
         catch (Exception exception)
@@ -281,6 +296,7 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
             {
                 MqttZeroEgressControlFrame frame = _controlBatch[index];
                 frame.Fail(exception);
+                frame.ReleaseIfActorOwned();
             }
 
             throw;
@@ -342,12 +358,14 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
         {
             MqttZeroEgressControlFrame frame = _controlQueue.Dequeue();
             frame.Fail(exception);
+            frame.ReleaseIfActorOwned();
         }
 
         for (int index = 0; index < _controlBatch.Count; index++)
         {
             MqttZeroEgressControlFrame frame = _controlBatch[index];
             frame.Fail(exception);
+            frame.ReleaseIfActorOwned();
         }
 
         _controlBatch.Clear();

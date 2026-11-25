@@ -12,6 +12,7 @@ internal sealed class MqttZeroEgressControlFrame : IValueTaskSource, IDisposable
         RunContinuationsAsynchronously = true
     };
     private int _completed;
+    private int _releaseOnCompletion;
     private int _released;
 
     internal MqttZeroEgressControlFrame(
@@ -82,6 +83,19 @@ internal sealed class MqttZeroEgressControlFrame : IValueTaskSource, IDisposable
         }
     }
 
+    internal void MarkForActorRelease()
+    {
+        Volatile.Write(ref _releaseOnCompletion, 1);
+    }
+
+    internal void ReleaseIfActorOwned()
+    {
+        if (Volatile.Read(ref _releaseOnCompletion) != 0)
+        {
+            Release();
+        }
+    }
+
     public ValueTaskSourceStatus GetStatus(short token)
     {
         return _completion.GetStatus(token);
@@ -118,6 +132,7 @@ internal sealed class MqttZeroEgressControlFrame : IValueTaskSource, IDisposable
 
         _completion.Reset();
         Volatile.Write(ref _completed, 0);
+        Volatile.Write(ref _releaseOnCompletion, 0);
         Volatile.Write(ref _released, 0);
         return true;
     }

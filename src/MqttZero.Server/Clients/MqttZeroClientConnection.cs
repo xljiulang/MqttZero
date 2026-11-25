@@ -1162,16 +1162,21 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         MqttZeroEgressControlFrame frame,
         CancellationToken cancellationToken)
     {
+        bool ownsFrame = true;
         try
         {
             MqttZeroEgressActor egress = _egress ??
                 throw new ObjectDisposedException(nameof(MqttZeroEgressActor));
-            await egress.PostControlAsync(frame, cancellationToken)
-                .ConfigureAwait(false);
+            ownsFrame = !await egress.PostControlAsync(
+                frame,
+                cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            frame.Release();
+            if (ownsFrame)
+            {
+                frame.Release();
+            }
         }
     }
 

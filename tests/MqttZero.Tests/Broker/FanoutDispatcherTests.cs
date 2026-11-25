@@ -433,6 +433,7 @@ public sealed class FanoutDispatcherTests
     {
         MqttZeroOptions options = new()
         {
+            EventLoopShardCount = 1,
             MaxMessageQueueLength = 4,
             StoreQos0InQueue = true
         };

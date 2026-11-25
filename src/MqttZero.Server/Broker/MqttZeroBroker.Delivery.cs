@@ -1174,7 +1174,7 @@ public sealed partial class MqttZeroBroker
                     {
                         _fanoutDiagnostics.RecordFlushWait();
                         batch.Clear();
-                        return false;
+                        return session.PendingMessages.Count > 0;
                     }
                 }
                 catch
