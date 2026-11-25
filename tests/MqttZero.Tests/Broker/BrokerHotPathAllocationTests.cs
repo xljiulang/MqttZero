@@ -9,6 +9,7 @@ using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net;
 using System.Reflection;
@@ -83,6 +84,7 @@ namespace MqttZero.Tests.Broker
                 borrowed.Release();
             }
 
+            WaitForPendingMessage(receiver);
             Assert.Equal(1, receiver.PendingMessages.Count);
             Assert.True(pool.RentedBytes > 0);
             await broker.DisposeAsync();
@@ -218,6 +220,7 @@ namespace MqttZero.Tests.Broker
                 false,
                 null));
             AllocationPipeWriter receiverWriter = new(16 * 1024);
+            using MqttZeroBufferPool bufferPool = new(16 * 1024 * 1024);
             MqttZeroClientConnection receiverConnection = new(
                 receiverWriter,
                 new IPEndPoint(IPAddress.Loopback, 0),
@@ -226,7 +229,8 @@ namespace MqttZero.Tests.Broker
                 0,
                 32,
                 1024 * 1024,
-                TimeProvider.System);
+                TimeProvider.System,
+                bufferPool);
             receiver.Connection = receiverConnection;
             FieldInfo sessionsField = typeof(MqttZeroBroker).GetField(
                 "_sessions",
@@ -245,7 +249,8 @@ namespace MqttZero.Tests.Broker
                 0,
                 32,
                 1024 * 1024,
-                TimeProvider.System);
+                TimeProvider.System,
+                bufferPool);
             MqttZeroSessionState sender = new("qos-sender");
             MqttPublishPacket packet = new()
             {
@@ -270,6 +275,7 @@ namespace MqttZero.Tests.Broker
                     encodedPublish,
                     senderWriter,
                     receiverWriter,
+                    bufferPool,
                     cancellationToken);
             }
 
@@ -285,6 +291,7 @@ namespace MqttZero.Tests.Broker
                     encodedPublish,
                     senderWriter,
                     receiverWriter,
+                    bufferPool,
                     cancellationToken);
             }
 
@@ -302,6 +309,7 @@ namespace MqttZero.Tests.Broker
             ReadOnlySequence<byte> encodedPublish,
             AllocationPipeWriter senderWriter,
             AllocationPipeWriter receiverWriter,
+            MqttZeroBufferPool bufferPool,
             CancellationToken cancellationToken)
         {
             if (!MqttPublishPacketCodec.TryDecode(
@@ -328,17 +336,54 @@ namespace MqttZero.Tests.Broker
                 lease.Release();
             }
 
+            WaitForPendingMessage(receiver);
             lock (receiver.SyncRoot)
             {
-                if (receiver.PendingMessages.Count == 0)
-                {
-                    throw new InvalidOperationException("The QoS 1 PUBLISH was not queued.");
-                }
-
                 MqttZeroQueuedMessage queued =
                     receiver.PendingMessages.Dequeue();
                 queued.Release();
             }
+
+            WaitForPoolIdle(bufferPool);
+        }
+
+        private static void WaitForPoolIdle(
+            MqttZeroBufferPool bufferPool)
+        {
+            long deadline = Stopwatch.GetTimestamp() +
+                (Stopwatch.Frequency * 5);
+            while (bufferPool.RentedBytes != 0)
+            {
+                if (Stopwatch.GetTimestamp() >= deadline)
+                {
+                    throw new TimeoutException(
+                        "The fanout lease did not return to the buffer pool.");
+                }
+
+                Thread.Yield();
+            }
+        }
+
+        private static void WaitForPendingMessage(
+            MqttZeroSessionState receiver)
+        {
+            long deadline = Stopwatch.GetTimestamp() +
+                (Stopwatch.Frequency * 5);
+            while (Stopwatch.GetTimestamp() < deadline)
+            {
+                lock (receiver.SyncRoot)
+                {
+                    if (receiver.PendingMessages.Count > 0)
+                    {
+                        return;
+                    }
+                }
+
+                Thread.Yield();
+            }
+
+            throw new TimeoutException(
+                "The routed MQTT message did not enter the receiver queue.");
         }
 
         private static async Task AssertBrokerPublishDoesNotAllocateAfterWarmup(

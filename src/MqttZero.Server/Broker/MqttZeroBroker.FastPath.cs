@@ -185,13 +185,27 @@ public sealed partial class MqttZeroBroker
                     lanes[publisherShardId]);
                 if (plan.TotalDeliveryCount > 0)
                 {
-                    await dispatcher.DispatchAsync(
-                        plan,
-                        lanes[publisherShardId],
-                        effectiveLease,
-                        senderConnection,
-                        publisherShardId,
-                        cancellationToken).ConfigureAwait(false);
+                    if (effectiveLease.QualityOfServiceLevel ==
+                        MqttQualityOfServiceLevel.AtLeastOnce)
+                    {
+                        await dispatcher.DispatchScheduledAsync(
+                            plan,
+                            lanes[publisherShardId],
+                            effectiveLease,
+                            senderConnection,
+                            publisherShardId,
+                            cancellationToken).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await dispatcher.DispatchAsync(
+                            plan,
+                            lanes[publisherShardId],
+                            effectiveLease,
+                            senderConnection,
+                            publisherShardId,
+                            cancellationToken).ConfigureAwait(false);
+                    }
                 }
             }
 

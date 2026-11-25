@@ -168,6 +168,47 @@ i5-12450H 的 5% 回归判定。本轮额外检出 `44d1654`，在同一机器�
 - 100 订阅者 QoS 0 大包受 Kestrel 输出背压和 Egress 批次限制。
 - `1 Shard` 可降低单订阅尾延迟，但当前多连接扇出在该拓扑下不稳定。
 
+## QoS 1 调度后 ACK 跟进
+
+已将 QoS 1 FastPath 和可调度的 Core Publish 路径改为：
+
+1. 完成 Publish Interceptor 和必要持久化。
+2. 将每个目标 Shard 的非空 Fanout Batch 写入有界队列。
+3. 所有 Batch 入队成功后发送 PUBACK。
+4. 实际 Session 路由、Enqueue Interceptor 和 Delivery Observer 由目标
+   Shard 后台完成。
+
+启用 Message Store 时继续等待 Fanout 完成，保留持久化 ACK 屏障。
+QoS 2 和管理面发布保持原等待语义。
+
+单订阅 `QoS 1 / 64 KiB` 三次结果：
+
+| 状态 | MQTTZero msg/s | p99 us | 相对 MQTTnet 吞吐 | 相对 MQTTnet p99 |
+|---|---:|---:|---:|---:|
+| 调度后 ACK 前 | 约 2,090 | 15,005 | 0.46x | 23.20x |
+| 调度后 ACK 后 | 2,548 | 11,574 | 0.60x | 16.40x |
+
+提升约：
+
+- 吞吐：`+22%`
+- p99：改善约 `23%`
+
+100 订阅者三次结果：
+
+| Payload | MQTTZero msg/s | MQTTnet msg/s | 吞吐比 | MQTTZero p99 us | p99 比 |
+|---:|---:|---:|---:|---:|---:|
+| 32 B | 624.33 | 694.84 | 0.90x | 2,567.2 | 0.72x |
+| 8 KiB | 397.74 | 444.59 | 0.89x | 5,385.7 | 0.99x |
+| 64 KiB | 105.56 | 109.72 | 0.96x | 15,885.5 | 0.78x |
+
+调度后 ACK 显著降低单播大包延迟，但不能解决 64 KiB 输出复制和跨 Shard
+吞吐上限；严格门禁仍未通过。
+
+原始结果：
+
+- `broker-phase4.6-scheduled-ack-q1-single-2026-11-25.json`
+- `broker-phase4.6-scheduled-ack-q1-100-2026-11-25.json`
+
 ## 下一步
 
 1. 继续优化跨 Shard Fanout 唤醒延迟，优先复用每个目标 Shard 的持久

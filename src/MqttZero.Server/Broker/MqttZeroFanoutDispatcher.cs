@@ -3,6 +3,7 @@ using MqttZero.Server.Clients;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Scheduling;
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 
 namespace MqttZero.Server.Broker;
 
@@ -121,6 +122,70 @@ internal sealed class MqttZeroFanoutDispatcher
             publisherShardId,
             cancellationToken).ConfigureAwait(false);
         operation.Seal();
+    }
+
+    public async ValueTask DispatchScheduledAsync(
+        MqttZeroRoutePlan plan,
+        MqttZeroRoutePlanBuffer buffer,
+        MqttZeroMessageLease lease,
+        MqttZeroClientConnection? senderConnection,
+        int publisherShardId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(buffer);
+        ArgumentNullException.ThrowIfNull(lease);
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateDispatch(plan, buffer, publisherShardId);
+        long started = Stopwatch.GetTimestamp();
+        MqttZeroFanoutOperation operation = MqttZeroFanoutOperation.Rent(
+            plan,
+            buffer,
+            lease,
+            senderConnection,
+            plan.NonEmptyBatchCount,
+            _deliver,
+            _faulted,
+            autoRelease: true);
+        Exception? schedulingFailure = null;
+        for (int shardId = 0; shardId < plan.Batches.Length; shardId++)
+        {
+            if (plan.Batches[shardId].Count == 0)
+            {
+                continue;
+            }
+
+            MqttZeroFanoutBatchWork work =
+                MqttZeroFanoutBatchWork.Rent(operation, shardId);
+            try
+            {
+                if (!_shards[shardId].TryEnqueue(work))
+                {
+                    await _shards[shardId].EnqueueAsync(
+                        work,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+            }
+            catch (Exception exception)
+            {
+                work.Release();
+                operation.Fail(exception);
+                operation.CompleteBatch();
+                schedulingFailure ??= exception;
+            }
+        }
+
+        operation.Seal();
+        int localBatchCount =
+            plan.Batches[publisherShardId].Count > 0 ? 1 : 0;
+        _diagnostics?.RecordPublish(
+            localBatchCount,
+            plan.NonEmptyBatchCount - localBatchCount,
+            plan.TotalDeliveryCount,
+            Stopwatch.GetTimestamp() - started);
+        if (schedulingFailure != null)
+        {
+            ExceptionDispatchInfo.Capture(schedulingFailure).Throw();
+        }
     }
 
     private async ValueTask ScheduleAndExecuteAsync(

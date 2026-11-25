@@ -81,6 +81,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroSessionState? sender,
         MqttZeroClientConnection? senderConnection,
         MqttZeroMessageLease lease,
+        bool scheduleWithoutWaiting,
         CancellationToken cancellationToken)
     {
         lease.EnsureOwned();
@@ -116,6 +117,7 @@ public sealed partial class MqttZeroBroker
                 senderConnection,
                 lease,
                 publisherShardId,
+                scheduleWithoutWaiting,
                 cancellationToken);
         }
 
@@ -128,6 +130,7 @@ public sealed partial class MqttZeroBroker
                 senderConnection,
                 lease,
                 publisherShardId,
+                scheduleWithoutWaiting,
                 token),
             cancellationToken);
     }
@@ -140,6 +143,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection? senderConnection,
         MqttZeroMessageLease lease,
         int publisherShardId,
+        bool scheduleWithoutWaiting,
         CancellationToken cancellationToken)
     {
         MqttZeroRoutePlanBuffer buffer = lanes[publisherShardId];
@@ -153,13 +157,26 @@ public sealed partial class MqttZeroBroker
         int deliveryCount = plan.TotalDeliveryCount;
         if (deliveryCount > 0)
         {
-            await dispatcher.DispatchAsync(
-                plan,
-                buffer,
-                lease,
-                senderConnection,
-                publisherShardId,
-                cancellationToken).ConfigureAwait(false);
+            if (scheduleWithoutWaiting)
+            {
+                await dispatcher.DispatchScheduledAsync(
+                    plan,
+                    buffer,
+                    lease,
+                    senderConnection,
+                    publisherShardId,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await dispatcher.DispatchAsync(
+                    plan,
+                    buffer,
+                    lease,
+                    senderConnection,
+                    publisherShardId,
+                    cancellationToken).ConfigureAwait(false);
+            }
         }
 
         return deliveryCount;

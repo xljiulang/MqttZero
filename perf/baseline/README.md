@@ -49,6 +49,8 @@
 - `broker-phase0-same-machine-2026-11-25.json`
 - `broker-phase4.6-2026-11-25.json`
 - `broker-phase4.6-2026-11-25.md`
+- `broker-phase4.6-scheduled-ack-q1-single-2026-11-25.json`
+- `broker-phase4.6-scheduled-ack-q1-100-2026-11-25.json`
 - `memory-phase3-2026-11-25.md`
 - Phase 0 local development profile: QoS 0/1, 1/100 subscribers, 32 B/8 KiB/64 KiB, 2 s warmup, 6 s measurement and one repetition.
 - Phase 0 nightly stable profile: QoS 0/1/2, 1/100 subscribers, 32 B/8 KiB/64 KiB, 5 s warmup, 20 s measurement and three repetitions.
@@ -96,6 +98,10 @@
   lost data signal while `FlushPending`, and the stalled cell now completes.
   The phase remains red: the strict MQTTnet gate passes only 2 of 12 cells,
   and the same-machine Phase 0 development gate passes about 5 of 12.
+- QoS 1 now acknowledges after all non-empty Fanout Batches enter their target
+  Shard queues while Message Store mode keeps the completion barrier. The
+  64-KiB single-subscriber cell improves about 22% in throughput and 23% in
+  p99, but remains below the strict MQTTnet gate.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`

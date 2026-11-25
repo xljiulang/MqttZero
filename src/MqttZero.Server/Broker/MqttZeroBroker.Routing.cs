@@ -240,6 +240,10 @@ public sealed partial class MqttZeroBroker
                 sender,
                 null,
                 lease,
+                sender != null &&
+                    lease.QualityOfServiceLevel ==
+                        MqttQualityOfServiceLevel.AtLeastOnce &&
+                    !_messageStore.IsEnabled,
                 cancellationToken).ConfigureAwait(false);
             if (deliveryCount == 0 && _deliveryObservers.Length > 0)
             {
@@ -501,6 +505,7 @@ public sealed partial class MqttZeroBroker
             sender,
             senderConnection,
             lease,
+            scheduleWithoutWaiting: false,
             cancellationToken).ConfigureAwait(false);
         if (deliveryCount == 0 && _deliveryObservers.Length > 0)
         {
@@ -633,6 +638,9 @@ public sealed partial class MqttZeroBroker
                 sender,
                 senderConnection,
                 effectiveLease,
+                effectiveLease.QualityOfServiceLevel ==
+                    MqttQualityOfServiceLevel.AtLeastOnce &&
+                    !_messageStore.IsEnabled,
                 cancellationToken).ConfigureAwait(false);
             if (deliveryCount == 0 && _deliveryObservers.Length > 0)
             {
