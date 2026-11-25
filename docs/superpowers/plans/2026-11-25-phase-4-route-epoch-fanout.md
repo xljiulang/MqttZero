@@ -587,17 +587,17 @@ git commit -m "feat: preserve shared route cursors"
 
 **Interfaces:**
 
-- `MqttZeroPlannedDelivery` stores Session, delivery QoS and a reference to reusable Subscription Identifier storage.
+- `MqttZeroPlannedDelivery` stores Session, delivery QoS, Retain As Published and a reference to reusable Subscription Identifier storage.
 - `MqttZeroFanoutBatch` exposes:
   - `int ShardId`
   - `int Count`
   - `MqttZeroPlannedDelivery this[int index]`
 - `MqttZeroRoutePlan` owns an array of per-Shard `MqttZeroFanoutBatch` values.
 - `MqttZeroRoutePlan` exposes `ReadOnlySpan<MqttZeroFanoutBatch> Batches`, `int NonEmptyBatchCount` and `int TotalDeliveryCount`.
-- `MqttZeroRoutePlanner.Plan(MqttZeroRouteEpoch epoch, ReadOnlySpan<byte> topic, MqttZeroSessionState? sender, int shardCount, MqttZeroRoutePlanBuffer buffer)`.
+- `MqttZeroRoutePlanner.Plan(MqttZeroRouteEpoch epoch, ReadOnlySpan<byte> topic, MqttZeroSessionState? sender, MqttZeroSharedGroupCursors cursors, int shardCount, MqttZeroRoutePlanBuffer buffer)`.
 - `MqttZeroRoutePlannerLanes` owns one `MqttZeroRoutePlanBuffer` per publisher Shard and exposes `this[int shardId]`.
 
-- [ ] **Step 1: Write failing deduplication and merge tests**
+- [x] **Step 1: Write failing deduplication and merge tests**
 
 ```csharp
 [Fact]
@@ -614,6 +614,7 @@ public void OneSessionMatchingThreeFiltersProducesOneDelivery()
         epoch,
         "route/topic"u8,
         null,
+        new MqttZeroSharedGroupCursors(),
         8,
         buffer);
 
@@ -624,7 +625,7 @@ public void OneSessionMatchingThreeFiltersProducesOneDelivery()
 }
 ```
 
-- [ ] **Step 2: Write failing per-Shard grouping test**
+- [x] **Step 2: Write failing per-Shard grouping test**
 
 ```csharp
 [Fact]
@@ -643,6 +644,7 @@ public void OneThousandSessionsProduceAtMostOneBatchPerShard()
         epoch,
         "fanout/topic"u8,
         null,
+        new MqttZeroSharedGroupCursors(),
         8,
         buffer);
 
@@ -651,26 +653,26 @@ public void OneThousandSessionsProduceAtMostOneBatchPerShard()
 }
 ```
 
-- [ ] **Step 3: Run tests and verify RED**
+- [x] **Step 3: Run tests and verify RED**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~RoutePlannerTests"
 ```
 
-- [ ] **Step 4: Implement the planner**
+- [x] **Step 4: Implement the planner**
 
 Use open-addressed per-Shard Session tables with generation stamps. Do not allocate dictionaries or lists inside `Plan`.
 
 For each Session:
 
 1. If `No Local` and sender matches, skip.
-2. Choose the subscription with highest QoS.
+2. Choose the subscription with highest QoS and its Retain As Published flag.
 3. Merge all matching Subscription Identifiers in stable filter traversal order.
 4. Store the delivery in `batch[delivery.Session.ShardId]`.
 
 Shared entries are planned after regular entries. The planner removes duplicate or no-local candidates before cursor selection, selects one candidate per shared group, then merges it with an existing regular delivery for the same Session.
 
-- [ ] **Step 5: Add zero-allocation tests**
+- [x] **Step 5: Add zero-allocation tests**
 
 ```csharp
 [Fact]
@@ -685,6 +687,7 @@ public void PlanningDoesNotAllocateAfterWarmup()
             testEpoch,
             "route/topic"u8,
             null,
+            new MqttZeroSharedGroupCursors(),
             8,
             buffer);
     }
@@ -696,6 +699,7 @@ public void PlanningDoesNotAllocateAfterWarmup()
             testEpoch,
             "route/topic"u8,
             null,
+            new MqttZeroSharedGroupCursors(),
             8,
             buffer);
     }
@@ -706,14 +710,14 @@ public void PlanningDoesNotAllocateAfterWarmup()
 
 `CreatePlanEpoch(int count)` adds `count` Sessions with `ShardId = index % 8` and a `route/#` subscription.
 
-- [ ] **Step 6: Run planner and allocation tests**
+- [x] **Step 6: Run planner and allocation tests**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~RoutePlannerTests"
 perf/verify-allocation.ps1
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add src/MqttZero.Server/Routing/MqttZero*Plan* src/MqttZero.Server/Routing/MqttZeroPlannedDelivery.cs src/MqttZero.Server/Routing/MqttZeroFanoutBatch.cs tests/MqttZero.Tests/Routing/RoutePlannerTests.cs
