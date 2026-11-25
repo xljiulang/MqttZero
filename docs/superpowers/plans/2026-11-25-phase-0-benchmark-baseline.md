@@ -1,6 +1,6 @@
 # Phase 0 Benchmark Baseline Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 建立可重复、可归因、Windows/Linux 可执行的 MQTTZero 与 MQTTnet Broker 性能基线工具链。
 
@@ -56,11 +56,11 @@
 - Produces: `BenchmarkRuntimeSnapshot BenchmarkRuntimeConfiguration.ApplyToCurrentProcess()`。
 - Produces: `BenchmarkRuntimeSnapshot`，包含 Server GC、Concurrent GC、TieredPGO、最小/最大 Worker 和 IO 线程。
 
-- [ ] **Step 1: 创建测试项目**
+- [x] **Step 1: 创建测试项目**
 
 使用 xUnit v3/Microsoft Testing Platform，添加对 Benchmark 项目的引用，并启用串行测试。
 
-- [ ] **Step 2: 写失败测试**
+- [x] **Step 2: 写失败测试**
 
 ```csharp
 [Fact]
@@ -78,7 +78,7 @@ public void BrokerEnvironmentVariablesUseExplicitRuntimeConfiguration()
 }
 ```
 
-- [ ] **Step 3: 运行并确认失败**
+- [x] **Step 3: 运行并确认失败**
 
 ```powershell
 dotnet test tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Tests.csproj -c Release
@@ -86,11 +86,11 @@ dotnet test tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Test
 
 Expected: 编译失败，提示 `BenchmarkRuntimeConfiguration` 不存在。
 
-- [ ] **Step 4: 实现最小配置类型**
+- [x] **Step 4: 实现最小配置类型**
 
 构造参数小于 `1` 时抛出 `ArgumentOutOfRangeException`。`ApplyToCurrentProcess()` 使用 `ThreadPool.GetMinThreads`、`ThreadPool.SetMinThreads`，记录修改后的有效值；禁止降低当前进程已有的最小线程数。
 
-- [ ] **Step 5: 固定 Benchmark runtimeconfig**
+- [x] **Step 5: 固定 Benchmark runtimeconfig**
 
 在 Benchmark csproj 添加：
 
@@ -104,7 +104,7 @@ Expected: 编译失败，提示 `BenchmarkRuntimeConfiguration` 不存在。
 
 为测试程序集添加 `InternalsVisibleTo Include="MqttZero.BrokerBenchmarks.Tests"`。
 
-- [ ] **Step 6: 验证**
+- [x] **Step 6: 验证**
 
 ```powershell
 dotnet restore MqttZero.slnx --locked-mode
@@ -112,7 +112,7 @@ dotnet build MqttZero.slnx -c Release --no-restore
 dotnet test tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Tests.csproj -c Release --no-build
 ```
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```powershell
 git add MqttZero.slnx benchmarks/MqttZero.BrokerBenchmarks tests/MqttZero.BrokerBenchmarks.Tests
@@ -138,29 +138,29 @@ git commit -m "perf: configure broker benchmark runtime"
 - Produces: `BenchmarkLoadObservation BenchmarkObservationCapture.CaptureLoadDelta(BenchmarkLoadSnapshot before)`。
 - Produces: `BenchmarkLoadSnapshot BenchmarkObservationCapture.CreateLoadSnapshot()`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 测试环境字段非空、ProcessorCount 大于零，并验证 Snapshot 中 Runtime 与输入一致。
 
-- [ ] **Step 2: 添加计数器测试**
+- [x] **Step 2: 添加计数器测试**
 
 分配一个至少 4096 字节的数组，验证 CPU、Working Set、Gen0/1/2、Allocated 和 ThreadPool Pending/Completed 增量均为非负。
 
-- [ ] **Step 3: 运行并确认失败**
+- [x] **Step 3: 运行并确认失败**
 
 ```powershell
 dotnet test tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Tests.csproj -c Release --filter "FullyQualifiedName~BenchmarkObservationCaptureTests"
 ```
 
-- [ ] **Step 4: 实现观测**
+- [x] **Step 4: 实现观测**
 
 `BenchmarkProcessObservation` 包含 Broker CPU 毫秒、PrivateMemoryBytes、PeakWorkingSetBytes 和 UptimeMilliseconds。`BenchmarkLoadObservation` 包含 Load Generator CPU、Working Set、Gen0/1/2、Allocated Bytes、Pending 和 Completed ThreadPool WorkItem 增量。
 
-- [ ] **Step 5: 扩展结果模型**
+- [x] **Step 5: 扩展结果模型**
 
 `BrokerBenchmarkResult` 新增 `LoadObservation`、`ConnectionSetupMilliseconds`、`WarmupMilliseconds`、`MeasurementMilliseconds` 和 `DrainMilliseconds`。阶段时间使用 `Stopwatch.GetTimestamp()`。
 
-- [ ] **Step 6: 验证并提交**
+- [x] **Step 6: 验证并提交**
 
 ```powershell
 dotnet build MqttZero.slnx -c Release --no-restore
@@ -186,17 +186,17 @@ git commit -m "perf: capture broker benchmark observations"
 - Produces: `BenchmarkGateResult.Summaries` and `BenchmarkGateResult.Passed`。
 - Produces: `BrokerBenchmarkJsonContext`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 验证相同吞吐和 p99 时严格门禁失败；任一 Broker 有失败操作时门禁失败。
 
-- [ ] **Step 2: 运行并确认失败**
+- [x] **Step 2: 运行并确认失败**
 
 ```powershell
 dotnet test tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Tests.csproj -c Release --filter "FullyQualifiedName~BenchmarkGateEvaluatorTests"
 ```
 
-- [ ] **Step 3: 实现严格门禁**
+- [x] **Step 3: 实现严格门禁**
 
 ```csharp
 cellPassed =
@@ -208,11 +208,11 @@ cellPassed =
 
 缺少 Broker 结果、除数为零或重复数量不一致时必须失败并记录原因。
 
-- [ ] **Step 4: 替换匿名 JSON 汇总**
+- [x] **Step 4: 替换匿名 JSON 汇总**
 
 所有输出通过 `BrokerBenchmarkJsonContext.Default` 序列化，保持缩进。
 
-- [ ] **Step 5: 验证并提交**
+- [x] **Step 5: 验证并提交**
 
 ```powershell
 dotnet test tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Tests.csproj -c Release
@@ -242,29 +242,29 @@ git commit -m "perf: enforce strict broker benchmark gate"
 - Produces: `IBenchmarkMqttClientFactory`。
 - Produces: `RawMqttClient`，支持明文 TCP MQTT 5 QoS 0/1。
 
-- [ ] **Step 1: 写原始客户端集成测试**
+- [x] **Step 1: 写原始客户端集成测试**
 
 启动本地 MQTTZero Broker，创建 Raw subscriber 和 publisher，完成 QoS1 订阅、发布和接收。
 
-- [ ] **Step 2: 写不支持 QoS 2 的测试**
+- [x] **Step 2: 写不支持 QoS 2 的测试**
 
 Raw Client 在写入网络前抛出 `NotSupportedException`。
 
-- [ ] **Step 3: 运行并确认失败**
+- [x] **Step 3: 运行并确认失败**
 
 ```powershell
 dotnet test tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Tests.csproj -c Release --filter "FullyQualifiedName~RawMqttClientTests"
 ```
 
-- [ ] **Step 4: 实现 MQTTnet Client 适配器**
+- [x] **Step 4: 实现 MQTTnet Client 适配器**
 
 保持连接、订阅、QoS 0/1/2 发布、接收计数、断线和释放语义。
 
-- [ ] **Step 5: 实现原始客户端**
+- [x] **Step 5: 实现原始客户端**
 
 使用 `TcpClient`、`PipeReader.Create`、`PipeWriter.Create` 和公开 `MqttPacketCodec`。支持 CONNECT/CONNACK、SUBSCRIBE/SUBACK、PUBLISH QoS 0/1、PUBACK、接收计数和 DISCONNECT。写入通过单写入锁串行化；Packet Identifier 循环复用前检查未完成请求。
 
-- [ ] **Step 6: 验证并提交**
+- [x] **Step 6: 验证并提交**
 
 ```powershell
 dotnet build MqttZero.slnx -c Release --no-restore
@@ -290,29 +290,29 @@ git commit -m "perf: add raw mqtt benchmark client"
 - Produces: `BenchmarkOutputWriter.WriteAsync<T>(...)`。
 - CLI 新增 `--client mqttnet|raw` 和 `--output <path>`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 验证 Client Kind 大小写不敏感解析和未知值拒绝。
 
-- [ ] **Step 2: 运行并确认失败**
+- [x] **Step 2: 运行并确认失败**
 
 ```powershell
 dotnet test tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Tests.csproj -c Release --filter "FullyQualifiedName~BenchmarkClientSelectionTests"
 ```
 
-- [ ] **Step 3: 提取 Runner**
+- [x] **Step 3: 提取 Runner**
 
 把连接、预热、排空、测量和清理移入 `BenchmarkLoadRunner`，保持闭环上限和阶段顺序。
 
-- [ ] **Step 4: 接入原始客户端**
+- [x] **Step 4: 接入原始客户端**
 
 `--client raw` 遇到 QoS 2 时在启动 Broker 前失败。默认仍为 `mqttnet`。
 
-- [ ] **Step 5: 输出 Broker 进程观测**
+- [x] **Step 5: 输出 Broker 进程观测**
 
 子进程启动前记录时间；READY 后计算启动耗时；负载结束且终止进程前采集观测。
 
-- [ ] **Step 6: 验证并提交**
+- [x] **Step 6: 验证并提交**
 
 ```powershell
 dotnet run -c Release --no-build --project benchmarks/MqttZero.BrokerBenchmarks -- compare --client mqttnet --qos 0,1 --subscribers 1 --payload 32,8192 --warmup 1 --seconds 2 --repetitions 1 --start-port 24000
@@ -331,23 +331,23 @@ git commit -m "perf: add raw benchmark runner and stage timings"
 - Create: `.github/workflows/performance.yml`
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: 写 smoke 脚本**
+- [x] **Step 1: 写 smoke 脚本**
 
 运行 MQTTnet 和 Raw Client 的 QoS 0/1 smoke，解析 JSON，确认两个 Broker 均存在且失败数为 0；忽略性能比值。
 
-- [ ] **Step 2: 写正式 Benchmark 脚本**
+- [x] **Step 2: 写正式 Benchmark 脚本**
 
 本地入口默认执行 12 单元格开发矩阵；夜间 workflow 显式覆盖为 18 单元格稳定矩阵，保存 JSON 后透传严格门禁退出码。
 
-- [ ] **Step 3: 添加 PR smoke**
+- [x] **Step 3: 添加 PR smoke**
 
 在 `.github/workflows/ci.yml` 的 Windows/Ubuntu Broker job 中执行 `./eng/verify-benchmark-smoke.ps1`。
 
-- [ ] **Step 4: 添加 nightly workflow**
+- [x] **Step 4: 添加 nightly workflow**
 
 `.github/workflows/performance.yml` 使用每日 `18:00 UTC`、`workflow_dispatch`、Windows/Ubuntu 矩阵、360 分钟 timeout、artifact 上传且 `if: always()`。严格门禁失败时 job 失败。
 
-- [ ] **Step 5: 验证并提交**
+- [x] **Step 5: 验证并提交**
 
 ```powershell
 ./eng/verify-benchmark-smoke.ps1
@@ -365,7 +365,7 @@ git commit -m "perf: add benchmark smoke and nightly workflows"
 - Create: `perf/baseline/broker-phase0-2026-11-25.md`
 - Modify: `perf/baseline/README.md`
 
-- [ ] **Step 1: 运行 Windows 开发基线**
+- [x] **Step 1: 运行 Windows 开发基线**
 
 ```powershell
 ./eng/run-broker-benchmark.ps1 -Client mqttnet -OutputPath perf/baseline/broker-phase0-2026-11-25.json -StartPort 30000
@@ -373,21 +373,21 @@ git commit -m "perf: add benchmark smoke and nightly workflows"
 
 允许严格门禁未通过而返回非零，但必须确认 JSON 完整生成。
 
-- [ ] **Step 2: 运行原始客户端诊断**
+- [x] **Step 2: 运行原始客户端诊断**
 
 ```powershell
 ./eng/run-broker-benchmark.ps1 -Client raw -OutputPath artifacts/broker-phase0-raw-2026-11-25.json -StartPort 32000
 ```
 
-- [ ] **Step 3: 写 Markdown 基线**
+- [x] **Step 3: 写 Markdown 基线**
 
 记录环境、运行时配置、12 单元格开发结果、失败数、CPU、Working Set、GC、ThreadPool、原始客户端对比、未通过单元格和 Linux pending 状态。
 
-- [ ] **Step 4: 更新 baseline 索引**
+- [x] **Step 4: 更新 baseline 索引**
 
 在 `perf/baseline/README.md` 添加 Phase 0 文件，并说明测试工具链成功不等于性能门禁通过。
 
-- [ ] **Step 5: 全量验证**
+- [x] **Step 5: 全量验证**
 
 ```powershell
 dotnet restore MqttZero.slnx --locked-mode
@@ -399,7 +399,7 @@ dotnet test tests/MqttZero.BrokerBenchmarks.Tests/MqttZero.BrokerBenchmarks.Test
 git diff --check
 ```
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```powershell
 git add perf/baseline

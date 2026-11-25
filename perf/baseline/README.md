@@ -29,6 +29,13 @@
 
 ## 文件
 
+- `broker-phase0-2026-11-25.json`
+- `broker-phase0-2026-11-25.md`
+- Phase 0 local development profile: QoS 0/1, 1/100 subscribers, 32 B/8 KiB/64 KiB, 2 s warmup, 6 s measurement and one repetition.
+- Phase 0 nightly stable profile: QoS 0/1/2, 1/100 subscribers, 32 B/8 KiB/64 KiB, 5 s warmup, 20 s measurement and three repetitions.
+- The 1,000-subscriber cells are deferred until the final performance gate.
+- A red Phase 0 performance gate means the toolchain completed and recorded the
+  actual result; it does not mean the benchmark infrastructure failed.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`
