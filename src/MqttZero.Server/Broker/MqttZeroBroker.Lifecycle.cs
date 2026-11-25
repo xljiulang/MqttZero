@@ -120,13 +120,6 @@ public sealed partial class MqttZeroBroker
                 _inboundDispatcher = null;
             }
 
-            MqttZeroShardSet? shardSet = _shardSet;
-            if (shardSet != null)
-            {
-                await shardSet.DisposeAsync().ConfigureAwait(false);
-                _shardSet = null;
-            }
-
             CancellationTokenSource[] acceptedConnections;
             lock (_sessionGate)
             {
@@ -199,6 +192,13 @@ public sealed partial class MqttZeroBroker
             if (Volatile.Read(ref _activeConnectionCount) > 0)
             {
                 await drained.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            MqttZeroShardSet? shardSet = _shardSet;
+            if (shardSet != null)
+            {
+                await shardSet.DisposeAsync().ConfigureAwait(false);
+                _shardSet = null;
             }
 
             foreach (MqttZeroSessionState session in _sessions.Values)

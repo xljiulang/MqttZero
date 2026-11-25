@@ -438,15 +438,33 @@ public sealed partial class MqttZeroBroker
                             return;
                         }
 
-                        ConnectionAttachment attachment = await ConnectAsync(
-                            connectPacket,
-                            output,
-                            remoteEndPoint,
-                            isSecure,
-                            isWebSocket,
-                            clientCertificate,
-                            allowPacketFragmentation,
-                            connectionLifetime.Token).ConfigureAwait(false);
+                        bool assignedClientIdentifier =
+                            connectPacket.ClientId.IsEmpty;
+                        string connectClientId =
+                            assignedClientIdentifier
+                                ? $"mqttzero-{Guid.NewGuid():N}"
+                                : Encoding.UTF8.GetString(
+                                    connectPacket.ClientId.ToArray());
+                        int sessionShardId =
+                            _sessionShardMap!.GetShardId(
+                                connectClientId);
+                        ConnectionAttachment attachment = await
+                            _shardSet![sessionShardId]
+                                .InvokeAsync(
+                                    token => ConnectAsync(
+                                        connectPacket,
+                                        output,
+                                        remoteEndPoint,
+                                        isSecure,
+                                        isWebSocket,
+                                        clientCertificate,
+                                        allowPacketFragmentation,
+                                        connectClientId,
+                                        assignedClientIdentifier,
+                                        sessionShardId,
+                                        token),
+                                    connectionLifetime.Token)
+                                .ConfigureAwait(false);
                         if (attachment == null)
                         {
                             return;
@@ -464,18 +482,31 @@ public sealed partial class MqttZeroBroker
                         continue;
                     }
 
-                    connection!.MarkPacketReceived(
-                        _timeProvider,
-                        consumed,
-                        packet is MqttPublishPacket);
-                    await ProcessPacketAsync(session, connection, packet, connectionLifetime.Token)
+                    MqttZeroClientConnection currentConnection = connection!;
+                    MqttZeroSessionState currentSession = session!;
+                    await _shardSet![currentConnection.ShardId]
+                        .InvokeAsync(
+                            async token =>
+                            {
+                                currentConnection.MarkPacketReceived(
+                                    _timeProvider,
+                                    consumed,
+                                    packet is MqttPublishPacket);
+                                await ProcessPacketAsync(
+                                    currentSession,
+                                    currentConnection,
+                                    packet,
+                                    token).ConfigureAwait(false);
+                                return true;
+                            },
+                            connectionLifetime.Token)
                         .ConfigureAwait(false);
                     buffer = buffer.Slice(consumed);
 
                     if (packet is MqttDisconnectPacket)
                     {
                         cleanDisconnect = true;
-                        connection.DisconnectType = MqttZeroDisconnectType.ClientRequest;
+                        currentConnection.DisconnectType = MqttZeroDisconnectType.ClientRequest;
                         return;
                     }
                 }
@@ -592,12 +623,11 @@ public sealed partial class MqttZeroBroker
         bool isWebSocket,
         X509Certificate2? clientCertificate,
         bool allowPacketFragmentation,
+        string clientId,
+        bool assignedClientIdentifier,
+        int sessionShardId,
         CancellationToken cancellationToken)
     {
-        bool assignedClientIdentifier = connectPacket.ClientId.IsEmpty;
-        string clientId = assignedClientIdentifier
-            ? $"mqttzero-{Guid.NewGuid():N}"
-            : Encoding.UTF8.GetString(connectPacket.ClientId.ToArray());
         uint requestedExpiry = connectPacket.SessionExpiryInterval ?? 0;
         uint effectiveExpiry = ClampSessionExpiry(requestedExpiry);
         DateTimeOffset now = _timeProvider.GetUtcNow();
@@ -613,7 +643,8 @@ public sealed partial class MqttZeroBroker
             _bufferPool,
             allowPacketFragmentation,
             connectPacket.RequestProblemInformation,
-            connectPacket.RequestResponseInformation);
+            connectPacket.RequestResponseInformation,
+            sessionShardId);
         MqttZeroClientConnectionInfo clientInfo = new()
         {
             ClientId = clientId,

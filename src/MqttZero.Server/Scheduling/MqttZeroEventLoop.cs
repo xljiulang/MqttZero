@@ -66,6 +66,24 @@ internal sealed class MqttZeroEventLoop :
         Schedule();
     }
 
+    public async ValueTask<T> InvokeAsync<T>(
+        Func<CancellationToken, ValueTask<T>> operation,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        if (IsCurrent)
+        {
+            return await operation(cancellationToken).ConfigureAwait(false);
+        }
+
+        MqttZeroShardInvocation<T> invocation = new(operation);
+        await EnqueueAsync(invocation, cancellationToken)
+            .ConfigureAwait(false);
+        return await invocation.Task
+            .WaitAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public MqttZeroShardDiagnostics GetSnapshot()
     {
         double oldestWorkAgeMilliseconds = 0;

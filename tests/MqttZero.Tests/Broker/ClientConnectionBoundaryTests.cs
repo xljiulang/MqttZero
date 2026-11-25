@@ -27,6 +27,23 @@ namespace MqttZero.Tests.Broker
         }
 
         [Fact]
+        public async Task ConnectionExposesAssignedShard()
+        {
+            await using MqttZeroClientConnection connection = new(
+                new TrackingPipeWriter(),
+                null,
+                false,
+                false,
+                0,
+                32,
+                1024,
+                TimeProvider.System,
+                shardId: 3);
+
+            Assert.Equal(3, connection.ShardId);
+        }
+
+        [Fact]
         public async Task PingResponseOverMaximumPacketSizeDoesNotWrite()
         {
             TrackingPipeWriter writer = new();

@@ -43,10 +43,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         MqttZeroBufferPool? bufferPool = null,
         bool allowPacketFragmentation = true,
         bool requestProblemInformation = true,
-        bool requestResponseInformation = false)
+        bool requestResponseInformation = false,
+        int shardId = 0)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(shardId);
         _bufferPool = bufferPool ?? MqttZeroBufferPool.Shared;
         ConnectionId = Interlocked.Increment(ref NextConnectionId);
+        ShardId = shardId;
         _writer = writer;
         _outboundWriter = new MqttZeroConnectionWriter(this);
         _timeProvider = timeProvider;
@@ -66,6 +69,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     public EndPoint? RemoteEndPoint { get; }
 
     internal long ConnectionId { get; }
+
+    internal int ShardId { get; set; }
 
     internal MqttZeroConnectionWriter OutboundWriter
     {
