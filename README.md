@@ -303,6 +303,10 @@ Phase 4.5 的 QoS 0 Fanout 流水化、Egress 低优先级调度和拓扑 A/B �
 `perf/baseline/broker-phase4.5-2026-11-25.md`。当前网络热路径门禁仍未
 全部通过，Phase 5 暂缓。
 
+Phase 3 已将 QoS 0 候选队列改为完全惰性侵入链、消息 Lease 合并为单
+Slab，并按需创建 Topic Alias 表。内存结果见
+`perf/baseline/memory-phase3-2026-11-25.md`。
+
 全局 Packet Writer 池经顺序和 128 并发基准验证后决定不引入，结论见 `perf/baseline/packet-writer-pool-0.5.0-alpha.1.md`。完整 Broker 对 Broker 的 TCP/QoS/多连接比较方法见 `perf/baseline/broker-comparison-methodology.md`。
 
 ## 构建与测试

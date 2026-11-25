@@ -31,7 +31,7 @@
 - `MqttZeroMessageQueue(int capacity)` allocates no array proportional to `capacity`.
 - QoS 0 candidates are linked through queued-message fields and removed in O(1) when the message leaves the main queue.
 
-- [ ] **Step 1: Write failing allocation and eviction tests**
+- [x] **Step 1: Write failing allocation and eviction tests**
 
 ```csharp
 [Fact]
@@ -47,17 +47,17 @@ public void LargeCapacityDoesNotPreallocateCandidateStorage()
 
 Add a mixed QoS test asserting oldest QoS 0 is evicted first and candidate removal does not retain dequeued messages.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~MessageQueueTests"
 ```
 
-- [ ] **Step 3: Implement intrusive candidate links**
+- [x] **Step 3: Implement intrusive candidate links**
 
 Add `Qos0Next`, `Qos0Previous` and `IsQos0Queued` to `MqttZeroQueuedMessage`. Maintain head/tail/count in the queue. Unlink QoS 0 messages from the candidate chain during normal dequeue, clear, expiry and eviction.
 
-- [ ] **Step 4: GREEN and commit**
+- [x] **Step 4: GREEN and commit**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~MessageQueueTests|FullyQualifiedName~QueuedMessageTests"
@@ -78,21 +78,21 @@ git commit -m "perf: make qos zero candidate queue intrusive"
 - `CopyFrom`, `BorrowFrom`, `EnsureOwned`, `CreateOwnedCopy` and `Release` signatures remain unchanged.
 - Release returns exactly one slab to the owning buffer pool.
 
-- [ ] **Step 1: Write failing single-slab tests**
+- [x] **Step 1: Write failing single-slab tests**
 
 Assert Topic, Properties and Payload are contiguous inside the same backing array and that releasing the Lease returns rented bytes to zero.
 
-- [ ] **Step 2: Run RED**
+- [x] **Step 2: Run RED**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~MemoryLeaseAllocationTests|FullyQualifiedName~MqttZeroBufferPoolTests"
 ```
 
-- [ ] **Step 3: Implement packed slab**
+- [x] **Step 3: Implement packed slab**
 
 Layout: Topic | Properties | Payload. `CopyFrom` copies each sequence once into the slab. `BorrowFrom` keeps borrowed single/multi-segment sequences until `EnsureOwned` promotes them into one slab. Remove the three separately pooled buffers.
 
-- [ ] **Step 4: GREEN and commit**
+- [x] **Step 4: GREEN and commit**
 
 ```powershell
 dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release --filter "FullyQualifiedName~Memory|FullyQualifiedName~OutboundDeliveryTests|FullyQualifiedName~QueuedMessageTests"
@@ -114,11 +114,11 @@ git commit -m "perf: store message lease in one slab"
 - Lookups after the table exists remain zero-allocation.
 - Disposal returns every pooled alias buffer.
 
-- [ ] **Step 1: Write failing lazy allocation test**
-- [ ] **Step 2: Write alias set/get/overwrite/dispose tests**
-- [ ] **Step 3: Run RED**
-- [ ] **Step 4: Implement table**
-- [ ] **Step 5: GREEN and commit**
+- [x] **Step 1: Write failing lazy allocation test**
+- [x] **Step 2: Write alias set/get/overwrite/dispose tests**
+- [x] **Step 3: Run RED**
+- [x] **Step 4: Implement table**
+- [x] **Step 5: GREEN and commit**
 
 ```powershell
 git commit -m "perf: lazily allocate topic aliases"
@@ -154,11 +154,11 @@ git commit -m "perf: lazily allocate topic aliases"
 - Modify: `perf/baseline/README.md`
 - Modify: `README.md`
 
-- [ ] **Step 1: Measure Session creation allocation before/after**
-- [ ] **Step 2: Measure 100/1000 Subscriber broker working set**
-- [ ] **Step 3: Run all correctness/allocation/coverage gates**
-- [ ] **Step 4: Record Phase 3 status without making a 100,000-connection claim**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Measure Session creation allocation before/after**
+- [x] **Step 2: Measure 100/1000 Subscriber broker working set**
+- [x] **Step 3: Run all correctness/allocation/coverage gates**
+- [x] **Step 4: Record Phase 3 status without making a 100,000-connection claim**
+- [x] **Step 5: Commit**
 
 ## Acceptance
 
@@ -167,3 +167,12 @@ git commit -m "perf: lazily allocate topic aliases"
 - Empty topic aliases allocate no fixed 257-entry table.
 - Existing QoS, persistence and retained tests pass.
 - Phase 3 report records actual memory and any deferred cache/backpressure work.
+
+## Execution Status
+
+- Intrusive QoS 0 queue: complete.
+- Single-Slab Lease: complete.
+- Lazy Topic Alias: complete.
+- Per-Shard Buffer Cache and read backpressure: deferred pending evidence.
+- Memory and correctness gates: complete.
+- Phase 4.5 network bottleneck remains; Phase 5 remains blocked.

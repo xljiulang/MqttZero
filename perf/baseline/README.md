@@ -42,6 +42,7 @@
 - `broker-phase4-2026-11-25.md`
 - `broker-phase4.5-2026-11-25.json`
 - `broker-phase4.5-2026-11-25.md`
+- `memory-phase3-2026-11-25.md`
 - Phase 0 local development profile: QoS 0/1, 1/100 subscribers, 32 B/8 KiB/64 KiB, 2 s warmup, 6 s measurement and one repetition.
 - Phase 0 nightly stable profile: QoS 0/1/2, 1/100 subscribers, 32 B/8 KiB/64 KiB, 5 s warmup, 20 s measurement and three repetitions.
 - The 1,000-subscriber cells are deferred until the final performance gate.
@@ -74,6 +75,10 @@
   allocation-free queue insertion fast paths and topology A/B controls. It
   raises QoS 0/100/32-B throughput but still misses the 12-cell development
   gate; Phase 5 remains blocked.
+- Phase 3 removes the per-Session QoS 0 candidate array, packs each owned
+  message into one Slab and lazily creates Topic Alias storage. Broker private
+  memory in the 100-subscriber 8-KiB workload falls from about 308 MB to
+  143.6 MB while the Phase 4.5 Egress bottleneck remains.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`

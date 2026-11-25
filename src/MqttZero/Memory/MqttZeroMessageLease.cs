@@ -159,12 +159,12 @@ internal sealed class MqttZeroMessageLease : IDisposable
                         topicLength + propertiesLength,
                         payloadLength));
                 byte[] previous = _slabBuffer;
-                _slabBuffer = replacement;
                 SetOwnedRegions(
                     replacement,
                     topicLength,
                     propertiesLength,
                     payloadLength);
+                _slabBuffer = replacement;
                 _isBorrowed = false;
                 ReturnSlab(previous);
             }
