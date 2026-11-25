@@ -20,11 +20,13 @@ using System.Net;
 using System.Reflection;
 using System.Text.Json;
 
-const double MinimumThroughputRatio = 1.0;
-const double MaximumP99Ratio = 1.0;
-
 Dictionary<string, string> arguments = ParseArguments(args);
 string mode = GetValue(arguments, "mode", args.FirstOrDefault() ?? "compare");
+BenchmarkRuntimeSnapshot runtimeSnapshot =
+    new BenchmarkRuntimeConfiguration(Math.Max(1, Environment.ProcessorCount))
+        .ApplyToCurrentProcess();
+BenchmarkEnvironmentInfo environment =
+    BenchmarkObservationCapture.CaptureEnvironment(runtimeSnapshot);
 
 if (mode == "serve")
 {
@@ -41,11 +43,13 @@ else if (mode == "load")
         GetInt(arguments, "warmup", 2),
         GetInt(arguments, "seconds", 10),
         GetInt(arguments, "max-pending", 1024));
-    Console.WriteLine(JsonSerializer.Serialize(result));
+    Console.WriteLine(JsonSerializer.Serialize(
+        (BrokerBenchmarkResult)result,
+        BrokerBenchmarkJsonContext.Default.BrokerBenchmarkResult));
 }
 else if (mode == "compare")
 {
-    await CompareAsync(arguments);
+    await CompareAsync(arguments, environment);
 }
 else if (mode == "outbound")
 {
@@ -128,7 +132,9 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
     throw new ArgumentException($"Unknown broker '{broker}'.");
 }
 
-static async Task CompareAsync(Dictionary<string, string> arguments)
+static async Task CompareAsync(
+    Dictionary<string, string> arguments,
+    BenchmarkEnvironmentInfo environment)
 {
     string[] brokers = ["mqttzero", "mqttnet"];
     int[] qosLevels = GetIntArray(arguments, "qos", [0, 1, 2]);
@@ -201,17 +207,12 @@ static async Task CompareAsync(Dictionary<string, string> arguments)
         }
     }
 
-    IReadOnlyList<object> summaries = Summarize(results, out bool gatePassed);
-    Console.WriteLine(JsonSerializer.Serialize(new
-    {
-        Results = results,
-        Summary = summaries,
-        GatePassed = gatePassed
-    }, new JsonSerializerOptions
-    {
-        WriteIndented = true
-    }));
-    if (!gatePassed)
+    BenchmarkGateResult gate = BenchmarkGateEvaluator.Evaluate(results);
+    BenchmarkReport report = new(environment, results, gate);
+    Console.WriteLine(JsonSerializer.Serialize(
+        report,
+        BrokerBenchmarkJsonContext.Default.BenchmarkReport));
+    if (!gate.Passed)
     {
         Environment.ExitCode = 1;
     }
@@ -323,31 +324,32 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
     stopwatch.Stop();
     waitTicks.Sort();
     publishTicks.Sort();
-    Console.WriteLine(JsonSerializer.Serialize(new
-    {
-        PublishedMessages = loopResult.PublishedMessages,
-        ReceivedMessages = Interlocked.Read(ref receivedMessages),
-        FailedOperations = 0,
-        ThroughputPerSecond =
+    OutboundBenchmarkResult result = new(
+        PublishedMessages: loopResult.PublishedMessages,
+        ReceivedMessages: Interlocked.Read(ref receivedMessages),
+        FailedOperations: 0,
+        ThroughputPerSecond:
             loopResult.PublishedMessages / stopwatch.Elapsed.TotalSeconds,
-        WaitP50Microseconds = PercentileMicroseconds(
+        WaitP50Microseconds: PercentileMicroseconds(
             waitTicks.ToArray(),
             waitTicks.Count,
             0.50),
-        WaitP99Microseconds = PercentileMicroseconds(
+        WaitP99Microseconds: PercentileMicroseconds(
             waitTicks.ToArray(),
             waitTicks.Count,
             0.99),
-        PublishP50Microseconds = PercentileMicroseconds(
+        PublishP50Microseconds: PercentileMicroseconds(
             publishTicks.ToArray(),
             publishTicks.Count,
             0.50),
-        PublishP99Microseconds = PercentileMicroseconds(
+        PublishP99Microseconds: PercentileMicroseconds(
             publishTicks.ToArray(),
             publishTicks.Count,
             0.99),
-        FirstError = (string?)null
-    }));
+        FirstError: null);
+    Console.WriteLine(JsonSerializer.Serialize(
+        result,
+        BrokerBenchmarkJsonContext.Default.OutboundBenchmarkResult));
     foreach (IMqttClient subscriber in subscribers)
     {
         await subscriber.DisconnectAsync();
@@ -631,75 +633,6 @@ static async Task WaitForSubscriberDrainAsync(
     {
         await Task.Delay(TimeSpan.FromMilliseconds(1), timeout.Token);
     }
-}
-
-static IReadOnlyList<object> Summarize(
-    IReadOnlyList<BrokerComparisonResult> results,
-    out bool gatePassed)
-{
-    gatePassed = true;
-    List<object> summaries = [];
-    foreach (IGrouping<(int Qos, int Subscribers, int PayloadSize), BrokerComparisonResult> group in
-        results.GroupBy(static result => (
-            result.Qos,
-            result.Subscribers,
-            result.PayloadSize)))
-    {
-        BrokerComparisonResult[] mqttZero = group
-            .Where(static result => result.Broker == "mqttzero")
-            .ToArray();
-        BrokerComparisonResult[] mqttNet = group
-            .Where(static result => result.Broker == "mqttnet")
-            .ToArray();
-        if (mqttZero.Length == 0 || mqttNet.Length == 0)
-        {
-            continue;
-        }
-
-        double mqttZeroThroughput = Median(
-            mqttZero.Select(static result => result.Result.ThroughputPerSecond));
-        double mqttNetThroughput = Median(
-            mqttNet.Select(static result => result.Result.ThroughputPerSecond));
-        double mqttZeroP99 = Median(
-            mqttZero.Select(static result => result.Result.LatencyP99Microseconds));
-        double mqttNetP99 = Median(
-            mqttNet.Select(static result => result.Result.LatencyP99Microseconds));
-        double throughputRatio = mqttZeroThroughput / mqttNetThroughput;
-        double p99Ratio = mqttZeroP99 / mqttNetP99;
-        bool cellPassed =
-            throughputRatio >= MinimumThroughputRatio &&
-            p99Ratio <= MaximumP99Ratio;
-        gatePassed &= cellPassed;
-        summaries.Add(new
-        {
-            group.Key.Qos,
-            group.Key.Subscribers,
-            group.Key.PayloadSize,
-            MqttZeroThroughput = mqttZeroThroughput,
-            MqttNetThroughput = mqttNetThroughput,
-            ThroughputRatio = throughputRatio,
-            MqttZeroP99Microseconds = mqttZeroP99,
-            MqttNetP99Microseconds = mqttNetP99,
-            P99Ratio = p99Ratio,
-            GatePassed = cellPassed
-        });
-    }
-
-    return summaries;
-}
-
-static double Median(IEnumerable<double> values)
-{
-    double[] ordered = values.Order().ToArray();
-    if (ordered.Length == 0)
-    {
-        return 0;
-    }
-
-    int middle = ordered.Length / 2;
-    return ordered.Length % 2 == 0
-        ? (ordered[middle - 1] + ordered[middle]) / 2
-        : ordered[middle];
 }
 
 static MqttClientOptions CreateClientOptions(int port, string clientId)
