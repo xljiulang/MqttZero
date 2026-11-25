@@ -51,6 +51,7 @@
 - `broker-phase4.6-2026-11-25.md`
 - `broker-phase4.6-scheduled-ack-q1-single-2026-11-25.json`
 - `broker-phase4.6-scheduled-ack-q1-100-2026-11-25.json`
+- `broker-phase4.6-architecture-review-2026-11-25.md`
 - `memory-phase3-2026-11-25.md`
 - Phase 0 local development profile: QoS 0/1, 1/100 subscribers, 32 B/8 KiB/64 KiB, 2 s warmup, 6 s measurement and one repetition.
 - Phase 0 nightly stable profile: QoS 0/1/2, 1/100 subscribers, 32 B/8 KiB/64 KiB, 5 s warmup, 20 s measurement and three repetitions.
@@ -109,6 +110,10 @@
 - The direct Kestrel `PipeWriter.WriteAsync` experiment for 64-KiB payloads
   was rejected after reducing QoS 1 single-subscriber throughput to about
   0.23x MQTTnet; the production path was restored.
+- The Phase 4.6 architecture review identifies the dominant remaining cost as
+  the per-message Session/Egress/Flush scheduling chain, with average fanout
+  batches near 1.2 messages and almost every QoS 0/1 64-KiB batch waiting on an
+  asynchronous Flush. More Encode or batch-constant tuning is not the next step.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`
