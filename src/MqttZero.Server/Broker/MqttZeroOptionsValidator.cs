@@ -23,6 +23,22 @@ internal static class MqttZeroOptionsValidator
             options.MaxSubscriptionsPerSession,
             nameof(options.MaxSubscriptionsPerSession));
         ValidatePositive(options.MaxInflight, nameof(options.MaxInflight));
+        ValidatePositive(
+            options.OutboundBatchBytes,
+            nameof(options.OutboundBatchBytes));
+        ValidatePositive(
+            options.OutboundBatchMessages,
+            nameof(options.OutboundBatchMessages));
+        ValidatePositive(
+            options.OutboundBatchDuration,
+            nameof(options.OutboundBatchDuration));
+        if (options.OutboundBatchBytes > options.MaxBufferedBytes)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "MqttZeroOptions.OutboundBatchBytes cannot exceed MaxBufferedBytes.");
+        }
+
         ValidatePositive(options.MaxAwaitingRel, nameof(options.MaxAwaitingRel));
         ValidatePositive(
             options.MaxMessageQueueLength,

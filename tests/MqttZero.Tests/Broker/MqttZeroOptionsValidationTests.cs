@@ -125,6 +125,46 @@ namespace MqttZero.Tests.Broker
         }
 
         [Fact]
+        public void EgressBatchOptionsHaveExpectedDefaults()
+        {
+            MqttZeroOptions options = new();
+
+            Assert.Equal(512 * 1024, options.OutboundBatchBytes);
+            Assert.Equal(128, options.OutboundBatchMessages);
+            Assert.Equal(
+                TimeSpan.FromMicroseconds(500),
+                options.OutboundBatchDuration);
+        }
+
+        [Fact]
+        public void RejectsInvalidEgressBatchOptions()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                MqttZeroOptionsValidator.Validate(new MqttZeroOptions
+                {
+                    OutboundBatchBytes = 0
+                }));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                MqttZeroOptionsValidator.Validate(new MqttZeroOptions
+                {
+                    OutboundBatchBytes =
+                        checked((int)MqttZeroBufferLimit + 1)
+                }));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                MqttZeroOptionsValidator.Validate(new MqttZeroOptions
+                {
+                    OutboundBatchMessages = 0
+                }));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                MqttZeroOptionsValidator.Validate(new MqttZeroOptions
+                {
+                    OutboundBatchDuration = TimeSpan.Zero
+                }));
+        }
+
+        private const long MqttZeroBufferLimit = 512L * 1024 * 1024;
+
+        [Fact]
         public void RejectsNegativeRetainedMessageLimit()
         {
             MqttZeroOptions options = new()

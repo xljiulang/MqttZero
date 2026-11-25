@@ -32,6 +32,23 @@ public sealed class MqttZeroOptions
     public int MaxInflight { get; set; } = 32;
 
     /// <summary>
+    /// Gets or sets the maximum encoded bytes selected for one outbound data batch.
+    /// </summary>
+    public int OutboundBatchBytes { get; set; } = 512 * 1024;
+
+    /// <summary>
+    /// Gets or sets the maximum number of messages selected for one outbound data batch.
+    /// </summary>
+    public int OutboundBatchMessages { get; set; } = 128;
+
+    /// <summary>
+    /// Gets or sets the maximum data selection and encoding duration for one batch.
+    /// Network flush time is not included.
+    /// </summary>
+    public TimeSpan OutboundBatchDuration { get; set; } =
+        TimeSpan.FromMicroseconds(500);
+
+    /// <summary>
     /// Gets or sets the maximum number of inbound QoS 2 messages awaiting PUBREL.
     /// </summary>
     public int MaxAwaitingRel { get; set; } = 100;
