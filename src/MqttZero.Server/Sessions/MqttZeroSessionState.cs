@@ -56,8 +56,6 @@ internal sealed class MqttZeroSessionState
 
     public MqttZeroClientConnection? Connection { get; set; }
 
-    public MqttZeroSessionOutboundPump? OutboundPump { get; set; }
-
     public MqttZeroEgressActor? Egress { get; set; }
 
     public bool CleanStart { get; set; }

@@ -2,6 +2,7 @@ using MqttZero.Server.Interceptors;
 using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Clients;
+using MqttZero.Server.Egress;
 using MqttZero.Server.Retained;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
@@ -47,8 +48,8 @@ public sealed partial class MqttZeroBroker
                             {
                                 _keepAliveExpired.Add((
                                     session.Connection,
-                                    session.OutboundPump));
-                                session.OutboundPump = null;
+                                    session.Egress));
+                                session.Egress = null;
                             }
                         }
 
@@ -69,11 +70,11 @@ public sealed partial class MqttZeroBroker
 
                 foreach ((
                     MqttZeroClientConnection connection,
-                    MqttZeroSessionOutboundPump? pump) in _keepAliveExpired)
+                    MqttZeroEgressActor? pump) in _keepAliveExpired)
                 {
                     try
                     {
-                        await StopSessionOutboundPumpAsync(pump).ConfigureAwait(false);
+                        await StopEgressAsync(pump).ConfigureAwait(false);
                         await connection.CloseAsync(MqttReasonCode.KeepAliveTimeout, cancellationToken)
                             .ConfigureAwait(false);
                     }
@@ -166,14 +167,14 @@ public sealed partial class MqttZeroBroker
 
                     if (removed)
                     {
-                        MqttZeroSessionOutboundPump? pump;
+                        MqttZeroEgressActor? pump;
                         lock (session.SyncRoot)
                         {
-                            pump = session.OutboundPump;
-                            session.OutboundPump = null;
+                            pump = session.Egress;
+                            session.Egress = null;
                         }
 
-                        await StopSessionOutboundPumpAsync(pump).ConfigureAwait(false);
+                        await StopEgressAsync(pump).ConfigureAwait(false);
                         try
                         {
                             await DeleteClientPersistenceAsync(

@@ -2,6 +2,7 @@ using MqttZero.Server.Interceptors;
 using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Clients;
+using MqttZero.Server.Egress;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
 using System.Buffers;
@@ -26,7 +27,7 @@ public sealed partial class MqttZeroBroker
             CancellationToken.None).ConfigureAwait(false);
         DateTimeOffset now = _timeProvider.GetUtcNow();
         bool removeSession = false;
-        MqttZeroSessionOutboundPump? pump;
+        MqttZeroEgressActor? pump;
 
         lock (session.SyncRoot)
         {
@@ -35,8 +36,8 @@ public sealed partial class MqttZeroBroker
                 return;
             }
 
-            pump = session.OutboundPump;
-            session.OutboundPump = null;
+            pump = session.Egress;
+            session.Egress = null;
             session.Connection = null;
             session.DisconnectedAt = now;
             uint expiryInterval = session.ExpiryInterval;
@@ -65,7 +66,7 @@ public sealed partial class MqttZeroBroker
         if (pump != null)
         {
             connection.Abort();
-            await StopSessionOutboundPumpAsync(pump).ConfigureAwait(false);
+            await StopEgressAsync(pump).ConfigureAwait(false);
         }
 
         if (!removeSession && _sessionStore.IsEnabled)
@@ -140,8 +141,8 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    private static async ValueTask StopSessionOutboundPumpAsync(
-        MqttZeroSessionOutboundPump? pump)
+    private static async ValueTask StopEgressAsync(
+        MqttZeroEgressActor? pump)
     {
         if (pump != null)
         {

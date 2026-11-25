@@ -12,6 +12,7 @@ using System.Text;
 using System.Security.Cryptography.X509Certificates;
 using MqttZero.Server.Observers;
 using MqttZero.Server.Clients;
+using MqttZero.Server.Egress;
 
 namespace MqttZero.Server.Broker;
 
@@ -474,7 +475,7 @@ public sealed partial class MqttZeroBroker
                         closeRegistration = connection.ClosedToken.Register(
                             static state => ((CancellationTokenSource)state!).Cancel(),
                             connectionLifetime);
-                        StartSessionOutboundPump(
+                        StartEgress(
                             session,
                             connection,
                             connectionLifetime.Token);
@@ -774,7 +775,7 @@ public sealed partial class MqttZeroBroker
             MqttZeroWillMessage? previousWillMessage = null;
             DateTimeOffset? previousWillDueAt = null;
             MqttZeroSessionState? previousPumpSession = null;
-            MqttZeroSessionOutboundPump? previousPump = null;
+            MqttZeroEgressActor? previousPump = null;
             bool previousPumpStopped = false;
 
             try
@@ -800,8 +801,8 @@ public sealed partial class MqttZeroBroker
                         {
                             oldConnection = existing.Connection;
                             previousPumpSession = existing;
-                            previousPump = existing.OutboundPump;
-                            existing.OutboundPump = null;
+                            previousPump = existing.Egress;
+                            existing.Egress = null;
                             if (oldConnection != null &&
                                 existing.WillMessage != null &&
                                 existing.WillMessage.DelayInterval == 0)
@@ -835,8 +836,8 @@ public sealed partial class MqttZeroBroker
                             previousWillMessage = session.WillMessage;
                             previousWillDueAt = session.WillDueAt;
                             previousPumpSession = session;
-                            previousPump = session.OutboundPump;
-                            session.OutboundPump = null;
+                            previousPump = session.Egress;
+                            session.Egress = null;
                         }
                     }
 
@@ -935,7 +936,7 @@ public sealed partial class MqttZeroBroker
                         replacedSession.Connection = oldConnection;
                     }
 
-                    RestoreSessionOutboundPump(
+                    RestoreSessionEgress(
                         previousPumpSession,
                         oldConnection,
                         previousPump,
@@ -971,7 +972,7 @@ public sealed partial class MqttZeroBroker
                         session.WillDueAt = previousWillDueAt;
                     }
 
-                    RestoreSessionOutboundPump(
+                    RestoreSessionEgress(
                         previousPumpSession,
                         oldConnection,
                         previousPump,
@@ -1015,7 +1016,7 @@ public sealed partial class MqttZeroBroker
 
             try
             {
-                await StopSessionOutboundPumpAsync(previousPump).ConfigureAwait(false);
+                await StopEgressAsync(previousPump).ConfigureAwait(false);
                 previousPumpStopped = previousPump != null;
                 if (takeoverWill != null)
                 {
@@ -1104,7 +1105,7 @@ public sealed partial class MqttZeroBroker
                         replacedSession.Connection = oldConnection;
                     }
 
-                    RestoreSessionOutboundPump(
+                    RestoreSessionEgress(
                         previousPumpSession,
                         oldConnection,
                         previousPump,
@@ -1163,7 +1164,7 @@ public sealed partial class MqttZeroBroker
                         session.WillDueAt = previousWillDueAt;
                     }
 
-                    RestoreSessionOutboundPump(
+                    RestoreSessionEgress(
                         previousPumpSession,
                         oldConnection,
                         previousPump,
@@ -1194,10 +1195,10 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    private void RestoreSessionOutboundPump(
+    private void RestoreSessionEgress(
         MqttZeroSessionState? session,
         MqttZeroClientConnection? connection,
-        MqttZeroSessionOutboundPump? pump,
+        MqttZeroEgressActor? pump,
         bool pumpStopped)
     {
         if (session == null || connection == null)
@@ -1210,12 +1211,12 @@ public sealed partial class MqttZeroBroker
             lock (session.SyncRoot)
             {
                 if (!ReferenceEquals(session.Connection, connection) ||
-                    session.OutboundPump != null)
+                    session.Egress != null)
                 {
                     return;
                 }
 
-                session.OutboundPump = pump;
+                session.Egress = pump;
             }
 
             pump.Signal();
@@ -1226,14 +1227,14 @@ public sealed partial class MqttZeroBroker
         {
             try
             {
-                StartSessionOutboundPump(
+                StartEgress(
                     session,
                     connection,
                     connection.ClosedToken);
             }
             catch (Exception exception)
             {
-                MqttZeroBrokerLogging.LogOutboundPumpFailure(
+                MqttZeroBrokerLogging.LogEgressFailure(
                     _logger,
                     session.ClientId,
                     exception);

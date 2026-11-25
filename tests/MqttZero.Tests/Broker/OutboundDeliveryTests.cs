@@ -3,6 +3,7 @@ using MqttZero.Protocol;
 using MqttZero.Server;
 using MqttZero.Server.Broker;
 using MqttZero.Server.Clients;
+using MqttZero.Server.Egress;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
 using System.Buffers;
@@ -25,6 +26,7 @@ namespace MqttZero.Tests.Broker
             await using MqttZeroBroker broker = MqttZeroBroker.Create(
                 options,
                 TimeProvider.System);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
             BlockingPipeWriter subscriberWriter = new();
             MqttZeroClientConnection subscriberConnection = new(
                 subscriberWriter,
@@ -47,7 +49,7 @@ namespace MqttZero.Tests.Broker
             RebuildRoutes(broker);
 
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroSessionOutboundPump pump = broker.StartSessionOutboundPump(
+            MqttZeroEgressActor pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);
@@ -134,7 +136,7 @@ namespace MqttZero.Tests.Broker
             RebuildRoutes(broker);
 
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroSessionOutboundPump pump = broker.StartSessionOutboundPump(
+            MqttZeroEgressActor pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);
@@ -211,6 +213,7 @@ namespace MqttZero.Tests.Broker
             await using MqttZeroBroker broker = MqttZeroBroker.Create(
                 options,
                 TimeProvider.System);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
             BlockingPipeWriter subscriberWriter = new();
             MqttZeroClientConnection subscriberConnection = new(
                 subscriberWriter,
@@ -235,7 +238,7 @@ namespace MqttZero.Tests.Broker
             RebuildRoutes(broker);
 
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroSessionOutboundPump pump = broker.StartSessionOutboundPump(
+            MqttZeroEgressActor pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);
@@ -294,6 +297,7 @@ namespace MqttZero.Tests.Broker
             await using MqttZeroBroker broker = MqttZeroBroker.Create(
                 options,
                 TimeProvider.System);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
             TrackingPipeWriter subscriberWriter = new()
             {
                 CompletionWrittenBytes = messageCount * 1024
@@ -356,7 +360,7 @@ namespace MqttZero.Tests.Broker
             }
 
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroSessionOutboundPump pump = broker.StartSessionOutboundPump(
+            MqttZeroEgressActor pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);
@@ -387,6 +391,7 @@ namespace MqttZero.Tests.Broker
             await using MqttZeroBroker broker = MqttZeroBroker.Create(
                 options,
                 TimeProvider.System);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
             TrackingPipeWriter subscriberWriter = new()
             {
                 CompletionWrittenBytes = messageCount * payloadSize
@@ -449,7 +454,7 @@ namespace MqttZero.Tests.Broker
             }
 
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroSessionOutboundPump pump = broker.StartSessionOutboundPump(
+            MqttZeroEgressActor pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);

@@ -6,6 +6,7 @@ using MqttZero.Publishing;
 using MqttZero.Server;
 using MqttZero.Server.Broker;
 using MqttZero.Server.Clients;
+using MqttZero.Server.Egress;
 using MqttZero.Server.Interceptors;
 using MqttZero.Server.Sessions;
 using MqttZero.Server.Storage;
@@ -132,8 +133,8 @@ namespace MqttZero.Tests.Broker
                 broker,
                 "retained");
             await using MqttZeroClientConnection connectionLifetime = connection;
-            await using MqttZeroSessionOutboundPump pump =
-                broker.StartSessionOutboundPump(
+            await using MqttZeroEgressActor pump =
+                broker.StartEgress(
                     session,
                     connection,
                     TestContext.Current.CancellationToken);

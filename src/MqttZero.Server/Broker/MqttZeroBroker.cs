@@ -8,6 +8,7 @@ using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
 using MqttZero.Server.Storage;
 using MqttZero.Server.Scheduling;
+using MqttZero.Server.Egress;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -44,7 +45,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly MqttZeroRouteScopePool _routeScopes = new();
     private readonly List<(
         MqttZeroClientConnection Connection,
-        MqttZeroSessionOutboundPump? Pump)> _keepAliveExpired = [];
+        MqttZeroEgressActor? Pump)> _keepAliveExpired = [];
     private readonly List<(MqttZeroSessionState Session, MqttZeroWillMessage Will)> _dueWills = [];
     private readonly List<MqttZeroSessionState> _expiredSessions = [];
     private readonly List<string> _expiredRetainedTopics = [];

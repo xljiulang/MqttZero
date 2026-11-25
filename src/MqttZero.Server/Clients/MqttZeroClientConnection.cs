@@ -19,7 +19,6 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     private readonly MqttZeroPooledTopicAlias?[] _inboundTopicAliasArray = new MqttZeroPooledTopicAlias?[257];
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly PipeWriter _writer;
-    private readonly MqttZeroConnectionWriter _outboundWriter;
     private readonly DateTimeOffset _connectedAt;
     private readonly TimeProvider _timeProvider;
     private int _disposed;
@@ -51,7 +50,6 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         ConnectionId = Interlocked.Increment(ref NextConnectionId);
         ShardId = shardId;
         _writer = writer;
-        _outboundWriter = new MqttZeroConnectionWriter(this);
         _timeProvider = timeProvider;
         RemoteEndPoint = remoteEndPoint;
         IsSecure = isSecure;
@@ -71,14 +69,6 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     internal long ConnectionId { get; }
 
     internal int ShardId { get; set; }
-
-    internal MqttZeroConnectionWriter OutboundWriter
-    {
-        get
-        {
-            return _outboundWriter;
-        }
-    }
 
     public bool IsSecure { get; }
 
@@ -117,6 +107,15 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     public DateTimeOffset LastPacketReceivedAt { get; private set; }
 
     public bool IsReadingIncompletePacket { get; set; }
+
+    internal bool IsClosed
+    {
+        get
+        {
+            return Volatile.Read(ref _disposed) != 0 ||
+                _closed.IsCancellationRequested;
+        }
+    }
 
     public CancellationToken ClosedToken
     {
@@ -237,6 +236,25 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         finally
         {
             ReleaseWriteLock(true);
+        }
+    }
+
+    internal async ValueTask WriteEncodedControlAsync(
+        ReadOnlyMemory<byte> encodedPacket,
+        CancellationToken cancellationToken)
+    {
+        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            _ = await _writer.WriteAsync(
+                encodedPacket,
+                cancellationToken).ConfigureAwait(false);
+            _ = await _writer.FlushAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _writeLock.Release();
         }
     }
 
@@ -1012,7 +1030,6 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
 
         _closed.Cancel();
-        await _outboundWriter.StopAsync().ConfigureAwait(false);
         await _writeLock.WaitAsync().ConfigureAwait(false);
         _writeLock.Dispose();
         _closed.Dispose();

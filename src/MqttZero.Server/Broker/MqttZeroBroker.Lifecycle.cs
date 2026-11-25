@@ -2,6 +2,7 @@ using MqttZero.Server.Interceptors;
 using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Clients;
+using MqttZero.Server.Egress;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
@@ -118,20 +119,22 @@ public sealed partial class MqttZeroBroker
             foreach (MqttZeroSessionState session in _sessions.Values)
             {
                 MqttZeroClientConnection? connection;
-                MqttZeroSessionOutboundPump? pump;
+                MqttZeroEgressActor? pump;
                 lock (session.SyncRoot)
                 {
                     connection = session.Connection;
-                    pump = session.OutboundPump;
-                    session.OutboundPump = null;
+                    pump = session.Egress;
+                    session.Egress = null;
                 }
 
                 if (pump != null)
                 {
-                    await StopSessionOutboundPumpAsync(pump).ConfigureAwait(false);
+                    connection?.Abort();
+                    await StopEgressAsync(pump).ConfigureAwait(false);
                 }
 
-                if (connection == null)
+                if (connection == null ||
+                    connection.IsClosed)
                 {
                     continue;
                 }
@@ -161,14 +164,14 @@ public sealed partial class MqttZeroBroker
 
             foreach (MqttZeroSessionState session in _sessions.Values)
             {
-                MqttZeroSessionOutboundPump? pump;
+                MqttZeroEgressActor? pump;
                 lock (session.SyncRoot)
                 {
-                    pump = session.OutboundPump;
-                    session.OutboundPump = null;
+                    pump = session.Egress;
+                    session.Egress = null;
                 }
 
-                await StopSessionOutboundPumpAsync(pump).ConfigureAwait(false);
+                await StopEgressAsync(pump).ConfigureAwait(false);
                 ReleaseSessionMessages(session);
             }
 

@@ -2,6 +2,7 @@ using MqttZero.Server.Interceptors;
 using MqttZero.Memory;
 using MqttZero.Server.Observers;
 using MqttZero.Server.Clients;
+using MqttZero.Server.Egress;
 using MqttZero.Protocol;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Scheduling;
@@ -323,7 +324,7 @@ public sealed partial class MqttZeroBroker
 
             if (messageHeld)
             {
-                session.OutboundPump?.Signal();
+                session.Egress?.Signal();
             }
         }
         finally
@@ -487,7 +488,7 @@ public sealed partial class MqttZeroBroker
                 failed.Release();
             }
 
-            session.OutboundPump?.Signal();
+            session.Egress?.Signal();
             return;
         }
 
@@ -544,7 +545,7 @@ public sealed partial class MqttZeroBroker
             completed.Release();
         }
 
-        session.OutboundPump?.Signal();
+        session.Egress?.Signal();
     }
 
     private async ValueTask ProcessInboundPubRelAsync(
@@ -664,73 +665,76 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    internal MqttZeroSessionOutboundPump StartSessionOutboundPump(
+    internal MqttZeroEgressActor StartEgress(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
         CancellationToken cancellationToken)
     {
         int resumePending = 1;
 
-        async ValueTask DrainAsync(CancellationToken pumpCancellationToken)
+        async ValueTask<bool> DrainAsync(
+            CancellationToken pumpCancellationToken)
         {
+            using CancellationTokenSource linkedCancellation =
+                CancellationTokenSource.CreateLinkedTokenSource(
+                    pumpCancellationToken,
+                    connection.ClosedToken);
             if (Interlocked.Exchange(ref resumePending, 0) != 0)
             {
                 await ResumeInflightMessagesAsync(
                     session,
                     connection,
-                    pumpCancellationToken).ConfigureAwait(false);
+                    linkedCancellation.Token).ConfigureAwait(false);
             }
 
-            await DrainQueuedMessagesAsync(
+            return await DrainQueuedMessagesOnceAsync(
                 session,
                 connection,
-                connection.OutboundWriter,
-                pumpCancellationToken).ConfigureAwait(false);
+                linkedCancellation.Token).ConfigureAwait(false);
         }
 
-        MqttZeroSessionOutboundPump? pump = null;
-        pump = new MqttZeroSessionOutboundPump(
+        MqttZeroEgressActor? egress = null;
+        egress = new MqttZeroEgressActor(
+            _shardSet![session.ShardId],
+            async (frames, token) =>
+            {
+                for (int index = 0; index < frames.Count; index++)
+                {
+                    await connection.WriteEncodedControlAsync(
+                        frames[index].EncodedMemory,
+                        token).ConfigureAwait(false);
+                }
+            },
             DrainAsync,
             exception =>
             {
-                MqttZeroBrokerLogging.LogOutboundPumpFailure(
+                MqttZeroBrokerLogging.LogEgressFailure(
                     _logger,
                     session.ClientId,
                     exception);
                 lock (session.SyncRoot)
                 {
-                    if (ReferenceEquals(session.OutboundPump, pump))
+                    if (ReferenceEquals(session.Egress, egress))
                     {
-                        session.OutboundPump = null;
+                        session.Egress = null;
                     }
                 }
 
                 connection.Abort();
-            },
-            connection.OutboundWriter.StopAsync);
+            });
         lock (session.SyncRoot)
         {
-            if (session.OutboundPump != null)
+            if (session.Egress != null)
             {
                 throw new InvalidOperationException(
                     "The MQTT session already has an outbound pump.");
             }
 
-            session.OutboundPump = pump;
+            session.Egress = egress;
         }
 
-        connection.OutboundWriter.Start(
-            exception =>
-            {
-                MqttZeroBrokerLogging.LogOutboundPumpFailure(
-                    _logger,
-                    session.ClientId,
-                    exception);
-                connection.Abort();
-            });
-        pump.Start();
-        pump.Signal();
-        return pump;
+        egress.Signal();
+        return egress;
     }
 
     private static async ValueTask ResumeInflightMessagesAsync(
@@ -761,10 +765,9 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    private async ValueTask DrainQueuedMessagesAsync(
+    private async ValueTask<bool> DrainQueuedMessagesOnceAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
-        MqttZeroConnectionWriter outboundWriter,
         CancellationToken cancellationToken)
     {
         while (true)
@@ -810,13 +813,13 @@ public sealed partial class MqttZeroBroker
                         long maximumBatchBytes =
                             next.Lease.Payload.Length >= 32 * 1024
                                 ? hasBacklog
-                                    ? 256 * 1024
+                                    ? 512 * 1024
                                     : 64 * 1024
                                 : 1024 * 1024;
                         int maximumBatchMessages =
                             next.Lease.Payload.Length >= 32 * 1024
                                 ? hasBacklog
-                                    ? 4
+                                    ? 8
                                     : 1
                                 : 128;
                         if (connection.HasPendingControlWrites)
@@ -931,7 +934,7 @@ public sealed partial class MqttZeroBroker
 
             if (!hasNext)
             {
-                break;
+                return false;
             }
 
             if (batch.Count > 0)
@@ -980,9 +983,18 @@ public sealed partial class MqttZeroBroker
 
                 try
                 {
-                    await outboundWriter.EnqueueBatchAsync(
+                    await connection.SendPublishBatchAsync(
                         batch,
                         cancellationToken).ConfigureAwait(false);
+                    for (int index = 0; index < batch.Count; index++)
+                    {
+                        MqttZeroQueuedMessage message = batch[index];
+                        if (message.QualityOfServiceLevel ==
+                            MqttQualityOfServiceLevel.AtMostOnce)
+                        {
+                            message.Release();
+                        }
+                    }
                 }
                 catch
                 {
@@ -1001,7 +1013,7 @@ public sealed partial class MqttZeroBroker
                 }
 
                 batch.Clear();
-                continue;
+                return session.PendingMessages.Count > 0;
             }
         }
     }

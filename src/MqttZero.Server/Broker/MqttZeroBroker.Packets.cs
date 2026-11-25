@@ -129,7 +129,7 @@ public sealed partial class MqttZeroBroker
             acknowledgedMessage.Release();
         }
 
-        session.OutboundPump?.Signal();
+        session.Egress?.Signal();
     }
 
     private async ValueTask ProcessSubscribeAsync(

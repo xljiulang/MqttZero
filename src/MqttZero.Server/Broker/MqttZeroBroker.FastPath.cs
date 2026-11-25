@@ -158,7 +158,7 @@ public sealed partial class MqttZeroBroker
             {
                 for (int index = 0; index < deliveries.Count; index++)
                 {
-                    deliveries[index].Session.OutboundPump?.Signal();
+                    deliveries[index].Session.Egress?.Signal();
                 }
             }
 

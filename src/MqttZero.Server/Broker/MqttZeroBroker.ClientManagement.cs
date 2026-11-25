@@ -1,4 +1,5 @@
 using MqttZero.Server.Clients;
+using MqttZero.Server.Egress;
 using MqttZero.Server.Interceptors;
 using MqttZero.Memory;
 using MqttZero.Protocol;
@@ -534,7 +535,7 @@ public sealed partial class MqttZeroBroker
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken)
     {
-        MqttZeroSessionOutboundPump? pump;
+        MqttZeroEgressActor? pump;
         lock (session.SyncRoot)
         {
             if (!ReferenceEquals(session.Connection, connection))
@@ -542,11 +543,11 @@ public sealed partial class MqttZeroBroker
                 return false;
             }
 
-            pump = session.OutboundPump;
-            session.OutboundPump = null;
+            pump = session.Egress;
+            session.Egress = null;
         }
 
-        await StopSessionOutboundPumpAsync(pump).ConfigureAwait(false);
+        await StopEgressAsync(pump).ConfigureAwait(false);
         await connection.CloseAsync(reasonCode, cancellationToken).ConfigureAwait(false);
         return true;
     }

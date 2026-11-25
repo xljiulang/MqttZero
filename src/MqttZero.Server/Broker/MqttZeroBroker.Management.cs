@@ -6,6 +6,7 @@ using MqttZero.Server.Retained;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Sessions;
 using MqttZero.Server.Clients;
+using MqttZero.Server.Egress;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.IO.Pipelines;
@@ -190,12 +191,12 @@ public sealed partial class MqttZeroBroker
         }
 
         MqttZeroClientConnection? connection;
-        MqttZeroSessionOutboundPump? pump;
+        MqttZeroEgressActor? pump;
         lock (session.SyncRoot)
         {
             connection = session.Connection;
-            pump = session.OutboundPump;
-            session.OutboundPump = null;
+            pump = session.Egress;
+            session.Egress = null;
         }
 
         if (connection == null)
@@ -203,7 +204,7 @@ public sealed partial class MqttZeroBroker
             return false;
         }
 
-        await StopSessionOutboundPumpAsync(pump).ConfigureAwait(false);
+        await StopEgressAsync(pump).ConfigureAwait(false);
         await connection.CloseAsync(reasonCode, cancellationToken).ConfigureAwait(false);
         return true;
     }

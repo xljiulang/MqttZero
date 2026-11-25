@@ -125,7 +125,10 @@ internal sealed class MqttZeroEgressActor : IAsyncDisposable
                 (int)MqttZeroEgressActorState.Stopping);
             FailQueuedControls(
                 new ObjectDisposedException(nameof(MqttZeroEgressActor)));
-            Schedule();
+            Volatile.Write(
+                ref _state,
+                (int)MqttZeroEgressActorState.Stopped);
+            _stopped.TrySetResult();
         }
 
         await _stopped.Task.ConfigureAwait(false);
