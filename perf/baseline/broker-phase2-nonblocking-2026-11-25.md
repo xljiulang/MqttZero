@@ -58,3 +58,59 @@ send-loop lifetime, flush cadence, packet-bus wakeups and Shard rescheduling
 under 100-connection fanout. The current result does not justify replacing the
 transport.
 
+## Official stability run
+
+Command:
+
+```powershell
+dotnet run -c Release --no-build `
+    --project benchmarks/MqttZero.BrokerBenchmarks -- `
+    compare --client mqttnet --qos 0,1 --subscribers 100 --payload 8192 `
+    --warmup 5 --seconds 20 --repetitions 3 --max-pending 1024 `
+    --start-port 36000 `
+    --output perf/baseline/broker-phase2-official-2026-11-25.json
+```
+
+| QoS | MQTTZero msg/s | MQTTZero p99 us | MQTTNet msg/s | MQTTNet p99 us | Phase 0 result |
+|---:|---:|---:|---:|---:|---|
+| 0 | 492.88 | 36,631.1 | 1,226.38 | 20,105.5 | throughput within 95%, p99 regression |
+| 1 | 190.72 | 11,808.6 | 192.79 | 15,939.7 | throughput and p99 pass |
+
+QoS 0 throughput is 97.6% of the Phase 0 MQTTZero baseline, but its p99 is
+8.72x the Phase 0 value. This is the only remaining Phase 2 stability failure.
+QoS 1 is effectively at MQTTnet parity and comfortably passes the Phase 0
+regression tolerance.
+
+## Matched runtime counters
+
+Both brokers were sampled for eight seconds under the same QoS 0, 100
+subscriber and 8 KiB workload.
+
+| Counter | MQTTZero | MQTTNet |
+|---|---:|---:|
+| Allocation rate mean | 5.98 MB/s | 190.96 MB/s |
+| GC pause mean | 4.39 ms/s | 81.12 ms/s |
+| CPU usage mean | 9.65% | 24.51% |
+| ThreadPool completed work items mean | 2,384/s | 42,746/s |
+| ThreadPool queue length mean | 2.65 | 33.81 |
+
+MQTTZero now allocates and pauses significantly less than MQTTnet. The remaining
+gap is therefore not GC, the large-span request pattern, Shard count or a
+per-connection long-running send loop. The latter prototype measured about
+304 msg/s and p99 97 ms and was removed.
+
+The repository's in-memory 100-subscriber route benchmark is approximately
+16.78 us per publish, or about 59.6k deliveries/s. The current official result
+performs roughly 49.3k deliveries/s, already close to that ceiling. This points
+to the current one-candidate-at-a-time Route/Delivery fanout as the dominant
+remaining limit.
+
+## Phase decision
+
+- Keep the Phase 2 Shard Egress, nonblocking flush and pooled control frames.
+- Do not change the Kestrel IOQueue default: a one-queue experiment improved
+  QoS 0 but reduced QoS 1/100/8 KiB from about 191 to 86 msg/s.
+- Do not continue Phase 2 queue, GC or send-loop tuning.
+- Record QoS 0/100/8 KiB p99 as the Phase 2 performance exception and move to
+  Phase 4 aggregated fanout batches by target Shard.
+

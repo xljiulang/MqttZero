@@ -37,6 +37,7 @@
 - `broker-phase2-2026-11-25.md`
 - `broker-phase2-nonblocking-2026-11-25.json`
 - `broker-phase2-nonblocking-2026-11-25.md`
+- `broker-phase2-official-2026-11-25.json`
 - Phase 0 local development profile: QoS 0/1, 1/100 subscribers, 32 B/8 KiB/64 KiB, 2 s warmup, 6 s measurement and one repetition.
 - Phase 0 nightly stable profile: QoS 0/1/2, 1/100 subscribers, 32 B/8 KiB/64 KiB, 5 s warmup, 20 s measurement and three repetitions.
 - The 1,000-subscriber cells are deferred until the final performance gate.
@@ -54,6 +55,11 @@
   PipeWriter segment sizes instead of passing payload-sized hints. Correctness
   and zero-allocation control tests pass; the QoS 0/100/8-KiB development cell
   remains red.
+- The Phase 2 official 5x20x3 stability run passes QoS 1/100/8-KiB against the
+  Phase 0 tolerance. QoS 0/100/8-KiB retains 97.6% throughput but an 8.72x p99
+  regression. Matched counters show lower allocation and GC than MQTTnet, so
+  the remaining work moves to Phase 4 aggregated fanout rather than further
+  Egress micro-tuning.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`
