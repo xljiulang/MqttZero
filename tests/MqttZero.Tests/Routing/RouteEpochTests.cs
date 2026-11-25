@@ -307,9 +307,11 @@ public sealed class RouteEpochTests
                 CreateSubscription("route/#"));
         }
 
-        using MqttZeroRouteScopePool pool = new();
-        _ = MeasureRoute(epoch, pool);
-        long allocated = MeasureRoute(epoch, pool);
+        using MqttZeroRoutePlannerLanes lanes = new(1);
+        MqttZeroSharedGroupCursors cursors = new();
+        MqttZeroRoutePlanBuffer buffer = lanes[0];
+        _ = MeasureRoute(epoch, cursors, buffer);
+        long allocated = MeasureRoute(epoch, cursors, buffer);
 
         Assert.Equal(0, allocated);
     }
@@ -317,20 +319,21 @@ public sealed class RouteEpochTests
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private static long MeasureRoute(
         MqttZeroRouteEpoch epoch,
-        MqttZeroRouteScopePool pool)
+        MqttZeroSharedGroupCursors cursors,
+        MqttZeroRoutePlanBuffer buffer)
     {
-        MqttZeroSharedGroupCursors cursors = new();
         long before = GC.GetAllocatedBytesForCurrentThread();
         int delivered = 0;
         for (int index = 0; index < 100; index++)
         {
-            using MqttZeroRouteScope scope = MqttZeroRouteSelector.Select(
+            MqttZeroRoutePlan plan = MqttZeroRoutePlanner.Plan(
                 epoch,
                 "route/topic"u8,
                 null,
                 cursors,
-                pool);
-            delivered += scope.Count;
+                1,
+                buffer);
+            delivered += plan.TotalDeliveryCount;
         }
 
         if (delivered != 10_000)

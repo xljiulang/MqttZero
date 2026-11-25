@@ -902,7 +902,7 @@ git commit -m "feat: index retained messages by topic"
 - Modify: `perf/baseline/README.md`
 - Modify: `README.md`
 
-- [ ] **Step 1: Add benchmarks**
+- [x] **Step 1: Add benchmarks**
 
 `RouteEpochBenchmarks` parameters:
 
@@ -915,7 +915,7 @@ git commit -m "feat: index retained messages by topic"
 - Shards: `1`, `8`
 - regular and shared groups
 
-- [ ] **Step 2: Run the development matrix**
+- [x] **Step 2: Run the development matrix**
 
 ```powershell
 dotnet run -c Release --no-build `
@@ -926,7 +926,7 @@ dotnet run -c Release --no-build `
     --output artifacts/broker-phase4-dev.json
 ```
 
-- [ ] **Step 3: Compare against Phase 0**
+- [x] **Step 3: Compare against Phase 0**
 
 ```powershell
 ./eng/compare-broker-benchmarks.ps1 `
@@ -938,7 +938,7 @@ dotnet run -c Release --no-build `
 
 Expected: all 12 cells pass. If any cell fails, keep the red result and iterate on planner buffer layout or batch dispatch; do not change benchmark parameters.
 
-- [ ] **Step 4: Run the official baseline**
+- [x] **Step 4: Run the official baseline**
 
 ```powershell
 ./eng/run-broker-benchmark.ps1 `
@@ -949,7 +949,7 @@ Expected: all 12 cells pass. If any cell fails, keep the red result and iterate 
 
 The command may return non-zero while the strict MQTTnet comparison is still red. The JSON must remain complete.
 
-- [ ] **Step 5: Run full verification**
+- [x] **Step 5: Run full verification**
 
 ```powershell
 dotnet restore MqttZero.slnx --locked-mode
@@ -963,7 +963,7 @@ dotnet format MqttZero.slnx --verify-no-changes --no-restore
 git diff --check
 ```
 
-- [ ] **Step 6: Write the Phase 4 report**
+- [x] **Step 6: Write the Phase 4 report**
 
 Include:
 
@@ -975,7 +975,7 @@ Include:
 - the QoS 0/100/8 KiB result that motivated Phase 4;
 - remaining strict MQTTnet failures without overstating completion.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add benchmarks src tests perf/baseline README.md docs/superpowers/plans/2026-11-25-phase-4-route-epoch-fanout.md

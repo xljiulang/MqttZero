@@ -601,6 +601,7 @@ namespace MqttZero.Tests.Broker
             await using MqttZeroBroker broker = MqttZeroBroker.Create(
                 options,
                 TimeProvider.System);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
             MqttZeroBufferPool bufferPool = GetBufferPool(broker);
             MqttZeroSessionState receiver = new(
                 "offline-qos-zero",
@@ -657,6 +658,7 @@ namespace MqttZero.Tests.Broker
             await using MqttZeroBroker broker = MqttZeroBroker.Create(
                 options,
                 TimeProvider.System);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
             MqttZeroBufferPool bufferPool = GetBufferPool(broker);
             MqttZeroSessionState receiver = new(
                 "evicting-qos-zero",
@@ -744,6 +746,7 @@ namespace MqttZero.Tests.Broker
             await using MqttZeroBroker broker = MqttZeroBroker.Create(
                 options,
                 TimeProvider.System);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
             MqttZeroBufferPool bufferPool = GetBufferPool(broker);
             MqttZeroSessionState receiver = new(
                 "swapping-qos-zero",

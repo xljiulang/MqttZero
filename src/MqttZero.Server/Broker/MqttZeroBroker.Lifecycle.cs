@@ -44,24 +44,41 @@ public sealed partial class MqttZeroBroker
                 _options.EventLoopShardCount);
             _sessionShardMap = new MqttZeroSessionShardMap(shardCount);
             _routeEpochs.Reset(MqttZeroRouteEpoch.Empty);
-            await RestorePersistenceAsync(cancellationToken).ConfigureAwait(false);
-            _connectionsDrained = CreateDrainSignal();
-            Volatile.Write(ref _stopping, 0);
-            Volatile.Write(ref _state, (int)MqttZeroBrokerState.Running);
-            _maintenanceCancellation = new CancellationTokenSource();
-            _maintenanceTask = RunMaintenanceAsync(_maintenanceCancellation.Token);
             int shardQueueCapacity = Math.Max(
                 1024,
                 _options.MaxMessageQueueLength / shardCount);
             MqttZeroShardSet shardSet = new(
                 shardCount,
                 shardQueueCapacity);
-            _routePlannerLanes = new MqttZeroRoutePlannerLanes(shardCount);
-            _fanoutDispatcher = new MqttZeroFanoutDispatcher(
-                shardSet,
-                DeliverPlannedAsync,
-                HandleFanoutFailure);
-            _shardSet = shardSet;
+            MqttZeroRoutePlannerLanes? routePlannerLanes = null;
+            try
+            {
+                routePlannerLanes = new MqttZeroRoutePlannerLanes(shardCount);
+                MqttZeroFanoutDispatcher fanoutDispatcher = new(
+                    shardSet,
+                    DeliverPlannedAsync,
+                    HandleFanoutFailure);
+                _routePlannerLanes = routePlannerLanes;
+                _fanoutDispatcher = fanoutDispatcher;
+                _shardSet = shardSet;
+                await RestorePersistenceAsync(cancellationToken).ConfigureAwait(false);
+                _connectionsDrained = CreateDrainSignal();
+                Volatile.Write(ref _stopping, 0);
+                Volatile.Write(ref _state, (int)MqttZeroBrokerState.Running);
+                _maintenanceCancellation = new CancellationTokenSource();
+                _maintenanceTask = RunMaintenanceAsync(
+                    _maintenanceCancellation.Token);
+            }
+            catch
+            {
+                _fanoutDispatcher = null;
+                _routePlannerLanes = null;
+                _shardSet = null;
+                _sessionShardMap = null;
+                routePlannerLanes?.Dispose();
+                await shardSet.DisposeAsync().ConfigureAwait(false);
+                throw;
+            }
         }
         finally
         {

@@ -209,6 +209,7 @@ namespace MqttZero.Tests.Broker
             MqttZeroBroker broker = MqttZeroBroker.Create(
                 new MqttZeroOptions(),
                 TimeProvider.System);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
             MqttZeroSessionState receiver = new("qos-receiver");
             receiver.Subscriptions.Add(new MqttZeroSubscription(
                 "hot/#"u8.ToArray(),
@@ -350,6 +351,7 @@ namespace MqttZero.Tests.Broker
                 },
                 TimeProvider.System,
                 interceptors);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
             FieldInfo sessionsField = typeof(MqttZeroBroker).GetField(
                 "_sessions",
                 BindingFlags.Instance | BindingFlags.NonPublic)!;

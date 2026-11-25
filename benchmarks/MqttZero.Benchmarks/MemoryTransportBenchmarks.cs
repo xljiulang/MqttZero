@@ -43,9 +43,13 @@ public class MemoryTransportBenchmarks : IDisposable
     public void Setup()
     {
         _broker = MqttZeroBroker.Create(
-            new MqttZeroOptions(),
+            new MqttZeroOptions
+            {
+                EventLoopShardCount = 1
+            },
             TimeProvider.System);
-        _receiver = new MqttZeroSessionState("receiver");
+        _broker.StartAsync().AsTask().GetAwaiter().GetResult();
+        _receiver = _broker.CreateSessionState("receiver");
         _receiver.Subscriptions.Add(new MqttZeroSubscription(
             "hot/#"u8.ToArray(),
             MqttQualityOfServiceLevel.AtMostOnce,
@@ -68,13 +72,12 @@ public class MemoryTransportBenchmarks : IDisposable
             "_sessions",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         ConcurrentDictionary<string, MqttZeroSessionState> sessions =
-            (ConcurrentDictionary<string, MqttZeroSessionState>)sessionsField.GetValue(_broker)!;
+            (ConcurrentDictionary<string, MqttZeroSessionState>)sessionsField
+                .GetValue(_broker)!;
         sessions.TryAdd(_receiver.ClientId, _receiver);
-        typeof(MqttZeroBroker).GetMethod(
-            "RebuildSubscriptionRouteSnapshot",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_broker, null);
+        _broker.ResetRouteEpochFromSessions();
 
-        _sender = new MqttZeroSessionState("sender");
+        _sender = _broker.CreateSessionState("sender");
         MqttPublishPacket packet = new()
         {
             TopicName = new ReadOnlySequence<byte>("hot/topic"u8.ToArray()),

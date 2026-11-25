@@ -82,103 +82,53 @@ public sealed partial class MqttZeroBroker
         MqttZeroMessageLease lease,
         CancellationToken cancellationToken)
     {
-        MqttZeroShardSet? shards = Volatile.Read(ref _shardSet);
-        MqttZeroFanoutDispatcher? dispatcher =
-            Volatile.Read(ref _fanoutDispatcher);
-        MqttZeroRoutePlannerLanes? lanes =
-            Volatile.Read(ref _routePlannerLanes);
-        if (shards != null && dispatcher != null && lanes != null)
+        lease.EnsureOwned();
+        MqttZeroShardSet shards = Volatile.Read(ref _shardSet) ??
+            throw new InvalidOperationException(
+                "The MQTTZero event loop shards are not running.");
+        MqttZeroFanoutDispatcher dispatcher =
+            Volatile.Read(ref _fanoutDispatcher) ??
+            throw new InvalidOperationException(
+                "The MQTTZero fanout dispatcher is not running.");
+        MqttZeroRoutePlannerLanes lanes =
+            Volatile.Read(ref _routePlannerLanes) ??
+            throw new InvalidOperationException(
+                "The MQTTZero route planner is not running.");
+        int publisherShardId = sender?.ShardId ??
+            senderConnection?.ShardId ??
+            0;
+        if ((uint)publisherShardId >= (uint)shards.Count)
         {
-            int publisherShardId = sender?.ShardId ??
-                senderConnection?.ShardId ??
-                0;
-            if ((uint)publisherShardId >= (uint)shards.Count)
-            {
-                throw new InvalidOperationException(
-                    "The publisher references an invalid event loop shard.");
-            }
+            throw new InvalidOperationException(
+                "The publisher references an invalid event loop shard.");
+        }
 
-            MqttZeroEventLoop publisherShard =
-                shards[publisherShardId];
-            if (publisherShard.IsCurrent || sender != null)
-            {
-                return ExecuteFanoutOnShardAsync(
-                    shards,
-                    dispatcher,
-                    lanes,
-                    sender,
-                    senderConnection,
-                    lease,
-                    publisherShardId,
-                    cancellationToken);
-            }
-
-            return publisherShard.InvokeAsync(
-                token => ExecuteFanoutOnShardAsync(
-                    shards,
-                    dispatcher,
-                    lanes,
-                    sender,
-                    senderConnection,
-                    lease,
-                    publisherShardId,
-                    token),
+        MqttZeroEventLoop publisherShard =
+            shards[publisherShardId];
+        if (publisherShard.IsCurrent)
+        {
+            return ExecuteFanoutOnShardAsync(
+                shards,
+                dispatcher,
+                lanes,
+                sender,
+                senderConnection,
+                lease,
+                publisherShardId,
                 cancellationToken);
         }
 
-        return RouteToSubscribersFallbackAsync(
-            sender,
-            senderConnection,
-            lease,
-            cancellationToken);
-    }
-
-    private async ValueTask<int> RouteToSubscribersFallbackAsync(
-        MqttZeroSessionState? sender,
-        MqttZeroClientConnection? senderConnection,
-        MqttZeroMessageLease lease,
-        CancellationToken cancellationToken)
-    {
-        using MqttZeroRouteScope deliveries =
-            MqttZeroRouteSelector.Select(
-                _routeEpochs.Current,
-                lease.Topic.Span,
+        return publisherShard.InvokeAsync(
+            token => ExecuteFanoutOnShardAsync(
+                shards,
+                dispatcher,
+                lanes,
                 sender,
-                _sharedGroupCursors,
-                _routeScopes);
-        for (int index = 0; index < deliveries.Count; index++)
-        {
-            MqttZeroDeliveryCandidate delivery = deliveries[index];
-            MqttQualityOfServiceLevel deliveryQos =
-                (MqttQualityOfServiceLevel)Math.Min(
-                    (byte)lease.QualityOfServiceLevel,
-                    (byte)delivery.QualityOfServiceLevel);
-            bool retain = delivery.Subscription.RetainAsPublished &&
-                lease.RetainFlag;
-            if (UseFastFanoutDelivery)
-            {
-                await DeliverLeaseFastAsync(
-                    delivery.Session,
-                    lease,
-                    deliveryQos,
-                    retain,
-                    delivery.SubscriptionIdentifiers,
-                    cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await DeliverLeaseAsync(
-                    delivery.Session,
-                    lease,
-                    deliveryQos,
-                    retain,
-                    delivery.SubscriptionIdentifiers,
-                    senderConnection,
-                    cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        return deliveries.Count;
+                senderConnection,
+                lease,
+                publisherShardId,
+                token),
+            cancellationToken);
     }
 
     private async ValueTask<int> ExecuteFanoutOnShardAsync(

@@ -283,8 +283,10 @@ internal static class BenchmarkLoadRunner
             {
                 if (client.IsConnected)
                 {
+                    using CancellationTokenSource disconnectTimeout = new(
+                        TimeSpan.FromSeconds(5));
                     await client.DisconnectAsync(
-                        CancellationToken.None).ConfigureAwait(false);
+                        disconnectTimeout.Token).ConfigureAwait(false);
                 }
             }
             catch (Exception)

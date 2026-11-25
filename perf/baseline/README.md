@@ -38,6 +38,8 @@
 - `broker-phase2-nonblocking-2026-11-25.json`
 - `broker-phase2-nonblocking-2026-11-25.md`
 - `broker-phase2-official-2026-11-25.json`
+- `broker-phase4-2026-11-25.json`
+- `broker-phase4-2026-11-25.md`
 - Phase 0 local development profile: QoS 0/1, 1/100 subscribers, 32 B/8 KiB/64 KiB, 2 s warmup, 6 s measurement and one repetition.
 - Phase 0 nightly stable profile: QoS 0/1/2, 1/100 subscribers, 32 B/8 KiB/64 KiB, 5 s warmup, 20 s measurement and three repetitions.
 - The 1,000-subscriber cells are deferred until the final performance gate.
@@ -60,6 +62,12 @@
   regression. Matched counters show lower allocation and GC than MQTTnet, so
   the remaining work moves to Phase 4 aggregated fanout rather than further
   Egress micro-tuning.
+- Phase 4 replaces snapshot rebuilds and per-subscriber fanout with immutable
+  Route Epochs, persistent HAMTs, stable shared cursors, Shard-aware planning
+  and target-Shard fanout batches.
+- The Phase 4 development gate passes 9 of 12 cells against Phase 0. The
+  strict MQTTnet gate passes 2 of 12 cells. The report keeps those cells red;
+  it does not claim the final performance target.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`

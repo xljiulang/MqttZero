@@ -42,7 +42,6 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         MqttZeroRetainedTopicTrie.Empty;
     private readonly ConcurrentDictionary<string, MqttZeroSessionState> _sessions =
         new(StringComparer.Ordinal);
-    private readonly MqttZeroRouteScopePool _routeScopes = new();
     private readonly MqttZeroSharedGroupCursors _sharedGroupCursors = new();
     private readonly List<(
         MqttZeroClientConnection Connection,
@@ -265,7 +264,6 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         {
             await StopAsync().ConfigureAwait(false);
             _routePlannerLanes?.Dispose();
-            _routeScopes.Dispose();
             _routeMutationGate.Dispose();
             _bufferPool.Dispose();
         }

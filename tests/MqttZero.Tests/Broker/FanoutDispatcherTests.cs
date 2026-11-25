@@ -6,6 +6,7 @@ using MqttZero.Server.Clients;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
+using MqttZero.Tests.Support;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.IO.Pipelines;
@@ -488,6 +489,103 @@ public sealed class FanoutDispatcherTests
         finally
         {
             lease.Release();
+        }
+    }
+
+    [Fact(Timeout = 20_000)]
+    public async Task ConcurrentShardFanoutOwnsBorrowedLeaseBeforeEncoding()
+    {
+        MqttZeroOptions options = new()
+        {
+            EventLoopShardCount = 2,
+            MaxMessageQueueLength = 16
+        };
+        await using MqttZeroBroker broker = MqttZeroBroker.Create(
+            options,
+            TimeProvider.System);
+        await broker.StartAsync(TestContext.Current.CancellationToken);
+        MqttZeroSessionState? first = null;
+        MqttZeroSessionState? second = null;
+        for (int index = 0; index < 100; index++)
+        {
+            MqttZeroSessionState session =
+                broker.CreateSessionState($"concurrent-{index}");
+            if (first == null && session.ShardId == 0)
+            {
+                first = session;
+            }
+            else if (second == null && session.ShardId == 1)
+            {
+                second = session;
+            }
+
+            if (first != null && second != null)
+            {
+                break;
+            }
+        }
+
+        Assert.NotNull(first);
+        Assert.NotNull(second);
+        PipeWriter firstWriter = PipeWriter.Create(Stream.Null);
+        PipeWriter secondWriter = PipeWriter.Create(Stream.Null);
+        await using MqttZeroClientConnection firstConnection = new(
+            firstWriter,
+            new IPEndPoint(IPAddress.Loopback, 0),
+            false,
+            false,
+            0,
+            32,
+            1024 * 1024,
+            TimeProvider.System);
+        await using MqttZeroClientConnection secondConnection = new(
+            secondWriter,
+            new IPEndPoint(IPAddress.Loopback, 0),
+            false,
+            false,
+            0,
+            32,
+            1024 * 1024,
+            TimeProvider.System);
+        first.Subscriptions.Add(CreateSubscription("concurrent/#"));
+        second.Subscriptions.Add(CreateSubscription("concurrent/#"));
+        first.Connection = firstConnection;
+        second.Connection = secondConnection;
+        AddSession(broker, first);
+        AddSession(broker, second);
+        broker.ResetRouteEpochFromSessions();
+        SequenceSegment start = new(new byte[32]);
+        SequenceSegment end = new(new byte[32]);
+        start.SetNext(end);
+        ReadOnlySequence<byte> payload = new(
+            start,
+            0,
+            end,
+            end.Memory.Length);
+
+        for (int index = 0; index < 100; index++)
+        {
+            await broker.PublishAsync(
+                "concurrent/topic",
+                payload,
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                TestContext.Current.CancellationToken);
+            lock (first.SyncRoot)
+            {
+                while (first.PendingMessages.Count > 0)
+                {
+                    first.PendingMessages.Dequeue().Release();
+                }
+            }
+
+            lock (second.SyncRoot)
+            {
+                while (second.PendingMessages.Count > 0)
+                {
+                    second.PendingMessages.Dequeue().Release();
+                }
+            }
         }
     }
 

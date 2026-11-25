@@ -274,7 +274,8 @@ WebSocket 未设置选择器时默认不允许分片，从而保持 MQTT PUBLISH
 
 - `MqttPublishPacketCodec` 直接解析 `ReadOnlySequence<byte>`，不创建完整报文或 Topic 数组。
 - Topic/Properties/Payload 由引用计数 `MqttZeroMessageLease` 共享；在线订阅者、离线队列和 Inflight 消息持有同一份内存。
-- 路由使用每 Broker 的池化 `MqttZeroRouteScope` 和不可变订阅快照，不为每条消息创建 `List`、`Dictionary` 或候选对象。
+- 路由使用不可变 Route Epoch、路径级 Copy-on-Write Topic Trie 和持久 HAMT；
+  发布在发布者 Shard 规划，并按目标 Shard 聚合成单次 Fanout Batch。
 - QoS 1/2 描述符、确认包和出站 PUBLISH 编码复用池化对象，并直接写入连接自己的 `IBufferWriter`。
 - `MqttZeroBufferPool` 以 `ArrayPool<byte>` 为底层来源执行字节预算；耗尽时暂停读取并等待释放，不静默回退到普通数组。
 
@@ -293,7 +294,10 @@ dotnet run -c Release --project benchmarks/MqttZero.Benchmarks -- `
   --filter '*' --job short --exporters csv json
 ```
 
-当前基准结果、机器信息和解释统一记录在 `perf/baseline`。fast PUBLISH 解码、Header 编码、Topic 路由、共享订阅、QoS 1 队列、扇出和内存端到端均经过 `0 B/op` 分配验证。
+当前基准结果、机器信息和解释统一记录在 `perf/baseline`。fast PUBLISH
+解码、Header 编码、Route Epoch、Route Planning、QoS 1 队列、Retained
+Trie 和内存端到端均经过 `0 B/op` 分配验证；网络 Broker 对比结果和尚未
+通过的单元格以 baseline 报告为准。
 
 全局 Packet Writer 池经顺序和 128 并发基准验证后决定不引入，结论见 `perf/baseline/packet-writer-pool-0.5.0-alpha.1.md`。完整 Broker 对 Broker 的 TCP/QoS/多连接比较方法见 `perf/baseline/broker-comparison-methodology.md`。
 

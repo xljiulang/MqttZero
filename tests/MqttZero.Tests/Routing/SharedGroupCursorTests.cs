@@ -114,30 +114,33 @@ public sealed class SharedGroupCursorTests
         MqttZeroRouteEpoch epoch = MqttZeroRouteEpoch.Empty
             .Add(first, CreateShared("workers", "jobs/#"))
             .Add(second, CreateShared("workers", "jobs/#"));
-        MqttZeroRouteScopePool pool = new();
+        using MqttZeroRoutePlannerLanes lanes = new(1);
+        MqttZeroRoutePlanBuffer buffer = lanes[0];
 
         for (int index = 0; index < 10; index++)
         {
-            using MqttZeroRouteScope warmup = MqttZeroRouteSelector.Select(
+            MqttZeroRoutePlan warmup = MqttZeroRoutePlanner.Plan(
                 epoch,
                 "jobs/one"u8,
                 null,
                 cursors,
-                pool);
-            Assert.Equal(1, warmup.Count);
+                1,
+                buffer);
+            Assert.Equal(1, warmup.TotalDeliveryCount);
         }
 
         int delivered = 0;
         long before = GC.GetAllocatedBytesForCurrentThread();
         for (int index = 0; index < 100; index++)
         {
-            using MqttZeroRouteScope route = MqttZeroRouteSelector.Select(
+            MqttZeroRoutePlan route = MqttZeroRoutePlanner.Plan(
                 epoch,
                 "jobs/one"u8,
                 null,
                 cursors,
-                pool);
-            delivered += route.Count;
+                1,
+                buffer);
+            delivered += route.TotalDeliveryCount;
         }
 
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
@@ -150,15 +153,25 @@ public sealed class SharedGroupCursorTests
         MqttZeroSharedGroupCursors cursors,
         MqttZeroSessionState? sender = null)
     {
-        using MqttZeroRouteScopePool pool = new();
-        using MqttZeroRouteScope route = MqttZeroRouteSelector.Select(
+        using MqttZeroRoutePlannerLanes lanes = new(1);
+        MqttZeroRoutePlan route = MqttZeroRoutePlanner.Plan(
             epoch,
             "jobs/one"u8,
             sender,
             cursors,
-            pool);
-        Assert.Equal(1, route.Count);
-        return route[0].Session.ClientId;
+            1,
+            lanes[0]);
+        Assert.Equal(1, route.TotalDeliveryCount);
+        for (int shardId = 0; shardId < route.Batches.Length; shardId++)
+        {
+            MqttZeroFanoutBatch batch = route.Batches[shardId];
+            if (batch.Count > 0)
+            {
+                return batch[0].Session.ClientId;
+            }
+        }
+
+        throw new InvalidOperationException("Expected one shared delivery.");
     }
 
     private static MqttZeroSubscription CreateShared(

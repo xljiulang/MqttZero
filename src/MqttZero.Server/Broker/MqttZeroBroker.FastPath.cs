@@ -114,65 +114,40 @@ public sealed partial class MqttZeroBroker
 
         try
         {
+            effectiveLease.EnsureOwned();
             if (effectiveLease.RetainFlag)
             {
                 StoreRetainedMessageInMemory(effectiveLease);
             }
 
-            MqttZeroFanoutDispatcher? dispatcher =
-                Volatile.Read(ref _fanoutDispatcher);
-            MqttZeroRoutePlannerLanes? lanes =
-                Volatile.Read(ref _routePlannerLanes);
-            MqttZeroShardSet? shards = Volatile.Read(ref _shardSet);
-            if (dispatcher == null || lanes == null || shards == null)
+            MqttZeroFanoutDispatcher dispatcher =
+                Volatile.Read(ref _fanoutDispatcher) ??
+                throw new InvalidOperationException(
+                    "The MQTTZero fanout dispatcher is not running.");
+            MqttZeroRoutePlannerLanes lanes =
+                Volatile.Read(ref _routePlannerLanes) ??
+                throw new InvalidOperationException(
+                    "The MQTTZero route planner is not running.");
+            MqttZeroShardSet shards = Volatile.Read(ref _shardSet) ??
+                throw new InvalidOperationException(
+                    "The MQTTZero event loop shards are not running.");
+            int publisherShardId = sender.ShardId;
+            MqttZeroRoutePlan plan = MqttZeroRoutePlanner.Plan(
+                _routeEpochs.Current,
+                effectiveLease.Topic.Span,
+                sender,
+                _sharedGroupCursors,
+                shards.Count,
+                lanes[publisherShardId]);
+            if (plan.TotalDeliveryCount > 0)
             {
-                using MqttZeroRouteScope deliveries =
-                    MqttZeroRouteSelector.Select(
-                        _routeEpochs.Current,
-                        effectiveLease.Topic.Span,
-                        sender,
-                        _sharedGroupCursors,
-                        _routeScopes);
-                for (int index = 0;
-                    index < deliveries.Count;
-                    index++)
-                {
-                    MqttZeroDeliveryCandidate delivery =
-                        deliveries[index];
-                    MqttQualityOfServiceLevel deliveryQos =
-                        (MqttQualityOfServiceLevel)Math.Min(
-                            (byte)effectiveLease.QualityOfServiceLevel,
-                            (byte)delivery.QualityOfServiceLevel);
-                    await DeliverLeaseFastAsync(
-                        delivery.Session,
-                        effectiveLease,
-                        deliveryQos,
-                        delivery.Subscription.RetainAsPublished &&
-                            effectiveLease.RetainFlag,
-                        delivery.SubscriptionIdentifiers,
-                        cancellationToken).ConfigureAwait(false);
-                }
-            }
-            else
-            {
-                int publisherShardId = sender.ShardId;
-                MqttZeroRoutePlan plan = MqttZeroRoutePlanner.Plan(
-                    _routeEpochs.Current,
-                    effectiveLease.Topic.Span,
-                    sender,
-                    _sharedGroupCursors,
-                    shards.Count,
-                    lanes[publisherShardId]);
-                if (plan.TotalDeliveryCount > 0)
-                {
-                    await dispatcher.DispatchAsync(
-                        plan,
-                        lanes[publisherShardId],
-                        effectiveLease,
-                        senderConnection,
-                        publisherShardId,
-                        cancellationToken).ConfigureAwait(false);
-                }
+                await dispatcher.DispatchAsync(
+                    plan,
+                    lanes[publisherShardId],
+                    effectiveLease,
+                    senderConnection,
+                    publisherShardId,
+                    cancellationToken).ConfigureAwait(false);
             }
 
             if (!suppressPublisherAck &&
