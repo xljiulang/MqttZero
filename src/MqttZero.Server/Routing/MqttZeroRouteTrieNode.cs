@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace MqttZero.Server.Routing;
 
 internal sealed class MqttZeroRouteTrieNode
@@ -93,7 +95,7 @@ internal sealed class MqttZeroRouteTrieNode
 
     public bool TryGetExactChild(
         ReadOnlySpan<byte> segment,
-        out MqttZeroRouteTrieNode? node)
+        [NotNullWhen(true)] out MqttZeroRouteTrieNode? node)
     {
         int low = 0;
         int high = _exactChildren.Length - 1;

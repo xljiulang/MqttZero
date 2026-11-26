@@ -175,7 +175,7 @@ public sealed partial class MqttZeroBroker
         }
 
         MqttZeroSharedGroupKey key =
-            MqttZeroSharedGroupKeys.Create(subscription);
+            MqttZeroSharedGroupKey.Create(subscription);
         _sharedGroupReferences[key] =
             _sharedGroupReferences.TryGetValue(key, out int count)
                 ? count + 1
@@ -191,7 +191,7 @@ public sealed partial class MqttZeroBroker
         }
 
         MqttZeroSharedGroupKey key =
-            MqttZeroSharedGroupKeys.Create(subscription);
+            MqttZeroSharedGroupKey.Create(subscription);
         if (!_sharedGroupReferences.TryGetValue(key, out int count))
         {
             return;

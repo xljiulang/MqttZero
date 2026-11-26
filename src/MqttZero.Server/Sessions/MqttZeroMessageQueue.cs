@@ -41,16 +41,33 @@ internal sealed class MqttZeroMessageQueue
         }
     }
 
+    private MqttZeroQueuedMessage Head
+    {
+        get
+        {
+            return _head ??
+                throw new InvalidOperationException(
+                    "The MQTT message queue is empty.");
+        }
+    }
+
+    private static MqttZeroQueuedMessage GetNext(MqttZeroQueuedMessage message)
+    {
+        return message.QueueNext ??
+            throw new InvalidOperationException(
+                "The MQTT message queue link is corrupted.");
+    }
+
     public MqttZeroQueuedMessage this[int index]
     {
         get
         {
             ArgumentOutOfRangeException.ThrowIfNegative(index);
             ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _count);
-            MqttZeroQueuedMessage current = _head!;
+            MqttZeroQueuedMessage current = Head;
             for (int currentIndex = 0; currentIndex < index; currentIndex++)
             {
-                current = current.QueueNext!;
+                current = GetNext(current);
             }
 
             return current;
@@ -138,10 +155,10 @@ internal sealed class MqttZeroMessageQueue
     {
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _count);
-        MqttZeroQueuedMessage current = _head!;
+        MqttZeroQueuedMessage current = Head;
         for (int currentIndex = 0; currentIndex < index; currentIndex++)
         {
-            current = current.QueueNext!;
+            current = GetNext(current);
         }
 
         Unlink(current);

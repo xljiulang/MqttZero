@@ -11,6 +11,28 @@ namespace MqttZero.Server.Broker;
 
 public sealed partial class MqttZeroBroker
 {
+    private async ValueTask PersistAsync<TState>(
+        string operation,
+        string key,
+        TState state,
+        MqttZeroStoreOperation<TState> callback,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await callback(state, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            MqttZeroBrokerLogging.LogPersistenceFailure(
+                _logger,
+                operation,
+                key,
+                exception);
+            throw;
+        }
+    }
+
     private async ValueTask RestorePersistenceAsync(CancellationToken cancellationToken)
     {
         Dictionary<string, MqttZeroSessionState> stagedSessions =
@@ -491,31 +513,29 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        await PersistAsync(
+            nameof(DeletePersistedMessageAsync),
+            message.ClientId,
+            (Store: _messageStore, Message: message),
+            DeleteAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask DeleteAsync(
+            (IMqttZeroMessageStore Store, MqttZeroPersistedMessage Message) state,
+            CancellationToken token)
         {
-            if (message.Kind == MqttZeroPersistedMessageKind.InboundQos2)
+            if (state.Message.Kind == MqttZeroPersistedMessageKind.InboundQos2)
             {
-                await _messageStore.DeleteInboundQos2Async(
-                    message.ClientId,
-                    message.PacketIdentifier,
-                    cancellationToken).ConfigureAwait(false);
+                return state.Store.DeleteInboundQos2Async(
+                    state.Message.ClientId,
+                    state.Message.PacketIdentifier,
+                    token);
             }
-            else
-            {
-                await _messageStore.DeleteMessageAsync(
-                    message.ClientId,
-                    message.MessageId,
-                    cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(DeletePersistedMessageAsync),
-                message.ClientId,
-                exception);
-            throw;
+
+            return state.Store.DeleteMessageAsync(
+                state.Message.ClientId,
+                state.Message.MessageId,
+                token);
         }
     }
 
@@ -669,28 +689,27 @@ public sealed partial class MqttZeroBroker
             }
         }
 
-        try
+        MqttZeroPersistedSession persisted = new()
         {
-            await _sessionStore.SaveAsync(
-                new MqttZeroPersistedSession
-                {
-                    ClientId = session.ClientId,
-                    CleanStart = cleanStart,
-                    ExpiryInterval = expiryInterval,
-                    DisconnectedAt = disconnectedAt,
-                    Will = will,
-                    Subscriptions = subscriptions
-                },
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception)
+            ClientId = session.ClientId,
+            CleanStart = cleanStart,
+            ExpiryInterval = expiryInterval,
+            DisconnectedAt = disconnectedAt,
+            Will = will,
+            Subscriptions = subscriptions
+        };
+        await PersistAsync(
+            nameof(IMqttZeroSessionStore.SaveAsync),
+            session.ClientId,
+            (Store: _sessionStore, Session: persisted),
+            SaveAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask SaveAsync(
+            (IMqttZeroSessionStore Store, MqttZeroPersistedSession Session) state,
+            CancellationToken token)
         {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroSessionStore.SaveAsync),
-                session.ClientId,
-                exception);
-            throw;
+            return state.Store.SaveAsync(state.Session, token);
         }
     }
 
@@ -704,27 +723,26 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        MqttZeroPersistedRetainedMessage persisted = new()
         {
-            await _retainedMessageStore.SaveAsync(
-                new MqttZeroPersistedRetainedMessage
-                {
-                    Topic = lease.Topic,
-                    Properties = lease.Properties,
-                    Payload = lease.Payload,
-                    QualityOfServiceLevel = lease.QualityOfServiceLevel,
-                    ExpiresAt = expiresAt
-                },
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception)
+            Topic = lease.Topic,
+            Properties = lease.Properties,
+            Payload = lease.Payload,
+            QualityOfServiceLevel = lease.QualityOfServiceLevel,
+            ExpiresAt = expiresAt
+        };
+        await PersistAsync(
+            nameof(IMqttZeroRetainedMessageStore.SaveAsync),
+            Encoding.UTF8.GetString(lease.Topic.Span),
+            (Store: _retainedMessageStore, Message: persisted),
+            SaveAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask SaveAsync(
+            (IMqttZeroRetainedMessageStore Store, MqttZeroPersistedRetainedMessage Message) state,
+            CancellationToken token)
         {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroRetainedMessageStore.SaveAsync),
-                Encoding.UTF8.GetString(lease.Topic.Span),
-                exception);
-            throw;
+            return state.Store.SaveAsync(state.Message, token);
         }
     }
 
@@ -738,23 +756,25 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        MqttZeroPersistedMessage persisted = CreatePersistedMessage(
+            message,
+            clientId,
+            MqttZeroPersistedMessageKind.Queued);
+        await PersistAsync(
+            nameof(IMqttZeroMessageStore.SaveQueuedAsync),
+            clientId,
+            (Store: _messageStore, Message: persisted, ClientId: clientId),
+            SaveAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask SaveAsync(
+            (
+                IMqttZeroMessageStore Store,
+                MqttZeroPersistedMessage Message,
+                string ClientId) state,
+            CancellationToken token)
         {
-            await _messageStore.SaveQueuedAsync(
-                CreatePersistedMessage(
-                    message,
-                    clientId,
-                    MqttZeroPersistedMessageKind.Queued),
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroMessageStore.SaveQueuedAsync),
-                clientId,
-                exception);
-            throw;
+            return state.Store.SaveQueuedAsync(state.Message, token);
         }
     }
 
@@ -768,23 +788,22 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        MqttZeroPersistedMessage persisted = CreatePersistedMessage(
+            message,
+            clientId,
+            MqttZeroPersistedMessageKind.Outbound);
+        await PersistAsync(
+            nameof(IMqttZeroMessageStore.SaveOutboundAsync),
+            clientId,
+            (Store: _messageStore, Message: persisted),
+            SaveAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask SaveAsync(
+            (IMqttZeroMessageStore Store, MqttZeroPersistedMessage Message) state,
+            CancellationToken token)
         {
-            await _messageStore.SaveOutboundAsync(
-                CreatePersistedMessage(
-                    message,
-                    clientId,
-                    MqttZeroPersistedMessageKind.Outbound),
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroMessageStore.SaveOutboundAsync),
-                clientId,
-                exception);
-            throw;
+            return state.Store.SaveOutboundAsync(state.Message, token);
         }
     }
 
@@ -799,20 +818,20 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        MqttZeroPersistedMessage persisted =
+            CreateInboundPersistedMessage(lease, clientId, packetIdentifier);
+        await PersistAsync(
+            nameof(IMqttZeroMessageStore.SaveInboundQos2Async),
+            clientId,
+            (Store: _messageStore, Message: persisted),
+            SaveAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask SaveAsync(
+            (IMqttZeroMessageStore Store, MqttZeroPersistedMessage Message) state,
+            CancellationToken token)
         {
-            await _messageStore.SaveInboundQos2Async(
-                CreateInboundPersistedMessage(lease, clientId, packetIdentifier),
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroMessageStore.SaveInboundQos2Async),
-                clientId,
-                exception);
-            throw;
+            return state.Store.SaveInboundQos2Async(state.Message, token);
         }
     }
 
@@ -827,23 +846,23 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
-        {
-            await _messageStore.SaveInboundDispatchAsync(
-                CreateInboundDispatchPersistedMessage(
-                    lease,
-                    sender.ClientId,
-                    messageId),
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroMessageStore.SaveInboundDispatchAsync),
+        MqttZeroPersistedMessage persisted =
+            CreateInboundDispatchPersistedMessage(
+                lease,
                 sender.ClientId,
-                exception);
-            throw;
+                messageId);
+        await PersistAsync(
+            nameof(IMqttZeroMessageStore.SaveInboundDispatchAsync),
+            sender.ClientId,
+            (Store: _messageStore, Message: persisted),
+            SaveAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask SaveAsync(
+            (IMqttZeroMessageStore Store, MqttZeroPersistedMessage Message) state,
+            CancellationToken token)
+        {
+            return state.Store.SaveInboundDispatchAsync(state.Message, token);
         }
     }
 
@@ -857,21 +876,24 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        await PersistAsync(
+            nameof(IMqttZeroMessageStore.DeleteInboundDispatchAsync),
+            clientId,
+            (Store: _messageStore, ClientId: clientId, MessageId: messageId),
+            DeleteAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask DeleteAsync(
+            (
+                IMqttZeroMessageStore Store,
+                string ClientId,
+                long MessageId) state,
+            CancellationToken token)
         {
-            await _messageStore.DeleteInboundDispatchAsync(
-                clientId,
-                messageId,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroMessageStore.DeleteInboundDispatchAsync),
-                clientId,
-                exception);
-            throw;
+            return state.Store.DeleteInboundDispatchAsync(
+                state.ClientId,
+                state.MessageId,
+                token);
         }
     }
 
@@ -885,25 +907,34 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        MqttZeroPersistedMessage persisted = CreatePersistedMessage(
+            message,
+            clientId,
+            MqttZeroPersistedMessageKind.Outbound);
+        await PersistAsync(
+            nameof(IMqttZeroMessageStore.TransitionQueuedToOutboundAsync),
+            clientId,
+            (
+                Store: _messageStore,
+                ClientId: clientId,
+                MessageId: message.MessageId,
+                Message: persisted),
+            TransitionAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask TransitionAsync(
+            (
+                IMqttZeroMessageStore Store,
+                string ClientId,
+                long MessageId,
+                MqttZeroPersistedMessage Message) state,
+            CancellationToken token)
         {
-            await _messageStore.TransitionQueuedToOutboundAsync(
-                clientId,
-                message.MessageId,
-                CreatePersistedMessage(
-                    message,
-                    clientId,
-                    MqttZeroPersistedMessageKind.Outbound),
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroMessageStore.TransitionQueuedToOutboundAsync),
-                clientId,
-                exception);
-            throw;
+            return state.Store.TransitionQueuedToOutboundAsync(
+                state.ClientId,
+                state.MessageId,
+                state.Message,
+                token);
         }
     }
 
@@ -918,25 +949,34 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        MqttZeroPersistedMessage persisted = CreatePersistedMessage(
+            message,
+            clientId,
+            MqttZeroPersistedMessageKind.Queued);
+        await PersistAsync(
+            nameof(IMqttZeroMessageStore.ReplaceQueuedAsync),
+            clientId,
+            (
+                Store: _messageStore,
+                ClientId: clientId,
+                ReplacedMessageId: replacedMessageId,
+                Message: persisted),
+            ReplaceAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask ReplaceAsync(
+            (
+                IMqttZeroMessageStore Store,
+                string ClientId,
+                long ReplacedMessageId,
+                MqttZeroPersistedMessage Message) state,
+            CancellationToken token)
         {
-            await _messageStore.ReplaceQueuedAsync(
-                clientId,
-                replacedMessageId,
-                CreatePersistedMessage(
-                    message,
-                    clientId,
-                    MqttZeroPersistedMessageKind.Queued),
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroMessageStore.ReplaceQueuedAsync),
-                clientId,
-                exception);
-            throw;
+            return state.Store.ReplaceQueuedAsync(
+                state.ClientId,
+                state.ReplacedMessageId,
+                state.Message,
+                token);
         }
     }
 
@@ -950,21 +990,24 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        await PersistAsync(
+            nameof(IMqttZeroMessageStore.DeleteMessageAsync),
+            clientId,
+            (Store: _messageStore, ClientId: clientId, MessageId: messageId),
+            DeleteAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask DeleteAsync(
+            (
+                IMqttZeroMessageStore Store,
+                string ClientId,
+                long MessageId) state,
+            CancellationToken token)
         {
-            await _messageStore.DeleteMessageAsync(
-                clientId,
-                messageId,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroMessageStore.DeleteMessageAsync),
-                clientId,
-                exception);
-            throw;
+            return state.Store.DeleteMessageAsync(
+                state.ClientId,
+                state.MessageId,
+                token);
         }
     }
 
@@ -978,21 +1021,27 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        await PersistAsync(
+            nameof(IMqttZeroMessageStore.DeleteInboundQos2Async),
+            clientId,
+            (
+                Store: _messageStore,
+                ClientId: clientId,
+                PacketIdentifier: packetIdentifier),
+            DeleteAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask DeleteAsync(
+            (
+                IMqttZeroMessageStore Store,
+                string ClientId,
+                ushort PacketIdentifier) state,
+            CancellationToken token)
         {
-            await _messageStore.DeleteInboundQos2Async(
-                clientId,
-                packetIdentifier,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroMessageStore.DeleteInboundQos2Async),
-                clientId,
-                exception);
-            throw;
+            return state.Store.DeleteInboundQos2Async(
+                state.ClientId,
+                state.PacketIdentifier,
+                token);
         }
     }
 
@@ -1005,19 +1054,18 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        await PersistAsync(
+            nameof(IMqttZeroMessageStore.DeleteByClientAsync),
+            clientId,
+            (Store: _messageStore, ClientId: clientId),
+            DeleteAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask DeleteAsync(
+            (IMqttZeroMessageStore Store, string ClientId) state,
+            CancellationToken token)
         {
-            await _messageStore.DeleteByClientAsync(clientId, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroMessageStore.DeleteByClientAsync),
-                clientId,
-                exception);
-            throw;
+            return state.Store.DeleteByClientAsync(state.ClientId, token);
         }
     }
 
@@ -1030,19 +1078,18 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        await PersistAsync(
+            nameof(IMqttZeroSessionStore.DeleteAsync),
+            clientId,
+            (Store: _sessionStore, ClientId: clientId),
+            DeleteAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask DeleteAsync(
+            (IMqttZeroSessionStore Store, string ClientId) state,
+            CancellationToken token)
         {
-            await _sessionStore.DeleteAsync(clientId, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroSessionStore.DeleteAsync),
-                clientId,
-                exception);
-            throw;
+            return state.Store.DeleteAsync(state.ClientId, token);
         }
     }
 
@@ -1055,19 +1102,18 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        try
+        await PersistAsync(
+            nameof(IMqttZeroRetainedMessageStore.DeleteAsync),
+            topic,
+            (Store: _retainedMessageStore, Topic: topic),
+            DeleteAsync,
+            cancellationToken).ConfigureAwait(false);
+
+        static ValueTask DeleteAsync(
+            (IMqttZeroRetainedMessageStore Store, string Topic) state,
+            CancellationToken token)
         {
-            await _retainedMessageStore.DeleteAsync(topic, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(IMqttZeroRetainedMessageStore.DeleteAsync),
-                topic,
-                exception);
-            throw;
+            return state.Store.DeleteAsync(state.Topic, token);
         }
     }
 

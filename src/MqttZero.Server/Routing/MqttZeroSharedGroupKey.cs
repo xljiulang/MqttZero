@@ -1,3 +1,6 @@
+using MqttZero.Server.Sessions;
+using System.Text;
+
 namespace MqttZero.Server.Routing;
 
 internal readonly struct MqttZeroSharedGroupKey :
@@ -12,6 +15,30 @@ internal readonly struct MqttZeroSharedGroupKey :
     {
         _group = group.ToArray();
         _filter = filter.ToArray();
+    }
+
+    /// <summary>
+    /// Creates the key of one shared subscription.
+    /// </summary>
+    /// <param name="subscription">The shared subscription.</param>
+    /// <returns>The shared group key.</returns>
+    /// <exception cref="ArgumentException">
+    /// Thrown when the subscription is not a shared subscription.
+    /// </exception>
+    public static MqttZeroSharedGroupKey Create(
+        MqttZeroSubscription subscription)
+    {
+        ArgumentNullException.ThrowIfNull(subscription);
+        if (!subscription.TryGetSharedGroup(out string? sharedGroup))
+        {
+            throw new ArgumentException(
+                "The subscription is not a shared subscription.",
+                nameof(subscription));
+        }
+
+        return new MqttZeroSharedGroupKey(
+            Encoding.UTF8.GetBytes(sharedGroup),
+            subscription.MatchFilter);
     }
 
     public ReadOnlySpan<byte> Group

@@ -1,39 +1,13 @@
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using static MqttZero.Protocol.Mqtt5PropertyId;
 
 namespace MqttZero.Protocol;
 
 internal static class Mqtt5PropertyReader
 {
-    private const byte PayloadFormatIndicator = 0x01;
-    private const byte MessageExpiryInterval = 0x02;
-    private const byte ContentType = 0x03;
-    private const byte ResponseTopic = 0x08;
-    private const byte CorrelationData = 0x09;
-    private const byte SubscriptionIdentifier = 0x0B;
-    private const byte SessionExpiryInterval = 0x11;
-    private const byte AssignedClientIdentifier = 0x12;
-    private const byte ServerKeepAlive = 0x13;
-    private const byte AuthenticationMethod = 0x15;
-    private const byte AuthenticationData = 0x16;
-    private const byte RequestProblemInformation = 0x17;
-    private const byte WillDelayInterval = 0x18;
-    private const byte RequestResponseInformation = 0x19;
-    private const byte ResponseInformation = 0x1A;
-    private const byte ServerReference = 0x1C;
-    private const byte ReasonString = 0x1F;
-    private const byte ReceiveMaximum = 0x21;
-    private const byte TopicAliasMaximum = 0x22;
-    private const byte TopicAlias = 0x23;
-    private const byte MaximumQos = 0x24;
-    private const byte RetainAvailable = 0x25;
-    private const byte UserProperty = 0x26;
-    private const byte MaximumPacketSize = 0x27;
-    private const byte WildcardSubscriptionAvailable = 0x28;
-    private const byte SubscriptionIdentifierAvailable = 0x29;
-    private const byte SharedSubscriptionAvailable = 0x2A;
-
     public static bool TryReadConnect(
         ReadOnlySequence<byte> properties,
         MqttConnectPacket packet)
@@ -149,11 +123,11 @@ internal static class Mqtt5PropertyReader
                     }
 
                     userProperties ??= [];
-                    userProperties.Add(userProperty!);
+                    userProperties.Add(userProperty);
                     break;
                 default:
                     if (!Mqtt5PropertySchema.IsAllowed(MqttPacketType.Connect, identifier) ||
-                        !TrySkipProperty(identifier, ref reader))
+                        !Mqtt5PropertyLayout.TrySkip(identifier, ref reader))
                     {
                         return false;
                     }
@@ -420,11 +394,11 @@ internal static class Mqtt5PropertyReader
                     }
 
                     userProperties ??= [];
-                    userProperties.Add(userProperty!);
+                    userProperties.Add(userProperty);
                     break;
                 default:
                     if (!Mqtt5PropertySchema.IsAllowed(MqttPacketType.ConnAck, identifier) ||
-                        !TrySkipProperty(identifier, ref reader))
+                        !Mqtt5PropertyLayout.TrySkip(identifier, ref reader))
                     {
                         return false;
                     }
@@ -477,10 +451,10 @@ internal static class Mqtt5PropertyReader
                 }
 
                 userProperties ??= [];
-                userProperties.Add(userProperty!);
+                userProperties.Add(userProperty);
             }
             else if (!Mqtt5PropertySchema.IsAllowed(MqttPacketType.Subscribe, identifier) ||
-                !TrySkipProperty(identifier, ref reader))
+                !Mqtt5PropertyLayout.TrySkip(identifier, ref reader))
             {
                 return false;
             }
@@ -512,7 +486,7 @@ internal static class Mqtt5PropertyReader
                 }
 
                 userProperties ??= [];
-                userProperties.Add(userProperty!);
+                userProperties.Add(userProperty);
             }
             else
             {
@@ -561,7 +535,7 @@ internal static class Mqtt5PropertyReader
                 }
 
                 values ??= [];
-                values.Add(userProperty!);
+                values.Add(userProperty);
             }
             else
             {
@@ -670,10 +644,10 @@ internal static class Mqtt5PropertyReader
                 }
 
                 userProperties ??= [];
-                userProperties.Add(userProperty!);
+                userProperties.Add(userProperty);
             }
             else if (!Mqtt5PropertySchema.IsAllowed(MqttPacketType.Disconnect, identifier) ||
-                !TrySkipProperty(identifier, ref reader))
+                !Mqtt5PropertyLayout.TrySkip(identifier, ref reader))
             {
                 return false;
             }
@@ -821,13 +795,13 @@ internal static class Mqtt5PropertyReader
                     }
 
                     userProperties ??= [];
-                    userProperties.Add(userProperty!);
+                    userProperties.Add(userProperty);
                     break;
                 default:
                     bool allowed = isWill
                         ? Mqtt5PropertySchema.IsAllowedWillProperty(identifier)
                         : Mqtt5PropertySchema.IsAllowed(MqttPacketType.Publish, identifier);
-                    if (!allowed || !TrySkipProperty(identifier, ref reader))
+                    if (!allowed || !Mqtt5PropertyLayout.TrySkip(identifier, ref reader))
                     {
                         publishProperties = MqttPublishProperties.Empty;
                         subscriptionIdentifiers = Array.Empty<uint>();
@@ -855,7 +829,7 @@ internal static class Mqtt5PropertyReader
 
     private static bool TryReadUserProperty(
         ref SequenceReader<byte> reader,
-        out MqttUserProperty? userProperty)
+        [NotNullWhen(true)] out MqttUserProperty? userProperty)
     {
         userProperty = null;
         if (!TryReadUtf8String(ref reader, out string? name) ||
@@ -870,26 +844,6 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
-    private static bool TrySkipProperty(byte identifier, ref SequenceReader<byte> reader)
-    {
-        return identifier switch
-        {
-            PayloadFormatIndicator or RequestProblemInformation or RequestResponseInformation or
-                MaximumQos or RetainAvailable or WildcardSubscriptionAvailable or
-                SubscriptionIdentifierAvailable or SharedSubscriptionAvailable =>
-                TryAdvance(ref reader, 1),
-            MessageExpiryInterval or SessionExpiryInterval or WillDelayInterval or
-                MaximumPacketSize => TryAdvance(ref reader, 4),
-            ServerKeepAlive or ReceiveMaximum or TopicAliasMaximum or TopicAlias =>
-                TryAdvance(ref reader, 2),
-            CorrelationData or AuthenticationData => TrySkipBinary(ref reader),
-            ContentType or ResponseTopic or AssignedClientIdentifier or AuthenticationMethod or
-                ResponseInformation or ServerReference or ReasonString => TrySkipUtf8(ref reader),
-            UserProperty => TrySkipUtf8(ref reader) && TrySkipUtf8(ref reader),
-            _ => false
-        };
-    }
-
     private static bool TryReadBoolean(ref SequenceReader<byte> reader, out bool value)
     {
         value = false;
@@ -902,26 +856,9 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
-    private static bool TryAdvance(ref SequenceReader<byte> reader, long length)
-    {
-        if (reader.Remaining < length)
-        {
-            return false;
-        }
-
-        reader.Advance(length);
-        return true;
-    }
-
     private static bool TrySkipBinary(ref SequenceReader<byte> reader)
     {
-        if (!TryReadUInt16(ref reader, out ushort length) || reader.Remaining < length)
-        {
-            return false;
-        }
-
-        reader.Advance(length);
-        return true;
+        return MqttZeroWireFormat.TrySkipBinary(ref reader);
     }
 
     private static bool TryReadBinary(
@@ -1001,14 +938,7 @@ internal static class Mqtt5PropertyReader
 
     private static bool TryReadUInt16(ref SequenceReader<byte> reader, out ushort value)
     {
-        value = 0;
-        if (!reader.TryRead(out byte high) || !reader.TryRead(out byte low))
-        {
-            return false;
-        }
-
-        value = BinaryPrimitives.ReadUInt16BigEndian([high, low]);
-        return true;
+        return MqttZeroWireFormat.TryReadUInt16(ref reader, out value);
     }
 
     private static bool TryReadUInt32(ref SequenceReader<byte> reader, out uint value)
@@ -1028,24 +958,6 @@ internal static class Mqtt5PropertyReader
 
     private static bool TryReadVariableByteInteger(ref SequenceReader<byte> reader, out int value)
     {
-        value = 0;
-        int multiplier = 1;
-        for (int index = 0; index < 4; index++)
-        {
-            if (!reader.TryRead(out byte encoded))
-            {
-                return false;
-            }
-
-            value += (encoded & 0x7F) * multiplier;
-            if ((encoded & 0x80) == 0)
-            {
-                return true;
-            }
-
-            multiplier *= 128;
-        }
-
-        return false;
+        return MqttZeroWireFormat.TryReadVariableByteInteger(ref reader, out value);
     }
 }

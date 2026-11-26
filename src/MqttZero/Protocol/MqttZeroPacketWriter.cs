@@ -100,21 +100,7 @@ internal sealed class MqttZeroPacketWriter : IBufferWriter<byte>
 
     public static int WriteVariableByteInteger(Span<byte> destination, uint value)
     {
-        int count = 0;
-        do
-        {
-            byte encoded = (byte)(value % 128);
-            value /= 128;
-            if (value > 0)
-            {
-                encoded |= 0x80;
-            }
-
-            destination[count++] = encoded;
-        }
-        while (value > 0);
-
-        return count;
+        return MqttZeroWireFormat.WriteVariableByteInteger(destination, (int)value);
     }
 
     private void EnsureCapacity(int required)

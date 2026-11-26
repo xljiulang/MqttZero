@@ -1,4 +1,6 @@
 using MqttZero.Server.Routing;
+using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 
 namespace MqttZero.Server.Retained;
 
@@ -58,7 +60,7 @@ internal sealed class MqttZeroRetainedTopicNode
 
     public bool TryGetExactChild(
         ReadOnlySpan<byte> segment,
-        out MqttZeroRetainedTopicNode? node)
+        [NotNullWhen(true)] out MqttZeroRetainedTopicNode? node)
     {
         int low = 0;
         int high = _exactChildren.Length - 1;

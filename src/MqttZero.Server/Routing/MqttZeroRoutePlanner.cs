@@ -98,7 +98,7 @@ internal static class MqttZeroRoutePlanner
             out MqttZeroRouteTrieNode? exactChild))
         {
             PlanNode(
-                exactChild!,
+                exactChild,
                 rest,
                 hasMoreLevels,
                 sender,

@@ -19,7 +19,7 @@ public sealed class PublishBatchEncodingTests
             await using MqttZeroClientConnection encodeConnection =
                 CreateConnection(encodeWriter);
             int encodedBytes =
-                await encodeConnection.TryEncodePublishBatchAsync(
+                await encodeConnection.EncodePublishBatchAsync(
                 messages,
                 TestContext.Current.CancellationToken);
             bool encoded = encodedBytes > 0;

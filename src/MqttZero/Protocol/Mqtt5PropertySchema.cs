@@ -3,35 +3,68 @@ namespace MqttZero.Protocol;
 internal static class Mqtt5PropertySchema
 {
     private static readonly ulong ConnectProperties =
-        PropertyMask(0x11, 0x15, 0x16, 0x17, 0x19, 0x21, 0x22, 0x26, 0x27);
+        PropertyMask(
+            Mqtt5PropertyId.SessionExpiryInterval,
+            Mqtt5PropertyId.AuthenticationMethod,
+            Mqtt5PropertyId.AuthenticationData,
+            Mqtt5PropertyId.RequestProblemInformation,
+            Mqtt5PropertyId.RequestResponseInformation,
+            Mqtt5PropertyId.ReceiveMaximum,
+            Mqtt5PropertyId.TopicAliasMaximum,
+            Mqtt5PropertyId.UserProperty,
+            Mqtt5PropertyId.MaximumPacketSize);
     private static readonly ulong WillProperties =
-        PropertyMask(0x01, 0x02, 0x03, 0x08, 0x09, 0x18, 0x26);
+        PropertyMask(
+            Mqtt5PropertyId.PayloadFormatIndicator,
+            Mqtt5PropertyId.MessageExpiryInterval,
+            Mqtt5PropertyId.ContentType,
+            Mqtt5PropertyId.ResponseTopic,
+            Mqtt5PropertyId.CorrelationData,
+            Mqtt5PropertyId.WillDelayInterval,
+            Mqtt5PropertyId.UserProperty);
     private static readonly ulong ConnAckProperties =
         PropertyMask(
-            0x11,
-            0x12,
-            0x13,
-            0x15,
-            0x16,
-            0x1A,
-            0x1C,
-            0x1F,
-            0x21,
-            0x22,
-            0x24,
-            0x25,
-            0x26,
-            0x27,
-            0x28,
-            0x29,
-            0x2A);
+            Mqtt5PropertyId.SessionExpiryInterval,
+            Mqtt5PropertyId.AssignedClientIdentifier,
+            Mqtt5PropertyId.ServerKeepAlive,
+            Mqtt5PropertyId.AuthenticationMethod,
+            Mqtt5PropertyId.AuthenticationData,
+            Mqtt5PropertyId.ResponseInformation,
+            Mqtt5PropertyId.ServerReference,
+            Mqtt5PropertyId.ReasonString,
+            Mqtt5PropertyId.ReceiveMaximum,
+            Mqtt5PropertyId.TopicAliasMaximum,
+            Mqtt5PropertyId.MaximumQos,
+            Mqtt5PropertyId.RetainAvailable,
+            Mqtt5PropertyId.UserProperty,
+            Mqtt5PropertyId.MaximumPacketSize,
+            Mqtt5PropertyId.WildcardSubscriptionAvailable,
+            Mqtt5PropertyId.SubscriptionIdentifierAvailable,
+            Mqtt5PropertyId.SharedSubscriptionAvailable);
     private static readonly ulong PublishProperties =
-        PropertyMask(0x01, 0x02, 0x03, 0x08, 0x09, 0x0B, 0x23, 0x26);
-    private static readonly ulong AcknowledgementProperties = PropertyMask(0x1F, 0x26);
-    private static readonly ulong SubscribeProperties = PropertyMask(0x0B, 0x26);
-    private static readonly ulong UnsubscribeProperties = PropertyMask(0x26);
+        PropertyMask(
+            Mqtt5PropertyId.PayloadFormatIndicator,
+            Mqtt5PropertyId.MessageExpiryInterval,
+            Mqtt5PropertyId.ContentType,
+            Mqtt5PropertyId.ResponseTopic,
+            Mqtt5PropertyId.CorrelationData,
+            Mqtt5PropertyId.SubscriptionIdentifier,
+            Mqtt5PropertyId.TopicAlias,
+            Mqtt5PropertyId.UserProperty);
+    private static readonly ulong AcknowledgementProperties = PropertyMask(
+        Mqtt5PropertyId.ReasonString,
+        Mqtt5PropertyId.UserProperty);
+    private static readonly ulong SubscribeProperties = PropertyMask(
+        Mqtt5PropertyId.SubscriptionIdentifier,
+        Mqtt5PropertyId.UserProperty);
+    private static readonly ulong UnsubscribeProperties = PropertyMask(
+        Mqtt5PropertyId.UserProperty);
     private static readonly ulong DisconnectProperties =
-        PropertyMask(0x11, 0x1C, 0x1F, 0x26);
+        PropertyMask(
+            Mqtt5PropertyId.SessionExpiryInterval,
+            Mqtt5PropertyId.ServerReference,
+            Mqtt5PropertyId.ReasonString,
+            Mqtt5PropertyId.UserProperty);
 
     public static bool IsAllowed(MqttPacketType packetType, byte identifier)
     {

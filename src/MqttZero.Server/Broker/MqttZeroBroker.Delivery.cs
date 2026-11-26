@@ -59,7 +59,7 @@ public sealed partial class MqttZeroBroker
                 copySubscriptionIdentifiers: true);
         }
 
-        return DeliverLeaseAsync(
+        return EnqueueLeaseAsync(
             delivery.Session,
             lease,
             deliveryQos,
@@ -201,7 +201,7 @@ public sealed partial class MqttZeroBroker
         return deliveryCount;
     }
 
-    private async ValueTask DeliverAsync(
+    private async ValueTask EnqueuePacketAsync(
         MqttZeroSessionState session,
         MqttPublishPacket source,
         MqttQualityOfServiceLevel qos,
@@ -209,7 +209,7 @@ public sealed partial class MqttZeroBroker
         uint? subscriptionIdentifier,
         CancellationToken cancellationToken)
     {
-        await DeliverAsync(
+        await EnqueuePacketAsync(
             session,
             source,
             qos,
@@ -220,7 +220,7 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask DeliverAsync(
+    private async ValueTask EnqueuePacketAsync(
         MqttZeroSessionState session,
         MqttPublishPacket source,
         MqttQualityOfServiceLevel qos,
@@ -242,7 +242,7 @@ public sealed partial class MqttZeroBroker
         lease.SetExpiresAt(CalculateMessageExpiresAt(source.Properties.MessageExpiryInterval));
         try
         {
-            await DeliverLeaseAsync(
+            await EnqueueLeaseAsync(
                 session,
                 lease,
                 qos,
@@ -257,7 +257,7 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    private async ValueTask DeliverLeaseAsync(
+    private async ValueTask EnqueueLeaseAsync(
         MqttZeroSessionState session,
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qos,
@@ -266,7 +266,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection? senderConnection,
         CancellationToken cancellationToken)
     {
-        await DeliverLeaseAsync(
+        await EnqueueLeaseAsync(
             session,
             lease,
             qos,
@@ -278,7 +278,7 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask DeliverLeaseAsync(
+    private async ValueTask EnqueueLeaseAsync(
         MqttZeroSessionState session,
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qos,
@@ -439,7 +439,7 @@ public sealed partial class MqttZeroBroker
                     cancellationToken).ConfigureAwait(false);
             }
 
-            if (messageHeld && _messageStore.IsEnabled)
+            if (messageHeld && message != null && _messageStore.IsEnabled)
             {
                 try
                 {
@@ -448,13 +448,13 @@ public sealed partial class MqttZeroBroker
                         await ReplaceQueuedAsync(
                             session.ClientId,
                             evicted.MessageId,
-                            message!,
+                            message,
                             cancellationToken).ConfigureAwait(false);
                     }
                     else
                     {
                         await SaveQueuedAsync(
-                            message!,
+                            message,
                             session.ClientId,
                             cancellationToken).ConfigureAwait(false);
                     }
@@ -476,7 +476,7 @@ public sealed partial class MqttZeroBroker
                         }
                     }
 
-                    message!.Release();
+                    message.Release();
                     messageHeld = false;
                     if (connection != null)
                     {
@@ -903,6 +903,11 @@ public sealed partial class MqttZeroBroker
         async ValueTask<bool> DrainAsync(
             CancellationToken pumpCancellationToken)
         {
+            if (egress is not { } actor)
+            {
+                return false;
+            }
+
             long started = Stopwatch.GetTimestamp();
             try
             {
@@ -917,7 +922,7 @@ public sealed partial class MqttZeroBroker
                 return await DrainQueuedMessagesOnceAsync(
                     session,
                     connection,
-                    egress!,
+                    actor,
                     pumpCancellationToken).ConfigureAwait(false);
             }
             finally
@@ -928,25 +933,10 @@ public sealed partial class MqttZeroBroker
         }
 
         egress = new MqttZeroEgressActor(
-            _shardSet!.GetEgressScheduler(session.ShardId),
+            ShardSet.GetEgressScheduler(session.ShardId),
             connection.WriteEncodedControlBatchAsync,
             DrainAsync,
-            exception =>
-            {
-                MqttZeroBrokerLogging.LogEgressFailure(
-                    _logger,
-                    session.ClientId,
-                    exception);
-                lock (session.SyncRoot)
-                {
-                    if (ReferenceEquals(session.Egress, egress))
-                    {
-                        session.Egress = null;
-                    }
-                }
-
-                connection.Abort();
-            });
+            OnEgressFailure);
         lock (session.SyncRoot)
         {
             if (session.Egress != null)
@@ -961,6 +951,23 @@ public sealed partial class MqttZeroBroker
         connection.AttachEgress(egress);
         egress.Signal();
         return egress;
+
+        void OnEgressFailure(Exception exception)
+        {
+            MqttZeroBrokerLogging.LogEgressFailure(
+                _logger,
+                session.ClientId,
+                exception);
+            lock (session.SyncRoot)
+            {
+                if (ReferenceEquals(session.Egress, egress))
+                {
+                    session.Egress = null;
+                }
+            }
+
+            connection.Abort();
+        }
     }
 
     private static async ValueTask ResumeInflightMessagesAsync(
@@ -1154,20 +1161,20 @@ public sealed partial class MqttZeroBroker
             }
 
             expired.Clear();
-            if (nextTooLarge)
+            if (nextTooLarge && next is { } tooLarge)
             {
                 try
                 {
                     await DeleteMessageAsync(
                         session.ClientId,
-                        next!.MessageId,
+                        tooLarge.MessageId,
                         cancellationToken).ConfigureAwait(false);
                 }
                 catch
                 {
                     lock (session.SyncRoot)
                     {
-                        session.PendingMessages.Prepend(next!);
+                        session.PendingMessages.Prepend(tooLarge);
                     }
 
                     throw;
@@ -1176,10 +1183,10 @@ public sealed partial class MqttZeroBroker
                 await NotifyDroppedAsync(
                     null,
                     session,
-                    next!.Lease,
+                    tooLarge.Lease,
                     MqttZeroMessageDropReason.PacketTooLarge,
                     cancellationToken).ConfigureAwait(false);
-                next.Release();
+                tooLarge.Release();
                 continue;
             }
 
@@ -1243,7 +1250,7 @@ public sealed partial class MqttZeroBroker
                         ? Stopwatch.GetTimestamp()
                         : 0;
                     int encodedBytes =
-                        await connection.TryEncodePublishBatchAsync(
+                        await connection.EncodePublishBatchAsync(
                             batch,
                             cancellationToken).ConfigureAwait(false);
                     bool encoded = encodedBytes > 0;
@@ -1400,7 +1407,7 @@ public sealed partial class MqttZeroBroker
     {
         await RoutePreparedLeaseAsync(
             work.Sender,
-            work.SenderConnection!,
+            work.SenderConnection,
             work.Lease,
             cancellationToken).ConfigureAwait(false);
         await DeleteInboundDispatchAsync(

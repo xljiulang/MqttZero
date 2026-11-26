@@ -307,9 +307,10 @@ public static partial class MqttPacketCodec
             throw new ArgumentException("The MQTT acknowledgement packet identifier is invalid.");
         }
 
-        if ((firstByte == 0x50 &&
+        if ((firstByte == MqttPacketHeader.GetFirstByte(MqttPacketType.PubRec) &&
                 !MqttZeroProtocolValidator.IsValidPubAckReasonCode(reasonCode)) ||
-            ((firstByte == 0x62 || firstByte == 0x70) &&
+            ((firstByte == MqttPacketHeader.GetFirstByte(MqttPacketType.PubRel) ||
+                    firstByte == MqttPacketHeader.GetFirstByte(MqttPacketType.PubComp)) &&
                 !MqttZeroProtocolValidator.IsValidPubRelReasonCode(reasonCode)))
         {
             throw new ArgumentException("The MQTT acknowledgement reason code is invalid.");
@@ -415,7 +416,7 @@ public static partial class MqttPacketCodec
             : 2;
 
         Span<byte> fixedHeader = writer.GetSpan(1 + 4);
-        fixedHeader[0] = 0x40;
+        fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.PubAck);
         int lengthBytes = WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(1 + lengthBytes);
         WriteUInt16(writer, packet.PacketIdentifier);
@@ -433,7 +434,7 @@ public static partial class MqttPacketCodec
     private static void EncodeEmptyPacket(MqttPacketType packetType, IBufferWriter<byte> writer)
     {
         Span<byte> destination = writer.GetSpan(2);
-        destination[0] = (byte)((byte)packetType << 4);
+        destination[0] = MqttPacketHeader.GetFirstByte(packetType);
         destination[1] = 0;
         writer.Advance(2);
     }
@@ -454,7 +455,7 @@ public static partial class MqttPacketCodec
             : 0;
 
         Span<byte> fixedHeader = writer.GetSpan(1 + 4);
-        fixedHeader[0] = 0xE0;
+        fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.Disconnect);
         int lengthBytes = WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(1 + lengthBytes);
 

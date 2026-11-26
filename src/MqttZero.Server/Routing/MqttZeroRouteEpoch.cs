@@ -105,7 +105,7 @@ internal sealed class MqttZeroRouteEpoch
             }
             else
             {
-                node = child!;
+                node = child;
             }
 
             if (delimiter < 0)
@@ -147,7 +147,7 @@ internal sealed class MqttZeroRouteEpoch
         bool shared = subscription.IsShared;
         if (shared)
         {
-            sharedKey = MqttZeroSharedGroupKeys.Create(subscription);
+            sharedKey = MqttZeroSharedGroupKey.Create(subscription);
         }
 
         return UpdateNode(
@@ -347,7 +347,7 @@ internal sealed class MqttZeroRouteEpoch
                 out MqttZeroRouteTrieNode? exactChild))
         {
             MatchNode(
-                exactChild!,
+                exactChild,
                 rest,
                 hasMoreLevels,
                 sender,

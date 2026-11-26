@@ -7,6 +7,7 @@ using MqttZero.Server.Sessions;
 using MqttZero.Server.Storage;
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
 
 namespace MqttZero.Server.Broker;
@@ -196,25 +197,15 @@ public sealed partial class MqttZeroBroker
             Sender = senderClient
         };
 
-        if (_publishInterceptors.Length > 0)
+        MqttZeroInterceptionResult interception =
+            await RunPublishInterceptorsAsync(context, cancellationToken)
+                .ConfigureAwait(false);
+        if (interception != MqttZeroInterceptionResult.Continue)
         {
-            foreach (IMqttZeroPublishInterceptor interceptor in _publishInterceptors)
-            {
-                MqttZeroInterceptionResult result = await interceptor
-                    .InterceptAsync(context, cancellationToken)
-                    .ConfigureAwait(false);
-                if (result != MqttZeroInterceptionResult.Continue)
-                {
-                    return;
-                }
-            }
+            return;
         }
 
-        packet.TopicName = context.Topic;
-        packet.Payload = context.Payload;
-        packet.Properties = context.Properties;
-        packet.QualityOfServiceLevel = context.QualityOfServiceLevel;
-        packet.Retain = context.Retain;
+        AssignPublishContext(packet, context);
 
         ReadOnlySequence<byte> encodedProperties =
             MqttPublishPropertiesCodec.Encode(packet.Properties);
@@ -278,23 +269,23 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection connection,
         MqttZeroPublishView view)
     {
-        if (!TryCreateMessageLease(
+        if (TryCreateMessageLease(
                 connection,
                 view,
                 out MqttZeroMessageLease? lease,
                 out MqttReasonCode reasonCode))
         {
-            throw new InvalidOperationException(
-                $"The inbound MQTT PUBLISH is invalid: {reasonCode}.");
+            return lease;
         }
 
-        return lease!;
+        throw new InvalidOperationException(
+            $"The inbound MQTT PUBLISH is invalid: {reasonCode}.");
     }
 
     internal bool TryCreateMessageLease(
         MqttZeroClientConnection connection,
         MqttZeroPublishView view,
-        out MqttZeroMessageLease? lease,
+        [NotNullWhen(true)] out MqttZeroMessageLease? lease,
         out MqttReasonCode reasonCode)
     {
         lease = null;
@@ -445,19 +436,16 @@ public sealed partial class MqttZeroBroker
         context.Sender = senderConnection.ConnectedClient;
         try
         {
-            foreach (IMqttZeroPublishInterceptor interceptor in _publishInterceptors)
-            {
-                MqttZeroInterceptionResult result = await interceptor
-                    .InterceptAsync(context, cancellationToken)
+            MqttZeroInterceptionResult interception =
+                await RunPublishInterceptorsAsync(context, cancellationToken)
                     .ConfigureAwait(false);
-                if (result != MqttZeroInterceptionResult.Continue)
-                {
-                    return new MqttZeroPreparedPublish(
-                        null,
-                        result,
-                        context.ResultReasonCode,
-                        false);
-                }
+            if (interception != MqttZeroInterceptionResult.Continue)
+            {
+                return new MqttZeroPreparedPublish(
+                    null,
+                    interception,
+                    context.ResultReasonCode,
+                    false);
             }
 
             MqttZeroMessageLease effectiveLease = MqttZeroMessageLease.CopyFrom(
@@ -568,37 +556,25 @@ public sealed partial class MqttZeroBroker
             context.Sender = senderConnection.ConnectedClient;
             try
             {
-                foreach (IMqttZeroPublishInterceptor interceptor in _publishInterceptors)
-                {
-                    MqttZeroInterceptionResult result = await interceptor
-                        .InterceptAsync(context, cancellationToken)
+                MqttZeroInterceptionResult interception =
+                    await RunPublishInterceptorsAsync(context, cancellationToken)
                         .ConfigureAwait(false);
-                    if (result != MqttZeroInterceptionResult.Continue)
+                if (interception != MqttZeroInterceptionResult.Continue)
+                {
+                    MqttReasonCode reasonCode = await RejectPublishAsync(
+                        senderConnection,
+                        lease,
+                        interception,
+                        context,
+                        suppressPublisherAck: false,
+                        cancellationToken)
+                        .ConfigureAwait(false);
+                    if (resultHolder != null)
                     {
-                        if (result == MqttZeroInterceptionResult.CloseConnection)
-                        {
-                            await senderConnection.CloseAsync(
-                                context.ResultReasonCode == MqttReasonCode.Success
-                                    ? MqttReasonCode.NotAuthorized
-                                    : context.ResultReasonCode,
-                                cancellationToken).ConfigureAwait(false);
-                        }
-                        else if (lease.QualityOfServiceLevel ==
-                            MqttQualityOfServiceLevel.AtLeastOnce)
-                        {
-                            await senderConnection.SendPubAckAsync(
-                                lease.PacketIdentifier,
-                                context.ResultReasonCode,
-                                cancellationToken).ConfigureAwait(false);
-                        }
-
-                        if (resultHolder != null)
-                        {
-                            resultHolder[0] = context.ResultReasonCode;
-                        }
-
-                        return;
+                        resultHolder[0] = reasonCode;
                     }
+
+                    return;
                 }
 
                 effectiveLease = MqttZeroMessageLease.CopyFrom(

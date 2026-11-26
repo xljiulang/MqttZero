@@ -1,5 +1,6 @@
 using MqttZero.Memory;
 using MqttZero.Protocol;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace MqttZero.Server.Sessions;
@@ -57,4 +58,16 @@ internal sealed class MqttZeroSubscription
     public string? SharedGroup { get; }
 
     public byte[] MatchFilter { get; }
+
+    /// <summary>
+    /// Gets the shared group name when this is a shared subscription.
+    /// </summary>
+    /// <param name="sharedGroup">The shared group name when shared.</param>
+    /// <returns><see langword="true"/> when the subscription is shared.</returns>
+    public bool TryGetSharedGroup(
+        [NotNullWhen(true)] out string? sharedGroup)
+    {
+        sharedGroup = SharedGroup;
+        return IsShared;
+    }
 }

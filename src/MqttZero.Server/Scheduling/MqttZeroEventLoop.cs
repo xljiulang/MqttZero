@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace MqttZero.Server.Scheduling;
 
@@ -192,7 +193,7 @@ internal sealed class MqttZeroEventLoop :
                     break;
                 }
 
-                MqttZeroShardWork dequeuedWork = work!;
+                MqttZeroShardWork dequeuedWork = work;
                 try
                 {
                     await dequeuedWork.ExecuteAsync(
@@ -265,7 +266,7 @@ internal sealed class MqttZeroEventLoop :
         Interlocked.Increment(ref _enqueuedCount);
     }
 
-    private bool TryDequeueWork(out MqttZeroShardWork? work)
+    private bool TryDequeueWork([NotNullWhen(true)] out MqttZeroShardWork? work)
     {
         if (_queue.TryDequeue(out work))
         {

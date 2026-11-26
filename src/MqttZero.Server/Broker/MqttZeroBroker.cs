@@ -94,13 +94,30 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
 
     internal MqttZeroSessionState CreateSessionState(string clientId)
     {
-        MqttZeroSessionShardMap shardMap = _sessionShardMap ??
-            throw new InvalidOperationException(
-                "The session shard map is not initialized.");
         return new MqttZeroSessionState(
             clientId,
             _options.MaxMessageQueueLength,
-            shardMap.GetShardId(clientId));
+            SessionShardMap.GetShardId(clientId));
+    }
+
+    private MqttZeroShardSet ShardSet
+    {
+        get
+        {
+            return Volatile.Read(ref _shardSet) ??
+                throw new InvalidOperationException(
+                    "The MQTTZero event loop shards are not running.");
+        }
+    }
+
+    private MqttZeroSessionShardMap SessionShardMap
+    {
+        get
+        {
+            return _sessionShardMap ??
+                throw new InvalidOperationException(
+                    "The session shard map is not initialized.");
+        }
     }
 
     /// <summary>Initializes a broker and its extension pipeline.</summary>

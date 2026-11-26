@@ -43,12 +43,12 @@ function Build-BenchmarkAssembly([string] $path) {
     $project = Join-Path `
         $path `
         'benchmarks/MqttZero.BrokerBenchmarks/MqttZero.BrokerBenchmarks.csproj'
-    & dotnet restore $project --locked-mode
+    & dotnet restore $project --locked-mode 2>&1 | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw "Locked restore failed for '$path'."
     }
 
-    & dotnet build $project -c Release --no-restore
+    & dotnet build $project -c Release --no-restore 2>&1 | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw "Release build failed for '$path'."
     }
