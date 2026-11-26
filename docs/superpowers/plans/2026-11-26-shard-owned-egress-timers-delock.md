@@ -2,11 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **Status:** In progress on `refactor/shard-owned-egress-timers`.
-> Tasks 1 through 6 are complete. Session `SyncRoot`, mutation locks and
-> mutation leases have been removed. All Session mutation paths execute on the
-> owning Shard, and a Roslyn source guard prevents lock regressions. Next is
-> Task 7 final verification and documentation.
+> **Status:** Blocked by performance regression on
+> `refactor/shard-owned-egress-timers`. Tasks 1 through 6 and all Task 7
+> correctness, allocation and supply-chain gates are complete. Session
+> `SyncRoot`, mutation locks and mutation leases have been removed. The
+> same-machine development matrix failed the five-percent regression gate, so
+> the branch is not merged and no version is published.
 
 **Goal:** Make one Session Shard the sole owner of all mutable Session and outbound state, replace the global deadline scanner with per-Shard hierarchical timer wheels, and remove `session.SyncRoot` completely without changing public APIs or MQTT behavior.
 
@@ -76,9 +77,9 @@ Broker API / fanout / connection reader
 
 ### Step 1: Write the failing ownership tests
 
-- [ ] Add tests proving that an Event Loop child async operation, including `await Task.Yield()`, remains identified as the owning Shard.
-- [ ] Add tests proving a different Shard or a non-Shard caller is rejected by `MqttZeroShardOwnership.EnsureCurrent`.
-- [ ] Add a diagnostic test showing a rejected ownership operation increments the violation count without corrupting Session state.
+- [x] Add tests proving that an Event Loop child async operation, including `await Task.Yield()`, remains identified as the owning Shard.
+- [x] Add tests proving a different Shard or a non-Shard caller is rejected by `MqttZeroShardOwnership.EnsureCurrent`.
+- [x] Add a diagnostic test showing a rejected ownership operation increments the violation count without corrupting Session state.
 
 ### Step 2: Verify RED
 
@@ -93,10 +94,10 @@ Expected: FAIL because the ownership type and diagnostics do not exist.
 
 ### Step 3: Add the ownership guard
 
-- [ ] Add an internal static helper around the Event Loop's scoped Shard identity.
-- [ ] Keep the helper allocation-free and synchronous.
-- [ ] Use it only at internal mutation boundaries and deterministic tests; do not add one atomic operation per message.
-- [ ] Add a diagnostic violation counter used only when fanout diagnostics are enabled.
+- [x] Add an internal static helper around the Event Loop's scoped Shard identity.
+- [x] Keep the helper allocation-free and synchronous.
+- [x] Use it only at internal mutation boundaries and deterministic tests; do not add one atomic operation per message.
+- [x] Add a diagnostic violation counter used only when fanout diagnostics are enabled.
 
 ### Step 4: Verify GREEN
 
@@ -168,14 +169,14 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
 
 ### Step 1: Write failing Egress ownership tests
 
-- [ ] Assert one Session has exactly one `MqttZeroSessionEgress`.
-- [ ] Assert Pending selection, Inflight insertion, batch list clearing and QoS 0 release happen only during owner execution.
-- [ ] Assert control frames are always written before the next data packet and only at complete MQTT packet boundaries.
-- [ ] Assert there is never more than one incomplete `PipeWriter.FlushAsync`.
-- [ ] Assert a synchronous Flush failure releases each QoS 0 QueuedMessage exactly once.
-- [ ] Assert QoS 1/2 Inflight is registered before encoding and remains resendable after write/Flush failure.
-- [ ] Assert Detach, Takeover and Broker Stop wait for owner shutdown before releasing Session resources.
-- [ ] Assert all Enqueue/Signal/control fast paths remain `0 B/op` after warmup.
+- [x] Assert one Session has exactly one `MqttZeroSessionEgress`.
+- [x] Assert Pending selection, Inflight insertion, batch list clearing and QoS 0 release happen only during owner execution.
+- [x] Assert control frames are always written before the next data packet and only at complete MQTT packet boundaries.
+- [x] Assert there is never more than one incomplete `PipeWriter.FlushAsync`.
+- [x] Assert a synchronous Flush failure releases each QoS 0 QueuedMessage exactly once.
+- [x] Assert QoS 1/2 Inflight is registered before encoding and remains resendable after write/Flush failure.
+- [x] Assert Detach, Takeover and Broker Stop wait for owner shutdown before releasing Session resources.
+- [x] Assert all Enqueue/Signal/control fast paths remain `0 B/op` after warmup.
 
 ### Step 2: Verify RED
 
@@ -190,15 +191,15 @@ Expected: compile/assertion failures because Broker Delivery and Connection stil
 
 ### Step 3: Move outbound state into the owner
 
-- [ ] Move control queue, control batch, data signal, FlushPending, Flush failure and stop state from `MqttZeroEgressActor` into `MqttZeroSessionEgress`.
-- [ ] Move Pending selection, expiry removal, Overflow handling, Inflight insertion, TransitionQueuedToOutbound, encoded batch creation, Flush handoff and QoS 0 release from `MqttZeroBroker.Delivery` into the owner.
-- [ ] Keep Egress Scheduler responsible only for ready-actor deduplication, Shard budget and invocation.
-- [ ] Change `MqttZeroSessionState.Egress` and `MqttZeroClientConnection.AttachEgress` to use `MqttZeroSessionEgress`.
-- [ ] Keep current batch thresholds: existing byte/message/duration options and large/small adaptive rules unchanged.
-- [ ] Preserve a synchronous owner fast turn when already on the owning Shard and no Flush is pending.
-- [ ] Route all post-CONNECT control/ACK writes through the owner or its Shard command path.
-- [ ] Keep direct writes only during pre-attachment CONNECT/CONNACK and final connection closure.
-- [ ] Remove old callback-based Actor tests after equivalent Session Egress coverage passes.
+- [x] Move control queue, control batch, data signal, FlushPending, Flush failure and stop state from `MqttZeroEgressActor` into `MqttZeroSessionEgress`.
+- [x] Move Pending selection, expiry removal, Overflow handling, Inflight insertion, TransitionQueuedToOutbound, encoded batch creation, Flush handoff and QoS 0 release from `MqttZeroBroker.Delivery` into the owner.
+- [x] Keep Egress Scheduler responsible only for ready-actor deduplication, Shard budget and invocation.
+- [x] Change `MqttZeroSessionState.Egress` and `MqttZeroClientConnection.AttachEgress` to use `MqttZeroSessionEgress`.
+- [x] Keep current batch thresholds: existing byte/message/duration options and large/small adaptive rules unchanged.
+- [x] Preserve a synchronous owner fast turn when already on the owning Shard and no Flush is pending.
+- [x] Route all post-CONNECT control/ACK writes through the owner or its Shard command path.
+- [x] Keep direct writes only during pre-attachment CONNECT/CONNACK and final connection closure.
+- [x] Remove old callback-based Actor tests after equivalent Session Egress coverage passes.
 
 ### Step 4: Verify GREEN
 
@@ -533,6 +534,7 @@ git commit -m "refactor: remove session synchronization locks"
 - Modify: `docs/architecture.md`
 - Modify: `docs/performance-positioning.md`
 - Modify: `perf/baseline/broker-comparison-methodology.md`
+- Modify: `perf/baseline/README.md`
 - Create: `perf/baseline/shard-owned-egress-timers-2026-11-26.md`
 
 ### Step 1: Run allocation and correctness gates
@@ -559,16 +561,16 @@ dotnet benchmarks/MqttZero.BrokerBenchmarks/bin/Release/net10.0/MqttZero.BrokerB
 
 For every cell:
 
-- [ ] Failed operations and missing deliveries are zero.
+- [x] Failed operations and missing deliveries are zero.
 - [ ] End-to-end throughput and publish-call p99 are within `5%` of the same-machine pre-change baseline.
-- [ ] Run a third repetition only when two-run throughput spread exceeds `10%` or a run is invalid.
+- [x] Run a third repetition only when two-run throughput spread exceeds `10%` or a run is invalid.
 
 ### Step 3: Run targeted 64 KiB safety cells
 
-- [ ] QoS 0 / 1 / 64 KiB
-- [ ] QoS 0 / 100 / 64 KiB
-- [ ] QoS 1 / 1 / 64 KiB
-- [ ] QoS 1 / 100 / 64 KiB
+- [x] QoS 0 / 1 / 64 KiB
+- [x] QoS 0 / 100 / 64 KiB
+- [x] QoS 1 / 1 / 64 KiB
+- [x] QoS 1 / 100 / 64 KiB
 
 Expected: no cell regresses more than `5%`; no performance-leadership claim is made unless separately measured with three repetitions.
 
@@ -584,11 +586,12 @@ Expected: no vulnerability/deprecation findings and all repository-external cons
 
 ### Step 5: Document results
 
-- [ ] Record machine, OS, .NET version, branch, base commit and exact commands.
-- [ ] Record raw JSON paths and two-run medians.
-- [ ] Record Egress owner, timer-wheel and Session lock diagnostics.
-- [ ] Mark any rejected optimization and delete its production implementation.
-- [ ] Update the sharded-actor plan checkboxes only after tests and gates pass.
+- [x] Record machine, OS, .NET version, branch, base commit and exact commands.
+- [x] Record raw JSON paths and two-run medians.
+- [x] Record Egress owner, timer-wheel and Session lock diagnostics.
+- [x] Mark any rejected optimization and delete its production implementation.
+- [x] Update the sharded-actor plan to record completed gates and the blocked
+  performance gate without marking release acceptance complete.
 
 ### Step 6: Commit
 
@@ -597,17 +600,34 @@ git add docs perf
 git commit -m "docs: record shard-owned egress and timer architecture"
 ```
 
+### Task 7 Verification Evidence
+
+- [x] Locked restore passed.
+- [x] Release solution build passed with zero warnings and zero errors.
+- [x] Core tests passed: `754/754`.
+- [x] Dashboard .NET tests passed: `24/24`.
+- [x] Broker Benchmark tests passed: `71/71`.
+- [x] Allocation sentinels passed: `22/22`.
+- [x] `dotnet format --verify-no-changes` passed.
+- [x] Vulnerable and deprecated package scans reported no findings.
+- [x] All three NuGet packages and both repository-external consumers built.
+- [x] Performance matrix execution completed with zero failed operations, zero
+  missing deliveries and complete final drain.
+- [ ] Performance regression gate: failed because MQTTZero throughput retention
+  was below 95% in every development-matrix cell.
+
 ---
 
 ## Final Acceptance
 
-- [ ] One active `MqttZeroSessionEgress` per Session.
-- [ ] All outbound control/data writes and the only Flush lifecycle execute through that owner.
-- [ ] QoS 0 release exactly once; QoS 1/2 Inflight and recovery semantics remain correct.
-- [ ] One timer wheel per Shard; no global Deadline scan.
-- [ ] No `session.SyncRoot` or `_sessionMutationLocks` in production code.
-- [ ] Management APIs remain lock-free and cannot self-deadlock.
-- [ ] 1000 reconnect/takeover tests report zero Lease, Queue, Frame, Timer or Buffer leaks.
-- [ ] Allocation sentinels and complete test/build/format/package gates pass.
-- [ ] No public API or wire-format change.
-- [ ] No package version bump, master merge or remote push in this plan.
+- [x] One active `MqttZeroSessionEgress` per Session.
+- [x] All outbound control/data writes and the only Flush lifecycle execute through that owner.
+- [x] QoS 0 release exactly once; QoS 1/2 Inflight and recovery semantics remain correct.
+- [x] One timer wheel per Shard; no global Deadline scan.
+- [x] No `session.SyncRoot` or `_sessionMutationLocks` in production code.
+- [x] Management APIs remain lock-free and cannot self-deadlock.
+- [x] 1000 reconnect/takeover tests report zero Lease, Queue, Frame, Timer or Buffer leaks.
+- [x] Allocation sentinels and complete test/build/format/package gates pass.
+- [x] No public API or wire-format change.
+- [ ] No same-machine throughput or p99 cell regresses by more than `5%`.
+- [x] No package version bump, master merge or remote push in this plan.

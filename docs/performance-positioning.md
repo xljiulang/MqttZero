@@ -34,21 +34,37 @@ Known gaps include large-payload high-fanout throughput and tail latency. Those
 cells are recorded in `perf/baseline` and are not implied by the general
 zero-allocation claim.
 
-## Next Architecture Step
+## Current Shard-Owned Egress Status
 
-The complete connection-writer experiment was measured and rejected. It
-improved QoS 1 / 100 subscribers / 64 KiB, but regressed single-subscriber
-64-KiB QoS 0 and QoS 1 throughput beyond the five-percent gate. The production
-implementation was removed.
+The `refactor/shard-owned-egress-timers` branch implements:
 
-The next track is defined in
-`docs/superpowers/plans/2026-11-26-egress-fairness-adaptive-recovery.md`:
+- one `MqttZeroSessionEgress` as the sole outbound owner for each Session;
+- one four-level hierarchical timer wheel per Shard;
+- Shard-confined Session mutation with lock-free management snapshots;
+- removal of Session `SyncRoot`, mutation locks and mutation leases.
 
-1. Correct the benchmark payload-copy and delivery-drain contract.
-2. Guarantee fair progress between high-priority Fanout work and low-priority
-   Egress work.
-3. Only if measured evidence still requires it, add Direct and Backlog modes
-   under one Egress owner instead of replacing every path with one Writer.
+Correctness, allocation, Release build, formatting, supply-chain and NuGet
+consumer gates pass. The branch is nevertheless blocked by the ordinary release
+gate: on the same machine and date, several MQTTZero development-matrix cells
+retained less than 95 percent of the preceding baseline throughput. The MQTTnet
+control also drifted during the run, so the raw delta cannot yet be attributed
+to one code change.
+
+The branch is not merged, no package version was raised and no performance
+leadership claim is made. Evidence and raw results are recorded in
+`perf/baseline/shard-owned-egress-timers-2026-11-26.md`.
+
+## Next Performance Step
+
+The next step is a regression investigation, not another architectural
+optimization:
+
+1. Compare the previous baseline commit and the current branch with alternating
+   A/B runs using the same Broker and MQTTnet client processes.
+2. Instrument Shard enqueue age, timer-wheel tick cost, fanout dispatch and
+   Session Egress batch execution in the regressed QoS 0/1 fanout cells.
+3. Re-run the 1/100 subscriber, 32 B/8 KiB matrix before changing batching,
+   fairness, SessionEgress or timer-wheel ownership again.
 
 Development regression checks may use two repetitions to keep iteration cost
 bounded. Final performance claims and published comparison matrices still
@@ -61,13 +77,9 @@ Universal MQTTnet superiority across every benchmark cell remains outside the
 ordinary release gate. Performance claims are limited to measured cells and
 named metrics.
 
-## Current Hardening Track
+## Current Decision
 
-The post-investigation code review is recorded in
-`docs/superpowers/reviews/2026-11-26-master-hotpath-code-review.md`.
-
-The next implementation plan is
-`docs/superpowers/plans/2026-11-26-master-hotpath-hardening.md`. It prioritizes
-Lease-release correctness, Shard-confined Egress lifecycle, benchmark sampling
-integrity and default-disabled diagnostics before any new performance
-experiment.
+The completed ownership and de-locking work is technically ready for further
+investigation, but it is not eligible for integration. A new optimization may
+start only after the same-machine regression is explained or reproduced with a
+stable A/B harness.

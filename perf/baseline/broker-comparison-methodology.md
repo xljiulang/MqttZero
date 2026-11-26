@@ -17,9 +17,11 @@
 - 每个单元格的性能声明门禁为吞吐比不低于 MQTTnet 的 `1.00x`，且 p99 不高于 MQTTnet。
 - 性能声明门禁与普通 alpha 发布门禁分离。普通 alpha 发布要求正确性、分配哨兵、零失败和相对同机稳定基线吞吐回退不超过 `5%`；未胜出的严格矩阵单元格记录为已知差距。
 - `compare` 输出的顶层 `GatePassed` 表示全部严格性能声明单元格是否通过；任一门禁失败时进程返回非零退出码。
-- `--comparison-gate false` 只保留结构门禁（缺结果、失败操作、投递完整性与顺序），跳过吞吐/p99 排名；
-  该模式只用于 `eng/verify-benchmark-smoke.ps1` 这类"基准链路是否跑通"的冒烟检查，
-  性能声明必须使用默认严格模式，且只在专用性能机上判定。
+- `--comparison-gate false` 保留结构门禁（缺结果、失败操作、投递完整性与顺序），跳过
+  吞吐/p99 排名。它可用于开发回归矩阵，以单独比较同机 MQTTZero 新旧基线；不得据此
+  声明领先 MQTTnet，正式性能声明仍必须使用默认严格模式。
+- 开发矩阵每个单元格默认两次重复。两轮端到端吞吐离散超过 `10%`，或任一轮出现失败、
+  缺失投递或未排空时，仅对该单元格补跑第三轮。最终容量结论仍要求三次重复中位数。
 
 ## 默认矩阵
 
@@ -80,3 +82,22 @@ p50/p95/p99。`outbound` 模式还输出 Broker API 等待时间和单次发布�
 容量结论必须附带执行日期、机器型号、操作系统、.NET 版本、完整命令和三次运行结果。短时快速验证只用于检查工具链，不作为性能声明。
 
 Session outbound pump 的专项前后对照见 `broker-outbound-pump-2026-11-24.md`。
+
+## 2026-11-26 Shard-Owned Egress Development Comparison
+
+`refactor/shard-owned-egress-timers` 使用与
+`master-hardening-rebaseline` 相同的 Kestrel Broker、MQTTnet Client、进程隔离、
+Server GC、Concurrent GC 和 TieredPGO 参数执行了开发矩阵。每个 QoS 使用两轮重复；
+离散超过 `10%` 的单元格由 Harness 自动补第三轮，`--comparison-gate false` 仅关闭
+吞吐/p99 排名。
+
+结果：
+
+- 全部单元格失败操作数为 0、缺失投递为 0，并完成测量后的端到端排空。
+- 相对同日同机旧基线，开发矩阵所有 MQTTZero 单元原始吞吐保留率低于 `95%`。
+- MQTTnet 对照也在本次运行中出现明显漂移。按前后 MQTTnet 比值归一化后，QoS 0
+  扇出仍约为 `0.76-0.78x`，QoS 1/2 部分单元约为 `0.90-0.97x`。
+- 因此普通 alpha 发布性能门禁失败，不能合并该分支，也不能提升版本。
+
+完整机器信息、命令、中位数、回退表、64 KiB 安全单元格和原始 JSON 路径见
+`perf/baseline/shard-owned-egress-timers-2026-11-26.md`。

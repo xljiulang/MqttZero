@@ -143,9 +143,17 @@
   record are summarized in `egress-closure-final-2026-11-26.md`. No production
   hot-path performance experiment was retained and no performance-claim matrix
   was published.
-- The next plan targets fair Shard progress and, only if still needed,
-  Direct/Backlog modes under one Egress owner:
-  `docs/superpowers/plans/2026-11-26-egress-fairness-adaptive-recovery.md`.
+- The shard-owned Session Egress, per-Shard timer wheel and Session de-lock
+  branch passes correctness, allocation, build, format, supply-chain and NuGet
+  consumer gates. Its same-machine development matrix remains blocked:
+  MQTTZero throughput retention is below 95% in every development cell, while
+  the MQTTnet control also drifted. The branch is not merged and no release is
+  prepared. Evidence:
+  `shard-owned-egress-timers-2026-11-26.md` and the associated
+  `shard-owned-egress-timers-qos*.json` files.
+- The next step is alternating same-machine A/B regression investigation with
+  stable Broker/client processes. New Egress, fairness or timer-wheel
+  optimization must wait until the regression is explained.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`
