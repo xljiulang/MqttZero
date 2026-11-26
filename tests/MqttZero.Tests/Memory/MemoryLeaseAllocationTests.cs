@@ -104,6 +104,21 @@ namespace MqttZero.Tests.Memory
                 Assert.Equal(8192, warmup.Payload.Length);
             }
 
+            for (int index = 0; index < 2_000; index++)
+            {
+                using MqttZeroMessageLease lease =
+                    MqttZeroMessageLease.CopyFrom(
+                        topic,
+                        properties,
+                        payload,
+                        MqttQualityOfServiceLevel.AtLeastOnce,
+                        false,
+                        null,
+                        null,
+                        pool);
+                _ = lease.Payload.Length;
+            }
+
             int total = 0;
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int index = 0; index < 1_000; index++)
@@ -311,7 +326,7 @@ namespace MqttZero.Tests.Memory
             ReadOnlySequence<byte> topic = new("hot/topic"u8.ToArray());
             ReadOnlySequence<byte> payload = new(new byte[1024]);
 
-            for (int index = 0; index < 10; index++)
+            for (int index = 0; index < 2_000; index++)
             {
                 ExerciseQosOneQueueAndInflight(session, topic, payload);
             }
@@ -327,6 +342,7 @@ namespace MqttZero.Tests.Memory
             Assert.Empty(session.InflightMessages);
             Assert.Equal(0, allocated);
         }
+
         private static void ExerciseQosOneQueueAndInflight(
             MqttZeroSessionState session,
             ReadOnlySequence<byte> topic,

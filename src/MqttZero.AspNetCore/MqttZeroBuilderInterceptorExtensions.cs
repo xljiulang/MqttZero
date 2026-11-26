@@ -28,13 +28,6 @@ public static class MqttZeroBuilderInterceptorExtensions
         return builder;
     }
 
-    /// <summary>Registers a publish interceptor.</summary>
-    public static IMqttZeroBuilder AddPublishInterceptor<T>(this IMqttZeroBuilder builder)
-        where T : class, IMqttZeroPublishInterceptor
-    {
-        return AddInterceptor<T>(builder);
-    }
-
     /// <summary>Registers a CONNECT interceptor.</summary>
     public static IMqttZeroBuilder AddConnectionInterceptor<T>(this IMqttZeroBuilder builder)
         where T : class, IMqttZeroConnectionInterceptor

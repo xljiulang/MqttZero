@@ -281,30 +281,6 @@ namespace MqttZero.Tests.Broker
         }
 
         [Fact]
-        public async Task ResetStatisticsClearsCountersButKeepsConnectionTimes()
-        {
-            MqttZeroClientConnection connection = CreateConnection(
-                new TrackingPipeWriter(),
-                maximumPacketSize: 1024);
-            DateTimeOffset connectedAt = connection.GetStatistics().ConnectedAt;
-            connection.MarkPacketReceived(TimeProvider.System, 3, true);
-            await connection.SendPingRespAsync(
-                TestContext.Current.CancellationToken);
-
-            connection.ResetStatistics();
-
-            MqttZeroClientStatistics statistics = connection.GetStatistics();
-            Assert.Equal(connectedAt, statistics.ConnectedAt);
-            Assert.Equal(0, statistics.PacketsReceived);
-            Assert.Equal(0, statistics.PacketsSent);
-            Assert.Equal(0, statistics.BytesReceived);
-            Assert.Equal(0, statistics.BytesSent);
-            Assert.Equal(0, statistics.MessagesReceived);
-            Assert.Equal(0, statistics.MessagesSent);
-            await connection.DisposeAsync();
-        }
-
-        [Fact]
         public async Task SubAckAndUnsubAckUseDirectControlEncoding()
         {
             TrackingPipeWriter writer = new();

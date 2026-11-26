@@ -1,4 +1,5 @@
 using MqttZero.Server.Broker;
+using MqttZero.Server.Clients;
 using MqttZero.Server.Interceptors;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
@@ -77,14 +78,19 @@ public sealed class MqttZeroConnectionHandler : ConnectionHandler
             connection.Features.Get<ITlsConnectionFeature>()
                 ?.ClientCertificate;
 
+        MqttZeroTransportConnection transport = new()
+        {
+            Input = connection.Transport.Input,
+            Output = connection.Transport.Output,
+            RemoteEndPoint = connection.RemoteEndPoint,
+            IsSecure = isSecure,
+            IsWebSocket = isWebSocket,
+            ClientCertificate = clientCertificate,
+            AllowPacketFragmentation = allowPacketFragmentation
+        };
+
         await _broker.AcceptConnectionAsync(
-            connection.Transport.Input,
-            connection.Transport.Output,
-            connection.RemoteEndPoint,
-            isSecure,
-            isWebSocket,
-            clientCertificate,
-            allowPacketFragmentation,
+            transport,
             cancellation.Token).ConfigureAwait(false);
     }
 }

@@ -114,9 +114,4 @@ public sealed class MqttZeroConnectedClient
         return MqttZeroBroker.CreateClientSnapshot(_session, _connection);
     }
 
-    /// <summary>Resets this connection's statistics.</summary>
-    public void ResetStatistics()
-    {
-        _connection.ResetStatistics();
-    }
 }
