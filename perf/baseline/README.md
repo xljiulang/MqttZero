@@ -160,6 +160,10 @@
   connection reader to its Session Shard. The later `6eca005` de-lock commit is
   neutral, and `ec8ba3f` is not a confirmed throughput cause. Evidence:
   `shard-owned-egress-ab-investigation-2026-11-26.md`.
+- QoS0/QoS1 hotpath repair now matches the pre-regression per-message
+  allocation profile and restores the primary throughput cells. The branch
+  remains blocked by QoS0 tail latency, QoS0 / 100 / 8 KiB throughput and
+  several QoS2 tail cells. Evidence: `shard-command-hotpath-2026-11-27.md`.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`

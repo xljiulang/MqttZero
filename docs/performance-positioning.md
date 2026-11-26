@@ -60,6 +60,11 @@ The later `6eca005` de-lock commit is neutral, and direct five-round testing
 did not confirm `ec8ba3f` as a throughput cause. Master-only q0/1/32-B drift is
 small and not independently attributed to a single commit.
 
+The follow-up hotpath repair restores QoS0/QoS1 throughput and per-message
+allocation parity with `d424810`, including QoS1 / 100 / 64 KiB. It does not
+pass the full gate: QoS0 tails, QoS0 / 100 / 8 KiB throughput and several QoS2
+tails remain outside the five-percent limits.
+
 The branch is not merged, no package version was raised and no performance
 leadership claim is made. Evidence and raw results are recorded in
 `perf/baseline/shard-owned-egress-timers-2026-11-26.md` and
@@ -69,14 +74,14 @@ leadership claim is made. Evidence and raw results are recorded in
 
 The next step is to repair the identified cross-Shard command path:
 
-1. Remove the per-message `MqttZeroShardInvocation<T>` and
-   `RunContinuationsAsynchronously` allocation from the network PUBLISH path.
-2. Preserve Session Shard ownership, per-connection ordering, cancellation and
-   shutdown semantics.
-3. Add an off-Shard PUBLISH allocation sentinel covering the actual connection
-   reader path.
-4. Re-run the QoS 0 32 B/8 KiB/64 KiB matrix and QoS 1 fanout p99 cells before
-   reopening the release gate.
+1. Validate the remaining QoS0 and QoS2 tail cells with longer end-to-end
+   measurement windows before changing their scheduling again.
+2. Keep QoS1 and the pooled QoS0/PUBACK paths unchanged unless a repeatable
+   exception is found.
+3. Do not pipeline QoS2 PUBLISH unless the full PUBREC/PUBREL persistence and
+   ordering suite remains green.
+4. Re-run the debug matrix and strict p99 matrix before reopening the release
+   gate.
 
 Development regression checks may use two repetitions to keep iteration cost
 bounded. Final performance claims and published comparison matrices still
@@ -91,7 +96,5 @@ named metrics.
 
 ## Current Decision
 
-The ownership and de-locking architecture remains technically valid, but the
-current branch is not eligible for integration. The per-PUBLISH cross-Shard
-invocation must be replaced and benchmarked without allocation before merge or
-release.
+The branch remains ineligible for integration. QoS0/QoS1 recovery is
+significant, but the complete performance gate is still blocked.

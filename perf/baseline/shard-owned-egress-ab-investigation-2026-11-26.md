@@ -217,9 +217,12 @@ The committed evidence set is stored under:
 
 ## Next Action
 
-No production fix is included in this investigation. The next change should
-replace the per-PUBLISH allocating cross-shard invocation with a reusable,
-pooled or strongly typed Shard command path while preserving:
+The follow-up implementation replaced the QoS0/QoS1 hot path with direct
+acks and pooled shard work. Its result is recorded in
+`perf/baseline/shard-command-hotpath-2026-11-27.md`.
+
+QoS0/QoS1 allocation and throughput recover, while QoS0 tails and QoS2 tails
+remain blocked. Any further change must preserve:
 
 - Session Shard ownership;
 - ordering per publishing connection;

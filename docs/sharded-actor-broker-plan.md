@@ -10,9 +10,9 @@
 - 当前证据：
   `perf/baseline/shard-owned-egress-timers-2026-11-26.md`、
   `perf/baseline/shard-owned-egress-ab-investigation-2026-11-26.md`
-- 下一步：替换 `d14f433` 引入的逐 PUBLISH 跨 Shard
-  `InvokeAsync` 分配路径，并用真实 off-Shard PUBLISH 分配测试和完整性能矩阵验收；
-  修复前不合并 `master`，不提升版本。
+- 下一步：QoS0/QoS1 热路径已解耦并恢复吞吐/分配，但 QoS0 尾延迟、QoS0/100/8 KiB
+  吞吐和 QoS2 尾延迟仍未过门禁。需要先用更长窗口复核这些单元格；门禁通过前不合并
+  `master`，不提升版本。
 
 > 本文保留总体架构设计和历史任务追踪。当前可执行顺序、前置门禁和停止条件
 > 以上述跨 Shard PUBLISH 根因为准；下方未勾选历史项不应在没有新证据和新计划授权时直接恢复执行。
@@ -126,7 +126,8 @@
 > A/B 已完成：首个主要吞吐回退为 `d14f433`。该提交在连接读取线程与 Session
 > Shard 之间逐 PUBLISH 创建 `MqttZeroShardInvocation<T>`、TaskCompletionSource
 > 和异步续接。后续 `6eca005` 去锁与 `ec8ba3f` 连接循环合并没有复现主要吞吐
-> 回退。下一步必须先消除该热路径分配，再恢复性能门禁。
+> 回退。QoS0/QoS1 修复已消除对应热路径分配，并将 QoS0/100/32 B 从约 `0.66x`
+> 恢复到 `1.09x`；剩余门禁集中在 QoS0 尾延迟、QoS0/100/8 KiB 和 QoS2 尾延迟。
 
 ### Phase 3：内存密度与单 Slab Lease
 
