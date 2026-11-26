@@ -4,6 +4,7 @@ using MqttZero.Protocol;
 using MqttZero.Server.Clients;
 using MqttZero.Server.Egress;
 using MqttZero.Server.Routing;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -22,9 +23,53 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection connection,
         bool cleanDisconnect)
     {
+        MqttZeroShardSet? shards = Volatile.Read(ref _shardSet);
+        if (shards == null)
+        {
+            await DetachConnectionOnShardAsync(
+                session,
+                connection,
+                cleanDisconnect,
+                CancellationToken.None).ConfigureAwait(false);
+            return;
+        }
+
+        MqttZeroEventLoop shard = shards[session.ShardId];
+        if (shard.IsCurrent)
+        {
+            await DetachConnectionOnShardAsync(
+                session,
+                connection,
+                cleanDisconnect,
+                CancellationToken.None).ConfigureAwait(false);
+            return;
+        }
+
+        await shard.InvokeAsync(
+            async token =>
+            {
+                await DetachConnectionOnShardAsync(
+                    session,
+                    connection,
+                    cleanDisconnect,
+                    token).ConfigureAwait(false);
+                return true;
+            },
+            CancellationToken.None).ConfigureAwait(false);
+    }
+
+    private async ValueTask DetachConnectionOnShardAsync(
+        MqttZeroSessionState session,
+        MqttZeroClientConnection connection,
+        bool cleanDisconnect,
+        CancellationToken cancellationToken)
+    {
+        EnsureSessionShard(
+            session,
+            nameof(DetachConnectionOnShardAsync));
         using SessionMutationLease mutation = await AcquireSessionMutationAsync(
             session.ClientId,
-            CancellationToken.None).ConfigureAwait(false);
+            cancellationToken).ConfigureAwait(false);
         DateTimeOffset now = _timeProvider.GetUtcNow();
         bool removeSession = false;
         MqttZeroSessionLifecycleSnapshot lifecycle =
@@ -82,7 +127,9 @@ public sealed partial class MqttZeroBroker
         {
             try
             {
-                await SaveSessionAsync(session, CancellationToken.None).ConfigureAwait(false);
+                await SaveSessionAsync(
+                    session,
+                    cancellationToken).ConfigureAwait(false);
             }
             catch
             {
@@ -103,12 +150,12 @@ public sealed partial class MqttZeroBroker
                         .ConfigureAwait(false);
                 }
 
-                ReleaseSessionMessages(session);
+                ReleaseSessionMessagesCore(session);
                 try
                 {
                     await DeleteClientPersistenceAsync(
                         session.ClientId,
-                        CancellationToken.None).ConfigureAwait(false);
+                        cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception exception)
                 {
@@ -144,7 +191,7 @@ public sealed partial class MqttZeroBroker
                 {
                     await DeleteClientPersistenceAsync(
                         session.ClientId,
-                        CancellationToken.None).ConfigureAwait(false);
+                        cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception)
                 {
@@ -158,7 +205,7 @@ public sealed partial class MqttZeroBroker
                     throw;
                 }
 
-                ReleaseSessionMessages(session);
+                ReleaseSessionMessagesCore(session);
             }
         }
     }
@@ -185,6 +232,21 @@ public sealed partial class MqttZeroBroker
         return lifecycle.ExpiryInterval == 0 ||
             now >= lifecycle.DisconnectedAt.Value.AddSeconds(
                 lifecycle.ExpiryInterval);
+    }
+
+    private void EnsureSessionShard(
+        MqttZeroSessionState session,
+        string operation)
+    {
+        if (Volatile.Read(ref _shardSet) == null)
+        {
+            return;
+        }
+
+        MqttZeroShardOwnership.EnsureCurrent(
+            session.ShardId,
+            operation,
+            _fanoutDiagnostics);
     }
 
     private uint ClampSessionExpiry(uint requestedExpiry)

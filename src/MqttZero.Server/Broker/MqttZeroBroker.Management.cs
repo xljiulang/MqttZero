@@ -4,6 +4,7 @@ using MqttZero.Protocol;
 using MqttZero.Publishing;
 using MqttZero.Server.Retained;
 using MqttZero.Server.Routing;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using MqttZero.Server.Clients;
 using MqttZero.Server.Egress;
@@ -173,7 +174,7 @@ public sealed partial class MqttZeroBroker
     /// <param name="reasonCode">The DISCONNECT reason code.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when a connected client was found.</returns>
-    public async ValueTask<bool> DisconnectClientAsync(
+    public ValueTask<bool> DisconnectClientAsync(
         string clientId,
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken = default)
@@ -181,9 +182,27 @@ public sealed partial class MqttZeroBroker
         ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
         if (!_sessions.TryGetValue(clientId, out MqttZeroSessionState? session))
         {
-            return false;
+            return ValueTask.FromResult(false);
         }
 
+        return InvokeOnSessionShardAsync(
+            session,
+            token => DisconnectClientCoreAsync(
+                session,
+                reasonCode,
+                token),
+            cancellationToken);
+    }
+
+    private async ValueTask<bool> DisconnectClientCoreAsync(
+        MqttZeroSessionState session,
+        MqttReasonCode reasonCode,
+        CancellationToken cancellationToken)
+    {
+        MqttZeroShardOwnership.EnsureCurrent(
+            session.ShardId,
+            nameof(DisconnectClientCoreAsync),
+            _fanoutDiagnostics);
         MqttZeroClientConnection? connection =
             session.Connection;
 

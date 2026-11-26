@@ -295,6 +295,10 @@ public sealed partial class MqttZeroBroker
         MqttZeroTimerNode node,
         CancellationToken cancellationToken)
     {
+        MqttZeroShardOwnership.EnsureCurrent(
+            GetOwnerShardId(node),
+            nameof(ProcessTimerNodeAsync),
+            _fanoutDiagnostics);
         DateTimeOffset now = _timeProvider.GetUtcNow();
         try
         {
@@ -648,7 +652,7 @@ public sealed partial class MqttZeroBroker
             return false;
         }
 
-        ReleaseSessionMessages(session);
+        ReleaseSessionMessagesCore(session);
         return true;
     }
 

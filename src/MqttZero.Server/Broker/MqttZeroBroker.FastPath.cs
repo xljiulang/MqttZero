@@ -11,6 +11,20 @@ namespace MqttZero.Server.Broker;
 
 public sealed partial class MqttZeroBroker
 {
+    internal ValueTask DeliverLeaseToSessionForTestAsync(
+        MqttZeroSessionState session,
+        MqttZeroMessageLease lease,
+        CancellationToken cancellationToken)
+    {
+        return DeliverLeaseFastAsync(
+            session,
+            lease,
+            MqttQualityOfServiceLevel.AtLeastOnce,
+            retain: false,
+            ReadOnlyMemory<uint>.Empty,
+            cancellationToken);
+    }
+
     private async ValueTask RoutePublishLeaseFastAsync(
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,
@@ -226,6 +240,9 @@ public sealed partial class MqttZeroBroker
         CancellationToken cancellationToken,
         bool copySubscriptionIdentifiers = false)
     {
+        EnsureSessionShard(
+            session,
+            nameof(DeliverLeaseFastAsync));
         DateTimeOffset? expiresAt = lease.ExpiresAt;
         if (expiresAt.HasValue &&
             expiresAt.Value <= _timeProvider.GetUtcNow())
@@ -233,11 +250,7 @@ public sealed partial class MqttZeroBroker
             return ValueTask.CompletedTask;
         }
 
-        MqttZeroClientConnection? connection;
-        lock (session.SyncRoot)
-        {
-            connection = session.Connection;
-        }
+        MqttZeroClientConnection? connection = session.Connection;
 
         if (qos == MqttQualityOfServiceLevel.AtMostOnce &&
             connection == null &&
@@ -278,27 +291,25 @@ public sealed partial class MqttZeroBroker
         bool enqueued = false;
         try
         {
-            lock (session.SyncRoot)
+            if (qos == MqttQualityOfServiceLevel.AtMostOnce &&
+                session.Connection == null &&
+                !_options.StoreQos0InQueue)
             {
-                if (qos == MqttQualityOfServiceLevel.AtMostOnce &&
-                    session.Connection == null &&
-                    !_options.StoreQos0InQueue)
-                {
-                    return ValueTask.CompletedTask;
-                }
-
-                MqttZeroClientConnection? currentConnection = session.Connection;
-                if (currentConnection != null &&
-                    ReferenceEquals(currentConnection, connection))
-                {
-                    message.SetEncodedLength(
-                        encodedLength,
-                        currentConnection.MaximumPacketSize);
-                }
-
-                evicted = EnqueueMessage(session, message);
-                enqueued = true;
+                return ValueTask.CompletedTask;
             }
+
+            MqttZeroClientConnection? currentConnection =
+                session.Connection;
+            if (currentConnection != null &&
+                ReferenceEquals(currentConnection, connection))
+            {
+                message.SetEncodedLength(
+                    encodedLength,
+                    currentConnection.MaximumPacketSize);
+            }
+
+            evicted = EnqueueMessage(session, message);
+            enqueued = true;
         }
         finally
         {

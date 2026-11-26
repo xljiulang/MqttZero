@@ -3,6 +3,7 @@ using MqttZero.Server.Clients;
 using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Routing;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using MqttZero.Server.Storage;
 using System.Buffers;
@@ -24,18 +25,19 @@ public sealed partial class MqttZeroBroker
         ushort packetIdentifier,
         CancellationToken cancellationToken)
     {
+        EnsureSessionShard(
+            session,
+            nameof(AcceptInboundQos2Async));
         bool duplicate = false;
         bool receiveMaximumExceeded = false;
-        lock (session.SyncRoot)
+        if (session.InboundQos2Messages.ContainsKey(packetIdentifier))
         {
-            if (session.InboundQos2Messages.ContainsKey(packetIdentifier))
-            {
-                duplicate = true;
-            }
-            else if (session.InboundQos2Messages.Count >= _options.MaxAwaitingRel)
-            {
-                receiveMaximumExceeded = true;
-            }
+            duplicate = true;
+        }
+        else if (session.InboundQos2Messages.Count >=
+            _options.MaxAwaitingRel)
+        {
+            receiveMaximumExceeded = true;
         }
 
         if (duplicate)
@@ -86,15 +88,12 @@ public sealed partial class MqttZeroBroker
 
         MqttZeroMessageLease storedLease = prepared.Lease;
         bool inserted = false;
-        lock (session.SyncRoot)
+        if (!session.InboundQos2Messages.ContainsKey(packetIdentifier) &&
+            session.InboundQos2Messages.Count < _options.MaxAwaitingRel)
         {
-            if (!session.InboundQos2Messages.ContainsKey(packetIdentifier) &&
-                session.InboundQos2Messages.Count < _options.MaxAwaitingRel)
-            {
-                session.InboundQos2Messages[packetIdentifier] = storedLease;
-                session.RoutedInboundQos2Messages.Remove(packetIdentifier);
-                inserted = true;
-            }
+            session.InboundQos2Messages[packetIdentifier] = storedLease;
+            session.RoutedInboundQos2Messages.Remove(packetIdentifier);
+            inserted = true;
         }
 
         if (!inserted)
@@ -123,15 +122,12 @@ public sealed partial class MqttZeroBroker
             }
             catch
             {
-                lock (session.SyncRoot)
+                if (session.InboundQos2Messages.TryGetValue(
+                        packetIdentifier,
+                        out MqttZeroMessageLease? stored) &&
+                    ReferenceEquals(stored, storedLease))
                 {
-                    if (session.InboundQos2Messages.TryGetValue(
-                            packetIdentifier,
-                            out MqttZeroMessageLease? stored) &&
-                        ReferenceEquals(stored, storedLease))
-                    {
-                        session.InboundQos2Messages.Remove(packetIdentifier);
-                    }
+                    session.InboundQos2Messages.Remove(packetIdentifier);
                 }
 
                 if (!prepared.UsesSourceLease)
@@ -161,13 +157,17 @@ public sealed partial class MqttZeroBroker
         CancellationToken cancellationToken,
         int publisherShardId = 0)
     {
+        if (sender != null)
+        {
+            EnsureSessionShard(
+                sender,
+                nameof(RoutePublishAsync));
+        }
+
         if (sender != null && packet.SubscriptionIdentifiers.Count > 0)
         {
-            MqttZeroClientConnection? invalidConnection;
-            lock (sender.SyncRoot)
-            {
-                invalidConnection = sender.Connection;
-            }
+            MqttZeroClientConnection? invalidConnection =
+                sender.Connection;
 
             if (invalidConnection != null)
             {
@@ -182,10 +182,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroConnectedClient? senderClient = null;
         if (sender != null)
         {
-            lock (sender.SyncRoot)
-            {
-                senderClient = sender.Connection?.ConnectedClient;
-            }
+            senderClient = sender.Connection?.ConnectedClient;
         }
 
         MqttZeroPublishContext context = new()
@@ -368,6 +365,36 @@ public sealed partial class MqttZeroBroker
         CancellationToken cancellationToken,
         bool suppressPublisherAck = false)
     {
+        MqttZeroShardSet? shards = Volatile.Read(ref _shardSet);
+        if (shards == null || shards[sender.ShardId].IsCurrent)
+        {
+            return RoutePublishLeaseCurrentShardAsync(
+                sender,
+                senderConnection,
+                lease,
+                suppressPublisherAck,
+                cancellationToken);
+        }
+
+        return RoutePublishLeaseOnShardAsync(
+            shards[sender.ShardId],
+            sender,
+            senderConnection,
+            lease,
+            suppressPublisherAck,
+            cancellationToken);
+    }
+
+    private ValueTask RoutePublishLeaseCurrentShardAsync(
+        MqttZeroSessionState sender,
+        MqttZeroClientConnection senderConnection,
+        MqttZeroMessageLease lease,
+        bool suppressPublisherAck,
+        CancellationToken cancellationToken)
+    {
+        EnsureSessionShard(
+            sender,
+            nameof(RoutePublishLeaseAsync));
         if (!_sessionStore.IsEnabled &&
             !_messageStore.IsEnabled &&
             !_retainedMessageStore.IsEnabled &&
@@ -388,6 +415,28 @@ public sealed partial class MqttZeroBroker
             lease,
             null,
             cancellationToken);
+    }
+
+    private async ValueTask RoutePublishLeaseOnShardAsync(
+        MqttZeroEventLoop shard,
+        MqttZeroSessionState sender,
+        MqttZeroClientConnection senderConnection,
+        MqttZeroMessageLease lease,
+        bool suppressPublisherAck,
+        CancellationToken cancellationToken)
+    {
+        await shard.InvokeAsync(
+            async token =>
+            {
+                await RoutePublishLeaseCurrentShardAsync(
+                    sender,
+                    senderConnection,
+                    lease,
+                    suppressPublisherAck,
+                    token).ConfigureAwait(false);
+                return true;
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     internal async ValueTask<MqttZeroPreparedPublish> PreparePublishForDispatchAsync(

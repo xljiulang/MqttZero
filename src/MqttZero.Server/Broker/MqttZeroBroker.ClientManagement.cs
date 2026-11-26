@@ -97,6 +97,9 @@ public sealed partial class MqttZeroBroker
         uint? subscriptionIdentifier,
         CancellationToken cancellationToken)
     {
+        EnsureSessionShard(
+            session,
+            nameof(SubscribeConnectedClientCoreAsync));
         EnsureAttached(session, connection);
         ArgumentNullException.ThrowIfNull(subscriptions);
         List<MqttZeroSubscribeResult> results = new(subscriptions.Count);
@@ -208,6 +211,9 @@ public sealed partial class MqttZeroBroker
         IReadOnlyList<string> topicFilters,
         CancellationToken cancellationToken)
     {
+        EnsureSessionShard(
+            session,
+            nameof(UnsubscribeConnectedClientCoreAsync));
         EnsureAttached(session, connection);
         ArgumentNullException.ThrowIfNull(topicFilters);
         List<MqttZeroUnsubscribeResult> results = new(topicFilters.Count);
@@ -291,6 +297,9 @@ public sealed partial class MqttZeroBroker
         MqttZeroPublishMessage message,
         CancellationToken cancellationToken)
     {
+        EnsureSessionShard(
+            session,
+            nameof(SendPublishToClientCoreAsync));
         ArgumentNullException.ThrowIfNull(message);
         ArgumentException.ThrowIfNullOrWhiteSpace(message.Topic);
         if (!IsConnectionAttached(session, connection) ||
@@ -385,6 +394,9 @@ public sealed partial class MqttZeroBroker
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken)
     {
+        MqttZeroShardOwnership.EnsureCurrent(
+            session.ShardId,
+            nameof(DisconnectConnectedClientCoreAsync));
         if (!ReferenceEquals(session.Connection, connection))
         {
             return false;

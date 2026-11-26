@@ -12,6 +12,9 @@ public sealed partial class MqttZeroBroker
         List<MqttZeroSubscription> candidate,
         CancellationToken cancellationToken)
     {
+        EnsureSessionShard(
+            session,
+            nameof(CommitSubscriptionsAsync));
         ArgumentNullException.ThrowIfNull(original);
         ArgumentNullException.ThrowIfNull(candidate);
         List<MqttZeroSubscription> removed = [];
@@ -54,6 +57,9 @@ public sealed partial class MqttZeroBroker
     private async ValueTask RemoveSessionSubscriptionsFromRouteAsync(
         MqttZeroSessionState session)
     {
+        EnsureSessionShard(
+            session,
+            nameof(RemoveSessionSubscriptionsFromRouteAsync));
         MqttZeroSubscription[] subscriptions =
             session.Subscriptions.Snapshot();
         if (subscriptions.Length == 0)
@@ -86,6 +92,9 @@ public sealed partial class MqttZeroBroker
     private async ValueTask AddSessionSubscriptionsToRouteAsync(
         MqttZeroSessionState session)
     {
+        EnsureSessionShard(
+            session,
+            nameof(AddSessionSubscriptionsToRouteAsync));
         MqttZeroSubscription[] subscriptions =
             session.Subscriptions.Snapshot();
         if (subscriptions.Length == 0)

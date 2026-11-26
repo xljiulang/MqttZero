@@ -2,6 +2,7 @@ using MqttZero.Server.Interceptors;
 using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Routing;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using MqttZero.Server.Storage;
 using System.Buffers;
@@ -263,10 +264,21 @@ public sealed partial class MqttZeroBroker
                     : InboundBufferAction.Handled;
             }
 
-            InboundBufferAction action = await ProcessOwnedPublishAsync(
-                context,
-                candidate,
-                publishView.PacketIdentifier).ConfigureAwait(false);
+            context.CurrentOwnedPublishLease = candidate;
+            context.CurrentOwnedPublishPacketIdentifier =
+                publishView.PacketIdentifier;
+            InboundBufferAction action;
+            try
+            {
+                action = await ShardSet[
+                    context.Session.ShardId].InvokeAsync(
+                    context.CachedOwnedPublishInvocation,
+                    context.ConnectionLifetime.Token).ConfigureAwait(false);
+            }
+            finally
+            {
+                context.CurrentOwnedPublishLease = null;
+            }
             if (action == InboundBufferAction.Stop)
             {
                 return InboundBufferAction.Stop;
@@ -322,11 +334,11 @@ public sealed partial class MqttZeroBroker
     private async ValueTask<InboundBufferAction> ProcessOwnedPublishAsync(
         AcceptedConnectionContext context,
         MqttZeroMessageLease lease,
-        ushort inboundPacketIdentifier)
+        ushort inboundPacketIdentifier,
+        CancellationToken cancellationToken)
     {
         MqttZeroClientConnection connection = context.Connection!;
         MqttZeroSessionState session = context.Session!;
-        CancellationToken cancellationToken = context.ConnectionLifetime.Token;
         await OwnInboundLeaseAsync(lease, cancellationToken).ConfigureAwait(false);
         bool transferred = false;
         try
@@ -518,6 +530,40 @@ public sealed partial class MqttZeroBroker
         MqttZeroAcknowledgementView acknowledgement,
         CancellationToken cancellationToken)
     {
+        MqttZeroEventLoop shard = ShardSet[session.ShardId];
+        if (!shard.IsCurrent)
+        {
+            await shard.InvokeAsync(
+                async token =>
+                {
+                    await ProcessAcknowledgementCoreAsync(
+                        session,
+                        connection,
+                        acknowledgement,
+                        token).ConfigureAwait(false);
+                    return true;
+                },
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        await ProcessAcknowledgementCoreAsync(
+            session,
+            connection,
+            acknowledgement,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask ProcessAcknowledgementCoreAsync(
+        MqttZeroSessionState session,
+        MqttZeroClientConnection connection,
+        MqttZeroAcknowledgementView acknowledgement,
+        CancellationToken cancellationToken)
+    {
+        MqttZeroShardOwnership.EnsureCurrent(
+            session.ShardId,
+            nameof(ProcessAcknowledgementCoreAsync),
+            _fanoutDiagnostics);
         switch (acknowledgement.PacketType)
         {
             case MqttPacketType.PubAck:
@@ -585,10 +631,16 @@ public sealed partial class MqttZeroBroker
         context.CloseRegistration = attachment.Connection.ClosedToken.Register(
             CancelAcceptedConnection,
             context.ConnectionLifetime);
-        StartEgress(
-            attachment.Session,
-            attachment.Connection,
-            context.ConnectionLifetime.Token);
+        await ShardSet[context.SessionShardId].InvokeAsync(
+            _ =>
+            {
+                StartEgress(
+                    attachment.Session,
+                    attachment.Connection,
+                    context.ConnectionLifetime.Token);
+                return ValueTask.FromResult(true);
+            },
+            context.ConnectionLifetime.Token).ConfigureAwait(false);
         context.Buffer = context.Buffer.Slice(consumed);
         return true;
     }
@@ -781,6 +833,8 @@ public sealed partial class MqttZeroBroker
             ConnectTimeout.CancelAfter(_broker._options.ConnectTimeout);
             CachedConnectInvocation = InvokeConnectAsync;
             CachedPacketInvocation = InvokePacketOnShardAsync;
+            CachedOwnedPublishInvocation =
+                InvokeOwnedPublishOnShardAsync;
         }
 
         public PipeReader Input { get; }
@@ -841,6 +895,18 @@ public sealed partial class MqttZeroBroker
             CachedPacketInvocation
         { get; }
 
+        public Func<
+            CancellationToken,
+            ValueTask<InboundBufferAction>>
+            CachedOwnedPublishInvocation
+        { get; }
+
+        public MqttZeroMessageLease? CurrentOwnedPublishLease
+        { get; set; }
+
+        public ushort CurrentOwnedPublishPacketIdentifier
+        { get; set; }
+
         public void Dispose()
         {
             ConnectTimeout.Dispose();
@@ -890,6 +956,21 @@ public sealed partial class MqttZeroBroker
                 packet,
                 cancellationToken).ConfigureAwait(false);
             return true;
+        }
+
+        private ValueTask<InboundBufferAction>
+            InvokeOwnedPublishOnShardAsync(
+            CancellationToken cancellationToken)
+        {
+            MqttZeroMessageLease lease =
+                CurrentOwnedPublishLease ??
+                throw new InvalidOperationException(
+                    "The owned PUBLISH lease is not available.");
+            return _broker.ProcessOwnedPublishAsync(
+                this,
+                lease,
+                CurrentOwnedPublishPacketIdentifier,
+                cancellationToken);
         }
     }
 
@@ -1003,6 +1084,10 @@ public sealed partial class MqttZeroBroker
         int sessionShardId,
         CancellationToken cancellationToken)
     {
+        MqttZeroShardOwnership.EnsureCurrent(
+            sessionShardId,
+            nameof(ConnectAsync),
+            _fanoutDiagnostics);
         ConnectTransaction transaction = new(
             this,
             connectPacket,
@@ -1347,7 +1432,7 @@ public sealed partial class MqttZeroBroker
 
         if (transaction.ReplacedSession != null)
         {
-            ReleaseSessionMessages(transaction.ReplacedSession);
+            ReleaseSessionMessagesCore(transaction.ReplacedSession);
         }
 
         MqttZeroConnectedClient connectedClient = new(
@@ -1629,7 +1714,7 @@ public sealed partial class MqttZeroBroker
             RemoveSessionDeadlines(session);
         }
 
-        ReleaseSessionMessages(session);
+        ReleaseSessionMessagesCore(session);
         if (!newSessionPersisted)
         {
             return;

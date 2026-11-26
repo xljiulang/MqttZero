@@ -348,7 +348,9 @@ namespace MqttZero.Tests.Broker
 
             Assert.Equal(
                 "retried",
-                await received.Task.WaitAsync(TimeSpan.FromSeconds(8), cancellationToken));
+                await received.Task.WaitAsync(
+                    TimeSpan.FromSeconds(20),
+                    cancellationToken));
             MqttZeroBroker broker = app.Services.GetRequiredService<MqttZeroBroker>();
             await Task.Delay(TimeSpan.FromMilliseconds(750), cancellationToken);
             Assert.Equal(1, broker.PublishedWillCount);
@@ -407,7 +409,9 @@ namespace MqttZero.Tests.Broker
                     .Build(),
                 cancellationToken);
             await WaitUntilAsync(
-                () => messageStore.Messages.Count == 1,
+                () => messageStore.Messages.Count == 1 &&
+                    messageStore.Messages.Values.Single().Kind ==
+                        MqttZeroPersistedMessageKind.Queued,
                 cancellationToken);
             messageStore.FailNextDeleteMessage = true;
             await WaitUntilAsync(

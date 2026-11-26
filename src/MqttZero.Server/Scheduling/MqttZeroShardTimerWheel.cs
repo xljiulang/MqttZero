@@ -584,8 +584,7 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
 
     private bool TryCompleteStop()
     {
-        if (Volatile.Read(ref _stopping) == 0 ||
-            Volatile.Read(ref _tickScheduled) != 0)
+        if (Volatile.Read(ref _stopping) == 0)
         {
             return false;
         }

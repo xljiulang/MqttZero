@@ -510,7 +510,9 @@ public sealed partial class MqttZeroBroker
 
                 foreach (MqttZeroSessionState session in stagedSessions.Values)
                 {
-                    ReleaseSessionMessages(session);
+                    await ReleaseSessionMessagesOnShardAsync(
+                        session,
+                        cancellationToken).ConfigureAwait(false);
                 }
 
                 foreach (MqttZeroRetainedMessage retained in stagedRetainedMessages.Values)

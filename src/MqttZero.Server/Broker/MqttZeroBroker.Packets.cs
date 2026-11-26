@@ -23,6 +23,9 @@ public sealed partial class MqttZeroBroker
         MqttPacket packet,
         CancellationToken cancellationToken)
     {
+        EnsureSessionShard(
+            session,
+            nameof(ProcessPacketAsync));
         switch (packet)
         {
             case MqttSubscribePacket subscribePacket:
@@ -80,11 +83,8 @@ public sealed partial class MqttZeroBroker
 
                 if (disconnectPacket.SessionExpiryInterval.HasValue)
                 {
-                    lock (session.SyncRoot)
-                    {
-                        session.ExpiryInterval = ClampSessionExpiry(
-                            disconnectPacket.SessionExpiryInterval.Value);
-                    }
+                    session.ExpiryInterval = ClampSessionExpiry(
+                        disconnectPacket.SessionExpiryInterval.Value);
                 }
 
                 break;
@@ -97,24 +97,24 @@ public sealed partial class MqttZeroBroker
         ushort packetIdentifier,
         CancellationToken cancellationToken)
     {
+        EnsureSessionShard(
+            session,
+            nameof(ProcessOutboundPubAckAsync));
         MqttZeroQueuedMessage? acknowledgedMessage = null;
         bool protocolViolation = false;
-        lock (session.SyncRoot)
+        if (session.InflightMessages.TryGetValue(
+                packetIdentifier,
+                out acknowledgedMessage))
         {
-            if (session.InflightMessages.TryGetValue(
-                    packetIdentifier,
-                    out acknowledgedMessage))
+            if (acknowledgedMessage.QualityOfServiceLevel ==
+                MqttQualityOfServiceLevel.AtLeastOnce)
             {
-                if (acknowledgedMessage.QualityOfServiceLevel ==
-                    MqttQualityOfServiceLevel.AtLeastOnce)
-                {
-                    session.InflightMessages.Remove(packetIdentifier);
-                }
-                else
-                {
-                    acknowledgedMessage = null;
-                    protocolViolation = true;
-                }
+                session.InflightMessages.Remove(packetIdentifier);
+            }
+            else
+            {
+                acknowledgedMessage = null;
+                protocolViolation = true;
             }
         }
 
@@ -137,10 +137,8 @@ public sealed partial class MqttZeroBroker
             }
             catch
             {
-                lock (session.SyncRoot)
-                {
-                    session.InflightMessages[packetIdentifier] = acknowledgedMessage;
-                }
+                session.InflightMessages[packetIdentifier] =
+                    acknowledgedMessage;
 
                 throw;
             }
@@ -157,14 +155,14 @@ public sealed partial class MqttZeroBroker
         MqttSubscribePacket packet,
         CancellationToken cancellationToken)
     {
+        EnsureSessionShard(
+            session,
+            nameof(ProcessSubscribeAsync));
         byte[] reasonCodes = new byte[packet.Subscriptions.Count];
         bool[] existed = new bool[packet.Subscriptions.Count];
         bool changed = false;
-        List<MqttZeroSubscription> original;
-        lock (session.SyncRoot)
-        {
-            original = [.. session.Subscriptions];
-        }
+        List<MqttZeroSubscription> original =
+            [.. session.Subscriptions.Snapshot()];
 
         List<MqttZeroSubscription> candidate = new(original);
         for (int index = 0; index < packet.Subscriptions.Count; index++)
@@ -228,13 +226,13 @@ public sealed partial class MqttZeroBroker
         MqttUnsubscribePacket packet,
         CancellationToken cancellationToken)
     {
+        EnsureSessionShard(
+            session,
+            nameof(ProcessUnsubscribeAsync));
         byte[] reasonCodes = new byte[packet.TopicFilters.Count];
         bool changed = false;
-        List<MqttZeroSubscription> original;
-        lock (session.SyncRoot)
-        {
-            original = [.. session.Subscriptions];
-        }
+        List<MqttZeroSubscription> original =
+            [.. session.Subscriptions.Snapshot()];
 
         List<MqttZeroSubscription> candidate = new(original);
         for (int index = 0; index < packet.TopicFilters.Count; index++)

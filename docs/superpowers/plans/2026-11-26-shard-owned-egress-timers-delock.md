@@ -3,10 +3,10 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 > **Status:** In progress on `refactor/shard-owned-egress-timers`.
-> Tasks 1 through 4 are complete. Session management reads now use atomically
-> published lifecycle and subscription snapshots, atomic connection/egress
-> references and atomic queue counters. Snapshot, client management and route
-> epoch reads no longer wait on the Session lock. Next is Task 5.
+> Tasks 1 through 5 are complete. Fast PUBLISH, acknowledgements, CONNECT,
+> detach, management disconnect, timer handling, route mutation and Session
+> queue release now execute on the owning Session Shard. Only Egress and Timer
+> internal locks remain for Task 6 removal.
 
 **Goal:** Make one Session Shard the sole owner of all mutable Session and outbound state, replace the global deadline scanner with per-Shard hierarchical timer wheels, and remove `session.SyncRoot` completely without changing public APIs or MQTT behavior.
 
@@ -420,11 +420,11 @@ git commit -m "refactor: publish lock-free session snapshots"
 
 ### Step 1: Write failing shard-confinement tests
 
-- [ ] Assert Subscribe/Unsubscribe rejects or internally posts off-Shard calls.
-- [ ] Assert PUBACK, PUBREC, PUBREL, PUBCOMP and ACK-triggered Inflight changes execute on the Session Shard.
-- [ ] Assert Detach, Takeover, Will publishing, Session Expiry and Persistence rollback execute on the Session Shard.
-- [ ] Assert Broker Publish and ConnectedClient methods do not self-wait when already on the target Shard.
-- [ ] Assert close/abort from non-Shard threads only posts commands or changes atomics owned by `MqttZeroClientConnection`.
+- [x] Assert Subscribe/Unsubscribe rejects or internally posts off-Shard calls.
+- [x] Assert PUBACK, PUBREC, PUBREL, PUBCOMP and ACK-triggered Inflight changes execute on the Session Shard.
+- [x] Assert Detach, Takeover, Will publishing, Session Expiry and Persistence rollback execute on the Session Shard.
+- [x] Assert Broker Publish and ConnectedClient methods do not self-wait when already on the target Shard.
+- [x] Assert close/abort from non-Shard threads only posts commands or changes atomics owned by `MqttZeroClientConnection`.
 
 ### Step 2: Verify RED
 
@@ -437,12 +437,12 @@ Expected: at least one call path reports off-Shard Session mutation.
 
 ### Step 3: Route mutations through Shard work
 
-- [ ] Replace direct Session access in the connection read loop with cached Shard delegates that execute inline or post Work.
-- [ ] Route publisher ACK generation through the publisher Session Shard or Session Egress command path.
-- [ ] Route management disconnect and connected-client operations through the target Shard.
-- [ ] Route Timer handlers through the timer wheel's owning Shard.
-- [ ] Remove connection write fallbacks after Session Egress attachment.
-- [ ] Keep pre-CONNECT and connection-finalization writes in a separate pre-attached state.
+- [x] Replace direct Session access in the connection read loop with cached Shard delegates that execute inline or post Work.
+- [x] Route publisher ACK generation through the publisher Session Shard or Session Egress command path.
+- [x] Route management disconnect and connected-client operations through the target Shard.
+- [x] Route Timer handlers through the timer wheel's owning Shard.
+- [x] Remove connection write fallbacks after Session Egress attachment.
+- [x] Keep pre-CONNECT and connection-finalization writes in a separate pre-attached state.
 
 ### Step 4: Verify GREEN
 

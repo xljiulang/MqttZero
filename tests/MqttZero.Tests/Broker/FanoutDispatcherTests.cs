@@ -643,12 +643,25 @@ public sealed class FanoutDispatcherTests
             null);
         lease.PacketIdentifier = 7;
         Task route = Task.CompletedTask;
-        bool lockHeld = false;
+        TaskCompletionSource lockHeld = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseLock = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Task lockHolder = Task.Run(
+            () =>
+            {
+                lock (receiver.SyncRoot)
+                {
+                    lockHeld.TrySetResult();
+                    releaseLock.Task.GetAwaiter().GetResult();
+                }
+            },
+            TestContext.Current.CancellationToken);
 
         try
         {
-            Monitor.Enter(receiver.SyncRoot);
-            lockHeld = true;
+            await lockHeld.Task.WaitAsync(
+                TestContext.Current.CancellationToken);
             route = broker.RoutePublishLeaseAsync(
                 sender,
                 senderConnection,
@@ -660,10 +673,8 @@ public sealed class FanoutDispatcherTests
         }
         finally
         {
-            if (lockHeld)
-            {
-                Monitor.Exit(receiver.SyncRoot);
-            }
+            releaseLock.TrySetResult();
+            await lockHolder;
 
             if (!route.IsCompleted)
             {
@@ -969,28 +980,37 @@ public sealed class FanoutDispatcherTests
 
         try
         {
-            for (int index = 0; index < 10; index++)
-            {
-                await RouteAndReleaseReceiverMessageAsync(
-                    broker,
-                    sender,
-                    senderConnection,
-                    receiver,
-                    lease);
-            }
+            long allocated = await broker.Shards![0].InvokeAsync(
+                async token =>
+                {
+                    for (int index = 0; index < 10; index++)
+                    {
+                        await RouteAndReleaseReceiverMessageAsync(
+                            broker,
+                            sender,
+                            senderConnection,
+                            receiver,
+                            lease,
+                            token);
+                    }
 
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int index = 0; index < 1_000; index++)
-            {
-                await RouteAndReleaseReceiverMessageAsync(
-                    broker,
-                    sender,
-                    senderConnection,
-                    receiver,
-                    lease);
-            }
+                    long before =
+                        GC.GetAllocatedBytesForCurrentThread();
+                    for (int index = 0; index < 1_000; index++)
+                    {
+                        await RouteAndReleaseReceiverMessageAsync(
+                            broker,
+                            sender,
+                            senderConnection,
+                            receiver,
+                            lease,
+                            token);
+                    }
 
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+                    return GC.GetAllocatedBytesForCurrentThread() -
+                        before;
+                },
+                TestContext.Current.CancellationToken);
             Assert.Equal(0, allocated);
         }
         finally
@@ -1337,19 +1357,23 @@ public sealed class FanoutDispatcherTests
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,
         MqttZeroSessionState receiver,
-        MqttZeroMessageLease lease)
+        MqttZeroMessageLease lease,
+        CancellationToken cancellationToken)
     {
         await broker.RoutePublishLeaseAsync(
             sender,
             senderConnection,
             lease,
-            TestContext.Current.CancellationToken);
-        lock (receiver.SyncRoot)
+            cancellationToken);
+        if (receiver.PendingMessages.Count == 0)
         {
-            MqttZeroQueuedMessage message =
-                receiver.PendingMessages.Dequeue();
-            message.Release();
+            throw new InvalidOperationException(
+                "The routed message was not queued.");
         }
+
+        MqttZeroQueuedMessage message =
+            receiver.PendingMessages.Dequeue();
+        message.Release();
     }
 
     private static void AddSession(
