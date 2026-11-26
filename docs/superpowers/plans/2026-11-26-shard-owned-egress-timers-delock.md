@@ -2,6 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status:** In progress on `refactor/shard-owned-egress-timers`.
+> Task 1 is complete. Task 2 has the Session owner, owner-bound drain,
+> Egress batch ownership, QoS 0 release ownership and Drain Shard assertion
+> implemented. The remaining Task 2 work is to move the async Drain
+> orchestration out of the Broker file and delete the old Actor adapter.
+
 **Goal:** Make one Session Shard the sole owner of all mutable Session and outbound state, replace the global deadline scanner with per-Shard hierarchical timer wheels, and remove `session.SyncRoot` completely without changing public APIs or MQTT behavior.
 
 **Architecture:** Preserve Kestrel transport, immutable Route Epochs, pooled message Leases, the Shard Event Loop and bounded Egress control/data batching. Replace the current Egress actor plus its split Broker/Connection state with one Session Egress owner, then attach one hierarchical timer wheel to each Shard, then migrate all remaining Session mutation and management reads away from locks and onto Shard-local execution or immutable snapshots.
