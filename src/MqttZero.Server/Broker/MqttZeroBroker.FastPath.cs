@@ -59,33 +59,20 @@ public sealed partial class MqttZeroBroker
             context.Sender = senderConnection.ConnectedClient;
             try
             {
-                foreach (IMqttZeroPublishInterceptor interceptor in _publishInterceptors)
-                {
-                    MqttZeroInterceptionResult result = await interceptor
-                        .InterceptAsync(context, cancellationToken)
+                MqttZeroInterceptionResult interception =
+                    await RunPublishInterceptorsAsync(context, cancellationToken)
                         .ConfigureAwait(false);
-                    if (result != MqttZeroInterceptionResult.Continue)
-                    {
-                        if (result == MqttZeroInterceptionResult.CloseConnection)
-                        {
-                            await senderConnection.CloseAsync(
-                                context.ResultReasonCode == MqttReasonCode.Success
-                                    ? MqttReasonCode.NotAuthorized
-                                    : context.ResultReasonCode,
-                                cancellationToken).ConfigureAwait(false);
-                        }
-                        else if (!suppressPublisherAck &&
-                            lease.QualityOfServiceLevel ==
-                            MqttQualityOfServiceLevel.AtLeastOnce)
-                        {
-                            await senderConnection.SendPubAckAsync(
-                                lease.PacketIdentifier,
-                                context.ResultReasonCode,
-                                cancellationToken).ConfigureAwait(false);
-                        }
-
-                        return;
-                    }
+                if (interception != MqttZeroInterceptionResult.Continue)
+                {
+                    await RejectPublishAsync(
+                        senderConnection,
+                        lease,
+                        interception,
+                        context,
+                        suppressPublisherAck,
+                        cancellationToken)
+                        .ConfigureAwait(false);
+                    return;
                 }
 
                 effectiveLease = MqttZeroMessageLease.CopyFrom(

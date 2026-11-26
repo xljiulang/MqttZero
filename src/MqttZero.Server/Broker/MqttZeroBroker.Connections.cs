@@ -968,91 +968,26 @@ public sealed partial class MqttZeroBroker
             }
             catch
             {
-                if (replacingSession)
-                {
-                    lock (_sessionGate)
-                    {
-                        if (_sessions.TryGetValue(clientId, out MqttZeroSessionState? current) &&
-                            ReferenceEquals(current, session))
-                        {
-                            _sessions[clientId] = replacedSession!;
-                        }
-                    }
-
-                    lock (replacedSession!.SyncRoot)
-                    {
-                        replacedSession.Connection = oldConnection;
-                    }
-
-                    RegisterSessionDeadlines(replacedSession);
-                    RestoreSessionEgress(
-                        previousPumpSession,
+                await RollbackConnectionAsync(
+                    clientId,
+                    session,
+                    sessionPresent,
+                    newSessionPersisted,
+                    existingPersistenceDeleted,
+                    CreateRestoreState(
+                        replacedSession,
                         oldConnection,
-                        previousPump,
-                        previousPumpStopped);
-
-                    if (existingPersistenceDeleted)
-                    {
-                        try
-                        {
-                            await RestoreSessionPersistenceAsync(
-                                replacedSession,
-                                CancellationToken.None).ConfigureAwait(false);
-                        }
-                        catch (Exception exception)
-                        {
-                            MqttZeroBrokerLogging.LogPersistenceFailure(
-                                _logger,
-                                nameof(RestoreSessionPersistenceAsync),
-                                clientId,
-                                exception);
-                        }
-                    }
-                }
-                else if (sessionPresent)
-                {
-                    lock (session.SyncRoot)
-                    {
-                        session.Connection = oldConnection;
-                        session.CleanStart = previousCleanStart;
-                        session.ExpiryInterval = previousExpiryInterval;
-                        session.DisconnectedAt = previousDisconnectedAt;
-                        session.WillMessage = previousWillMessage;
-                        session.WillDueAt = previousWillDueAt;
-                    }
-
-                    RestoreSessionEgress(
                         previousPumpSession,
-                        oldConnection,
                         previousPump,
-                        previousPumpStopped);
-                }
-                else
-                {
-                    lock (_sessionGate)
-                    {
-                        _sessions.TryRemove(session.ClientId, out _);
-                    }
-
-                    ReleaseSessionMessages(session);
-                    if (newSessionPersisted)
-                    {
-                        try
-                        {
-                            await DeleteSessionAsync(
-                                clientId,
-                                CancellationToken.None).ConfigureAwait(false);
-                        }
-                        catch (Exception exception)
-                        {
-                            MqttZeroBrokerLogging.LogPersistenceFailure(
-                                _logger,
-                                nameof(IMqttZeroSessionStore.DeleteAsync),
-                                clientId,
-                                exception);
-                        }
-                    }
-                }
+                        previousPumpStopped,
+                        previousCleanStart,
+                        previousExpiryInterval,
+                        previousDisconnectedAt,
+                        previousWillMessage,
+                        previousWillDueAt),
+                    registerDeadlines: true,
+                    removeDeadlines: false,
+                    persistRestoredSession: false).ConfigureAwait(false);
 
                 await newConnection.DisposeAsync().ConfigureAwait(false);
                 throw;
@@ -1139,105 +1074,181 @@ public sealed partial class MqttZeroBroker
             catch
             {
                 ReleaseConnectedClientCount(newConnection);
-                if (replacingSession)
-                {
-                    lock (_sessionGate)
-                    {
-                        if (_sessions.TryGetValue(clientId, out MqttZeroSessionState? current) &&
-                            ReferenceEquals(current, session))
-                        {
-                            _sessions[clientId] = replacedSession!;
-                        }
-                    }
-
-                    lock (replacedSession!.SyncRoot)
-                    {
-                        replacedSession.Connection = oldConnection;
-                    }
-
-                    RestoreSessionEgress(
-                        previousPumpSession,
+                await RollbackConnectionAsync(
+                    clientId,
+                    session,
+                    sessionPresent,
+                    newSessionPersisted,
+                    existingPersistenceDeleted,
+                    CreateRestoreState(
+                        replacedSession,
                         oldConnection,
-                        previousPump,
-                        previousPumpStopped);
-
-                    try
-                    {
-                        await RestoreSessionPersistenceAsync(
-                            replacedSession,
-                            CancellationToken.None).ConfigureAwait(false);
-                    }
-                    catch (Exception exception)
-                    {
-                        MqttZeroBrokerLogging.LogPersistenceFailure(
-                            _logger,
-                            nameof(RestoreSessionPersistenceAsync),
-                            clientId,
-                            exception);
-                    }
-                }
-                else if (!sessionPresent)
-                {
-                    lock (_sessionGate)
-                    {
-                        _sessions.TryRemove(session.ClientId, out _);
-                    }
-
-                    RemoveSessionDeadlines(session.ClientId);
-                    ReleaseSessionMessages(session);
-                    try
-                    {
-                        if (_sessionStore.IsEnabled)
-                        {
-                            await DeleteSessionAsync(
-                                clientId,
-                                CancellationToken.None).ConfigureAwait(false);
-                        }
-                    }
-                    catch (Exception exception)
-                    {
-                        MqttZeroBrokerLogging.LogPersistenceFailure(
-                            _logger,
-                            nameof(IMqttZeroSessionStore.DeleteAsync),
-                            clientId,
-                            exception);
-                    }
-                }
-                else
-                {
-                    lock (session.SyncRoot)
-                    {
-                        session.Connection = oldConnection;
-                        session.CleanStart = previousCleanStart;
-                        session.ExpiryInterval = previousExpiryInterval;
-                        session.DisconnectedAt = previousDisconnectedAt;
-                        session.WillMessage = previousWillMessage;
-                        session.WillDueAt = previousWillDueAt;
-                    }
-
-                    RestoreSessionEgress(
                         previousPumpSession,
-                        oldConnection,
                         previousPump,
-                        previousPumpStopped);
-
-                    try
-                    {
-                        await SaveSessionAsync(session, CancellationToken.None).ConfigureAwait(false);
-                    }
-                    catch (Exception exception)
-                    {
-                        MqttZeroBrokerLogging.LogPersistenceFailure(
-                            _logger,
-                            nameof(SaveSessionAsync),
-                            clientId,
-                            exception);
-                    }
-                }
+                        previousPumpStopped,
+                        previousCleanStart,
+                        previousExpiryInterval,
+                        previousDisconnectedAt,
+                        previousWillMessage,
+                        previousWillDueAt),
+                    registerDeadlines: false,
+                    removeDeadlines: true,
+                    persistRestoredSession: true).ConfigureAwait(false);
 
                 await newConnection.DisposeAsync().ConfigureAwait(false);
                 throw;
             }
+        }
+    }
+
+    private static MqttZeroSessionRestoreState CreateRestoreState(
+        MqttZeroSessionState? replacedSession,
+        MqttZeroClientConnection? oldConnection,
+        MqttZeroSessionState? previousPumpSession,
+        MqttZeroEgressActor? previousPump,
+        bool previousPumpStopped,
+        bool previousCleanStart,
+        uint previousExpiryInterval,
+        DateTimeOffset? previousDisconnectedAt,
+        MqttZeroWillMessage? previousWillMessage,
+        DateTimeOffset? previousWillDueAt)
+    {
+        return new MqttZeroSessionRestoreState(
+            replacedSession,
+            oldConnection,
+            previousPumpSession,
+            previousPump,
+            previousPumpStopped,
+            previousCleanStart,
+            previousExpiryInterval,
+            previousDisconnectedAt,
+            previousWillMessage,
+            previousWillDueAt);
+    }
+
+    private async ValueTask RollbackConnectionAsync(
+        string clientId,
+        MqttZeroSessionState session,
+        bool sessionPresent,
+        bool newSessionPersisted,
+        bool existingPersistenceDeleted,
+        MqttZeroSessionRestoreState restore,
+        bool registerDeadlines,
+        bool removeDeadlines,
+        bool persistRestoredSession)
+    {
+        if (restore.ReplacedSession is { } replacedSession)
+        {
+            lock (_sessionGate)
+            {
+                if (_sessions.TryGetValue(clientId, out MqttZeroSessionState? current) &&
+                    ReferenceEquals(current, session))
+                {
+                    _sessions[clientId] = replacedSession;
+                }
+            }
+
+            lock (replacedSession.SyncRoot)
+            {
+                replacedSession.Connection = restore.OldConnection;
+            }
+
+            if (registerDeadlines)
+            {
+                RegisterSessionDeadlines(replacedSession);
+            }
+
+            RestoreSessionEgress(
+                restore.PreviousPumpSession,
+                restore.OldConnection,
+                restore.PreviousPump,
+                restore.PreviousPumpStopped);
+            if (existingPersistenceDeleted)
+            {
+                try
+                {
+                    await RestoreSessionPersistenceAsync(
+                        replacedSession,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception exception)
+                {
+                    MqttZeroBrokerLogging.LogPersistenceFailure(
+                        _logger,
+                        nameof(RestoreSessionPersistenceAsync),
+                        clientId,
+                        exception);
+                }
+            }
+
+            return;
+        }
+
+        if (!sessionPresent)
+        {
+            lock (_sessionGate)
+            {
+                _sessions.TryRemove(session.ClientId, out _);
+            }
+
+            if (removeDeadlines)
+            {
+                RemoveSessionDeadlines(session.ClientId);
+            }
+
+            ReleaseSessionMessages(session);
+            if (newSessionPersisted)
+            {
+                try
+                {
+                    await DeleteSessionAsync(
+                        clientId,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception exception)
+                {
+                    MqttZeroBrokerLogging.LogPersistenceFailure(
+                        _logger,
+                        nameof(IMqttZeroSessionStore.DeleteAsync),
+                        clientId,
+                        exception);
+                }
+            }
+
+            return;
+        }
+
+        lock (session.SyncRoot)
+        {
+            session.Connection = restore.OldConnection;
+            session.CleanStart = restore.PreviousCleanStart;
+            session.ExpiryInterval = restore.PreviousExpiryInterval;
+            session.DisconnectedAt = restore.PreviousDisconnectedAt;
+            session.WillMessage = restore.PreviousWillMessage;
+            session.WillDueAt = restore.PreviousWillDueAt;
+        }
+
+        RestoreSessionEgress(
+            restore.PreviousPumpSession,
+            restore.OldConnection,
+            restore.PreviousPump,
+            restore.PreviousPumpStopped);
+        if (!persistRestoredSession)
+        {
+            return;
+        }
+
+        try
+        {
+            await SaveSessionAsync(session, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            MqttZeroBrokerLogging.LogPersistenceFailure(
+                _logger,
+                nameof(SaveSessionAsync),
+                clientId,
+                exception);
         }
     }
 

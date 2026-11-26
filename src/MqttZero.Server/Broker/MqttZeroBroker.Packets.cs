@@ -179,16 +179,9 @@ public sealed partial class MqttZeroBroker
                 RetainAsPublished = request.RetainAsPublished,
                 RetainHandling = request.RetainHandling
             };
-            MqttZeroInterceptionResult interception = MqttZeroInterceptionResult.Continue;
-            foreach (IMqttZeroSubscribeInterceptor interceptor in _subscribeInterceptors)
-            {
-                interception = await interceptor.InterceptAsync(context, cancellationToken)
+            MqttZeroInterceptionResult interception =
+                await RunSubscribeInterceptorsAsync(context, cancellationToken)
                     .ConfigureAwait(false);
-                if (interception != MqttZeroInterceptionResult.Continue)
-                {
-                    break;
-                }
-            }
 
             if (interception == MqttZeroInterceptionResult.CloseConnection)
             {
@@ -380,16 +373,9 @@ public sealed partial class MqttZeroBroker
                 ConnectedClient = connection.ConnectedClient,
                 TopicFilter = new ReadOnlySequence<byte>(topicFilter)
             };
-            MqttZeroInterceptionResult interception = MqttZeroInterceptionResult.Continue;
-            foreach (IMqttZeroUnsubscribeInterceptor interceptor in _unsubscribeInterceptors)
-            {
-                interception = await interceptor.InterceptAsync(context, cancellationToken)
+            MqttZeroInterceptionResult interception =
+                await RunUnsubscribeInterceptorsAsync(context, cancellationToken)
                     .ConfigureAwait(false);
-                if (interception != MqttZeroInterceptionResult.Continue)
-                {
-                    break;
-                }
-            }
 
             if (interception == MqttZeroInterceptionResult.CloseConnection)
             {
