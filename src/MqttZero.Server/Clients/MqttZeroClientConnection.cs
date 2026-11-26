@@ -354,7 +354,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         MarkPublishBatchSent(messages.Count, encodedBytes);
     }
 
-    internal async ValueTask<int> TryEncodePublishBatchAsync(
+    internal async ValueTask<int> EncodePublishBatchAsync(
         IReadOnlyList<MqttZeroQueuedMessage> messages,
         CancellationToken cancellationToken)
     {
@@ -482,7 +482,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
-    internal bool IsPublishTooLarge(
+    internal bool ExceedsMaximumPacketSize(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
         bool retain,
@@ -501,7 +501,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         bool retain,
         ReadOnlyMemory<uint> subscriptionIdentifiers)
     {
-        MqttZeroPublishView view = new(
+        return GetPublishEncodedLength(
             lease.TopicSequence,
             lease.PropertiesSequence,
             lease.PayloadSequence,
@@ -510,82 +510,19 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             false,
             retain,
             GetRemainingMessageExpiry(lease.ExpiresAt),
-            null,
-            subscriptionIdentifiers,
-            null);
-        return MqttPublishPacketCodec.GetEncodedLength(view);
+            subscriptionIdentifiers);
     }
 
-    public async ValueTask SendPubAckAsync(
+    public ValueTask SendPubAckAsync(
         ushort packetIdentifier,
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken)
     {
-        int encodedLength = reasonCode == MqttReasonCode.Success ? 4 : 6;
-        if (encodedLength > MaximumPacketSize)
-        {
-            throw new InvalidOperationException(
-                "The outbound MQTT packet exceeds the client maximum packet size.");
-        }
-
-        MqttZeroEgressControlFrame? frame =
-            TryRentEgressControlFrame(encodedLength);
-        if (frame != null)
-        {
-            bool includeReason = reasonCode != MqttReasonCode.Success;
-            Span<byte> destination = frame.Writer.GetSpan(encodedLength);
-            destination[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.PubAck);
-            destination[1] = includeReason ? (byte)4 : (byte)2;
-            BinaryPrimitives.WriteUInt16BigEndian(
-                destination[2..],
-                packetIdentifier);
-            if (includeReason)
-            {
-                destination[4] = (byte)reasonCode;
-                destination[5] = 0;
-            }
-
-            frame.Writer.Advance(encodedLength);
-            await PostControlFrameAsync(frame, cancellationToken)
-                .ConfigureAwait(false);
-            return;
-        }
-
-        MqttZeroWriteLease? pubAckLease =
-            await TryEnterWriteAsync(cancellationToken).ConfigureAwait(false);
-        if (pubAckLease == null)
-        {
-            Abort();
-            return;
-        }
-
-        using (pubAckLease.Value)
-        {
-            BeginControlWrite();
-            try
-            {
-                bool includeReason = reasonCode != MqttReasonCode.Success;
-                Span<byte> header = _writer.GetSpan(includeReason ? 6 : 4);
-                header[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.PubAck);
-                header[1] = includeReason ? (byte)4 : (byte)2;
-                BinaryPrimitives.WriteUInt16BigEndian(header[2..], packetIdentifier);
-                _writer.Advance(4);
-                if (includeReason)
-                {
-                    _writer.GetSpan(1)[0] = (byte)reasonCode;
-                    _writer.Advance(1);
-                    _writer.GetSpan(1)[0] = 0;
-                    _writer.Advance(1);
-                }
-
-                _ = await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
-                MarkPacketSent(encodedLength, false);
-            }
-            finally
-            {
-                EndControlWrite();
-            }
-        }
+        return SendAckDirectAsync(
+            MqttPacketHeader.GetFirstByte(MqttPacketType.PubAck),
+            packetIdentifier,
+            reasonCode,
+            cancellationToken);
     }
 
     public ValueTask SendPubRecAsync(
@@ -668,82 +605,46 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         MqttSubAckPacket packet,
         CancellationToken cancellationToken)
     {
-        int propertiesLength = Mqtt5PropertyWriter.GetReasonPropertiesLength(
-            packet.ReasonString,
-            packet.UserProperties);
-        int bodyLength =
-            2 +
-            GetVariableByteIntegerSize(propertiesLength) +
-            propertiesLength +
-            packet.ReasonCodes.Length;
-        long encodedLength =
-            1 +
-            GetVariableByteIntegerSize(bodyLength) +
-            bodyLength;
-        if (encodedLength > MaximumPacketSize &&
+        MqttZeroControlPacketSize size = MqttZeroControlPacketSize.ForReasonCodeList(
+            Mqtt5PropertyWriter.GetReasonPropertiesLength(
+                packet.ReasonString,
+                packet.UserProperties),
+            packet.ReasonCodes.Length);
+        if (size.EncodedLength > MaximumPacketSize &&
             (packet.ReasonString != null || packet.UserProperties.Count > 0))
         {
             packet.ReasonString = null;
             packet.UserProperties = Array.Empty<MqttUserProperty>();
-            propertiesLength = 0;
+            size = MqttZeroControlPacketSize.ForReasonCodeList(
+                0,
+                packet.ReasonCodes.Length);
         }
 
-        MqttZeroEgressControlFrame? frame =
-            TryRentEgressControlFrame(checked((int)encodedLength));
-        if (frame != null)
-        {
-            MqttPacketCodec.Encode(packet, frame.Writer);
-            await PostControlFrameAsync(frame, cancellationToken)
-                .ConfigureAwait(false);
-            return;
-        }
-
-        await SendControlPacketDirectAsync(
-            packet,
-            2 + packet.ReasonCodes.Length,
-            propertiesLength,
-            cancellationToken).ConfigureAwait(false);
+        await SendControlPacketAsync(packet, size, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async ValueTask SendUnsubAckAsync(
         MqttUnsubAckPacket packet,
         CancellationToken cancellationToken)
     {
-        int propertiesLength = Mqtt5PropertyWriter.GetReasonPropertiesLength(
-            packet.ReasonString,
-            packet.UserProperties);
-        int bodyLength =
-            2 +
-            GetVariableByteIntegerSize(propertiesLength) +
-            propertiesLength +
-            packet.ReasonCodes.Length;
-        long encodedLength =
-            1 +
-            GetVariableByteIntegerSize(bodyLength) +
-            bodyLength;
-        if (encodedLength > MaximumPacketSize &&
+        MqttZeroControlPacketSize size = MqttZeroControlPacketSize.ForReasonCodeList(
+            Mqtt5PropertyWriter.GetReasonPropertiesLength(
+                packet.ReasonString,
+                packet.UserProperties),
+            packet.ReasonCodes.Length);
+        if (size.EncodedLength > MaximumPacketSize &&
             (packet.ReasonString != null || packet.UserProperties.Count > 0))
         {
             packet.ReasonString = null;
             packet.UserProperties = Array.Empty<MqttUserProperty>();
-            propertiesLength = 0;
+            size = MqttZeroControlPacketSize.ForReasonCodeList(
+                0,
+                packet.ReasonCodes.Length);
         }
 
-        MqttZeroEgressControlFrame? frame =
-            TryRentEgressControlFrame(checked((int)encodedLength));
-        if (frame != null)
-        {
-            MqttPacketCodec.Encode(packet, frame.Writer);
-            await PostControlFrameAsync(frame, cancellationToken)
-                .ConfigureAwait(false);
-            return;
-        }
-
-        await SendControlPacketDirectAsync(
-            packet,
-            2 + packet.ReasonCodes.Length,
-            propertiesLength,
-            cancellationToken).ConfigureAwait(false);
+        await SendControlPacketAsync(packet, size, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async ValueTask SendConnAckAsync(
@@ -756,39 +657,25 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             packet.UserProperties = Array.Empty<MqttUserProperty>();
         }
 
-        int propertiesLength = Mqtt5PropertyWriter.GetConnAckPropertiesLength(packet);
-        int bodyLength =
-            2 +
-            GetVariableByteIntegerSize(propertiesLength) +
-            propertiesLength;
-        long encodedLength =
-            1 +
-            GetVariableByteIntegerSize(bodyLength) +
-            bodyLength;
-        if (encodedLength > MaximumPacketSize &&
+        MqttZeroControlPacketSize size = MqttZeroControlPacketSize.ForConnAck(
+            Mqtt5PropertyWriter.GetConnAckPropertiesLength(packet));
+        if (size.EncodedLength > MaximumPacketSize &&
             (packet.ReasonString != null || packet.UserProperties.Count > 0))
         {
             packet.ReasonString = null;
             packet.UserProperties = Array.Empty<MqttUserProperty>();
-            propertiesLength = Mqtt5PropertyWriter.GetConnAckPropertiesLength(packet);
-            bodyLength =
-                2 +
-                GetVariableByteIntegerSize(propertiesLength) +
-                propertiesLength;
-            encodedLength =
-                1 +
-                GetVariableByteIntegerSize(bodyLength) +
-                bodyLength;
+            size = MqttZeroControlPacketSize.ForConnAck(
+                Mqtt5PropertyWriter.GetConnAckPropertiesLength(packet));
         }
 
-        if (encodedLength > MaximumPacketSize)
+        if (size.EncodedLength > MaximumPacketSize)
         {
             throw new InvalidOperationException(
                 "The outbound MQTT packet exceeds the client maximum packet size.");
         }
 
         MqttZeroEgressControlFrame? frame =
-            TryRentEgressControlFrame(checked((int)encodedLength));
+            TryRentEgressControlFrame(size.EncodedLength);
         if (frame != null)
         {
             MqttPacketCodec.Encode(packet, frame.Writer);
@@ -806,7 +693,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.ConnAck);
                 int lengthBytes = MqttZeroPacketWriter.WriteVariableByteInteger(
                     fixedHeader[1..],
-                    (uint)bodyLength);
+                    (uint)size.BodyLength);
                 _writer.Advance(1 + lengthBytes);
                 Span<byte> acknowledgeHeader = _writer.GetSpan(2);
                 acknowledgeHeader[0] = packet.SessionPresent ? (byte)1 : (byte)0;
@@ -814,7 +701,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 _writer.Advance(2);
                 Mqtt5PropertyWriter.WriteConnAckProperties(packet, _writer);
                 _ = await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
-                MarkPacketSent((int)encodedLength, false);
+                MarkPacketSent(size.EncodedLength, false);
             }
             finally
             {
@@ -839,16 +726,10 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         bool includeDetail =
             packet.ReasonCode != MqttReasonCode.Success ||
             propertiesLength > 0;
-        int bodyLength = includeDetail
-            ? 1 +
-                GetVariableByteIntegerSize(propertiesLength) +
-                propertiesLength
-            : 0;
-        long encodedLength =
-            1 +
-            GetVariableByteIntegerSize(bodyLength) +
-            bodyLength;
-        if (encodedLength > MaximumPacketSize &&
+        MqttZeroControlPacketSize size = MqttZeroControlPacketSize.ForDisconnect(
+            propertiesLength,
+            includeDetail);
+        if (size.EncodedLength > MaximumPacketSize &&
             (packet.ReasonString != null ||
                 packet.ServerReference != null ||
                 packet.UserProperties.Count > 0))
@@ -861,25 +742,19 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             includeDetail =
                 packet.ReasonCode != MqttReasonCode.Success ||
                 propertiesLength > 0;
-            bodyLength = includeDetail
-                ? 1 +
-                    GetVariableByteIntegerSize(propertiesLength) +
-                    propertiesLength
-                : 0;
-            encodedLength =
-                1 +
-                GetVariableByteIntegerSize(bodyLength) +
-                bodyLength;
+            size = MqttZeroControlPacketSize.ForDisconnect(
+                propertiesLength,
+                includeDetail);
         }
 
-        if (encodedLength > MaximumPacketSize)
+        if (size.EncodedLength > MaximumPacketSize)
         {
             throw new InvalidOperationException(
                 "The outbound MQTT packet exceeds the client maximum packet size.");
         }
 
         MqttZeroEgressControlFrame? frame =
-            TryRentEgressControlFrame(checked((int)encodedLength));
+            TryRentEgressControlFrame(size.EncodedLength);
         if (frame != null)
         {
             MqttPacketCodec.Encode(packet, frame.Writer);
@@ -897,7 +772,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.Disconnect);
                 int lengthBytes = MqttZeroPacketWriter.WriteVariableByteInteger(
                     fixedHeader[1..],
-                    (uint)bodyLength);
+                    (uint)size.BodyLength);
                 _writer.Advance(1 + lengthBytes);
                 if (includeDetail)
                 {
@@ -907,7 +782,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 }
 
                 _ = await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
-                MarkPacketSent((int)encodedLength, false);
+                MarkPacketSent(size.EncodedLength, false);
             }
             finally
             {
@@ -1092,23 +967,31 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         return (uint)Math.Min(remainingSeconds, uint.MaxValue);
     }
 
-    private async ValueTask SendControlPacketDirectAsync(
+    private async ValueTask SendControlPacketAsync(
         MqttPacket packet,
-        long bodyLength,
-        long propertyLength,
+        MqttZeroControlPacketSize size,
         CancellationToken cancellationToken)
     {
-        int propertyLengthSize = propertyLength < 128
-            ? 1
-            : propertyLength < 16_384
-                ? 2
-                : propertyLength < 2_097_152
-                    ? 3
-                    : 4;
-        bodyLength += propertyLength + propertyLengthSize;
-        int remainingLengthSize = GetVariableByteIntegerSize(bodyLength);
-        long encodedLength = 1 + remainingLengthSize + bodyLength;
-        if (encodedLength > MaximumPacketSize)
+        MqttZeroEgressControlFrame? frame =
+            TryRentEgressControlFrame(size.EncodedLength);
+        if (frame != null)
+        {
+            MqttPacketCodec.Encode(packet, frame.Writer);
+            await PostControlFrameAsync(frame, cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        await SendControlPacketDirectAsync(packet, size, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async ValueTask SendControlPacketDirectAsync(
+        MqttPacket packet,
+        MqttZeroControlPacketSize size,
+        CancellationToken cancellationToken)
+    {
+        if (size.EncodedLength > MaximumPacketSize)
         {
             throw new InvalidOperationException(
                 "The outbound MQTT packet exceeds the client maximum packet size.");
@@ -1121,7 +1004,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             {
                 MqttPacketCodec.Encode(packet, _writer);
                 _ = await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
-                MarkPacketSent((int)encodedLength, false);
+                MarkPacketSent(size.EncodedLength, false);
             }
             finally
             {
@@ -1149,17 +1032,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         if (frame != null)
         {
             Span<byte> destination = frame.Writer.GetSpan(encodedLength);
-            destination[0] = firstByte;
-            destination[1] = includeReason ? (byte)4 : (byte)2;
-            BinaryPrimitives.WriteUInt16BigEndian(
-                destination[2..],
-                packetIdentifier);
-            if (includeReason)
-            {
-                destination[4] = (byte)reasonCode;
-                destination[5] = 0;
-            }
-
+            WriteAcknowledgement(
+                destination,
+                firstByte,
+                packetIdentifier,
+                includeReason,
+                reasonCode);
             frame.Writer.Advance(encodedLength);
             await PostControlFrameAsync(frame, cancellationToken)
                 .ConfigureAwait(false);
@@ -1180,17 +1058,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             try
             {
                 Span<byte> destination = _writer.GetSpan(encodedLength);
-                destination[0] = firstByte;
-                destination[1] = includeReason ? (byte)4 : (byte)2;
-                BinaryPrimitives.WriteUInt16BigEndian(
-                    destination[2..],
-                    packetIdentifier);
-                if (includeReason)
-                {
-                    destination[4] = (byte)reasonCode;
-                    destination[5] = 0;
-                }
-
+                WriteAcknowledgement(
+                    destination,
+                    firstByte,
+                    packetIdentifier,
+                    includeReason,
+                    reasonCode);
                 _writer.Advance(encodedLength);
                 _ = await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
                 MarkPacketSent(encodedLength, false);
@@ -1199,6 +1072,23 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             {
                 EndControlWrite();
             }
+        }
+    }
+
+    private static void WriteAcknowledgement(
+        Span<byte> destination,
+        byte firstByte,
+        ushort packetIdentifier,
+        bool includeReason,
+        MqttReasonCode reasonCode)
+    {
+        destination[0] = firstByte;
+        destination[1] = includeReason ? (byte)4 : (byte)2;
+        BinaryPrimitives.WriteUInt16BigEndian(destination[2..], packetIdentifier);
+        if (includeReason)
+        {
+            destination[4] = (byte)reasonCode;
+            destination[5] = 0;
         }
     }
 

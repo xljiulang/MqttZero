@@ -86,7 +86,7 @@ namespace MqttZero.Tests.Broker
                         for (int index = 0; index < 20; index++)
                         {
                             int encodedBytes =
-                                await connection.TryEncodePublishBatchAsync(
+                                await connection.EncodePublishBatchAsync(
                                     messages,
                                     cancellation.Token);
                             Assert.True(encodedBytes > 0);
@@ -139,7 +139,7 @@ namespace MqttZero.Tests.Broker
                         for (int index = 0; index < 20; index++)
                         {
                             int encodedBytes =
-                                await connection.TryEncodePublishBatchAsync(
+                                await connection.EncodePublishBatchAsync(
                                     messages,
                                     cancellation.Token);
                             Assert.True(encodedBytes > 0);

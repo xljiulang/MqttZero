@@ -1243,7 +1243,7 @@ public sealed partial class MqttZeroBroker
                         ? Stopwatch.GetTimestamp()
                         : 0;
                     int encodedBytes =
-                        await connection.TryEncodePublishBatchAsync(
+                        await connection.EncodePublishBatchAsync(
                             batch,
                             cancellationToken).ConfigureAwait(false);
                     bool encoded = encodedBytes > 0;
