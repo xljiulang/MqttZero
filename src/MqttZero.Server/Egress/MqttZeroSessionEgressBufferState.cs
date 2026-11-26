@@ -145,6 +145,20 @@ internal sealed class MqttZeroSessionEgressBufferState
         }
     }
 
+    internal static void ReleaseQosZeroMessages(
+        List<MqttZeroQueuedMessage> batch)
+    {
+        for (int index = 0; index < batch.Count; index++)
+        {
+            MqttZeroQueuedMessage message = batch[index];
+            if (message.QualityOfServiceLevel ==
+                MqttQualityOfServiceLevel.AtMostOnce)
+            {
+                message.Release();
+            }
+        }
+    }
+
     private static void ValidateEncodedLength(
         MqttZeroClientConnection connection,
         MqttZeroQueuedMessage message,

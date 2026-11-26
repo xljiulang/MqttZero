@@ -1163,7 +1163,8 @@ public sealed partial class MqttZeroBroker
                                 cancellationToken));
                     }
 
-                    ReleaseQosZeroMessages(batch);
+                    MqttZeroSessionEgressBufferState.ReleaseQosZeroMessages(
+                        batch);
                     qosZeroMessagesReleased = true;
                     if (flushPending)
                     {
@@ -1176,7 +1177,8 @@ public sealed partial class MqttZeroBroker
                 {
                     if (!qosZeroMessagesReleased)
                     {
-                        ReleaseQosZeroMessages(batch);
+                        MqttZeroSessionEgressBufferState.ReleaseQosZeroMessages(
+                            batch);
                     }
 
                     batch.Clear();
@@ -1185,20 +1187,6 @@ public sealed partial class MqttZeroBroker
 
                 batch.Clear();
                 return session.PendingMessages.Count > 0;
-            }
-        }
-    }
-
-    private static void ReleaseQosZeroMessages(
-        List<MqttZeroQueuedMessage> batch)
-    {
-        for (int index = 0; index < batch.Count; index++)
-        {
-            MqttZeroQueuedMessage message = batch[index];
-            if (message.QualityOfServiceLevel ==
-                MqttQualityOfServiceLevel.AtMostOnce)
-            {
-                message.Release();
             }
         }
     }
