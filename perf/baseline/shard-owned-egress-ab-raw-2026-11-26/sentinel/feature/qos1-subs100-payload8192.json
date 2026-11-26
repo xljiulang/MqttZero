@@ -1,0 +1,415 @@
+{
+  "Environment": {
+    "OsDescription": "Microsoft Windows 10.0.26300",
+    "OsVersion": "Microsoft Windows NT 10.0.26300.0",
+    "RuntimeVersion": ".NET 10.0.15",
+    "ProcessArchitecture": "X64",
+    "RuntimeIdentifier": "win-x64",
+    "ProcessorCount": 12,
+    "Runtime": {
+      "IsServerGarbageCollection": true,
+      "IsConcurrentGarbageCollection": true,
+      "IsTieredPgoEnabled": true,
+      "MinimumWorkerThreads": 12,
+      "MaximumWorkerThreads": 32767,
+      "MinimumCompletionPortThreads": 1,
+      "MaximumCompletionPortThreads": 1000
+    },
+    "Topology": {
+      "EventLoopShardCount": 0,
+      "ResolvedEventLoopShardCount": 12,
+      "IoQueueCount": 0,
+      "ResolvedIoQueueCount": 12
+    },
+    "Egress": {
+      "OutboundBatchBytes": 524288,
+      "OutboundBatchMessages": 128,
+      "OutboundBatchDurationMicroseconds": 500
+    }
+  },
+  "Baseline": {
+    "Name": "baseline",
+    "AssemblyPath": "D:\\github\\mqttzero\\artifacts\\broker-ab\\shard-owned-regression-2026-11-26\\checkouts\\B1-418aefc\\benchmarks\\MqttZero.BrokerBenchmarks\\bin\\Release\\net10.0\\MqttZero.BrokerBenchmarks.dll",
+    "Commit": "418aefc",
+    "Topology": {
+      "EventLoopShardCount": 0,
+      "IoQueueCount": 0
+    },
+    "Egress": {
+      "OutboundBatchBytes": 524288,
+      "OutboundBatchMessages": 128,
+      "OutboundBatchDurationMicroseconds": 500
+    }
+  },
+  "Candidate": {
+    "Name": "candidate",
+    "AssemblyPath": "D:\\github\\mqttzero\\benchmarks\\MqttZero.BrokerBenchmarks\\bin\\Release\\net10.0\\MqttZero.BrokerBenchmarks.dll",
+    "Commit": "d573600",
+    "Topology": {
+      "EventLoopShardCount": 0,
+      "IoQueueCount": 0
+    },
+    "Egress": {
+      "OutboundBatchBytes": 524288,
+      "OutboundBatchMessages": 128,
+      "OutboundBatchDurationMicroseconds": 500
+    }
+  },
+  "Qos": 1,
+  "Subscribers": 100,
+  "PayloadSize": 8192,
+  "Rounds": [
+    {
+      "Round": 1,
+      "Variant": "baseline",
+      "Commit": "418aefc",
+      "Result": {
+        "PublishedMessages": 410,
+        "Publishers": 1,
+        "ReceivedMessages": 40965,
+        "FailedOperations": 0,
+        "WarmupPublishedMessages": 116,
+        "WarmupReceivedMessages": 11600,
+        "MeasurementReceivedMessages": 41000,
+        "PublishWindowThroughputPerSecond": 68.36118367956439,
+        "EndToEndThroughputPerSecond": 68.19948615845685,
+        "PublishCallLatencyP50Microseconds": 13913,
+        "PublishCallLatencyP95Microseconds": 18044,
+        "PublishCallLatencyP99Microseconds": 20390,
+        "PublishCallLatencyMaxMicroseconds": 26851,
+        "DeliveryLatencyP50Microseconds": 12720,
+        "DeliveryLatencyP95Microseconds": 16751,
+        "DeliveryLatencyP99Microseconds": 19393,
+        "DeliveryLatencyMaxMicroseconds": 28947,
+        "SequenceRegressions": 0,
+        "DuplicateDeliveryMessages": 0,
+        "MissingDeliveryMessages": 0,
+        "UnsequencedDeliveryMessages": 0,
+        "LoadObservation": {
+          "ProcessCpuMilliseconds": 5078.125,
+          "WorkingSetBytes": 75644928,
+          "AllocatedBytesDelta": 759049488,
+          "Gen0CollectionCountDelta": 43,
+          "Gen1CollectionCountDelta": 43,
+          "Gen2CollectionCountDelta": 0,
+          "ThreadPoolPendingWorkItemCount": 0,
+          "ThreadPoolCompletedWorkItemCountDelta": 85892
+        },
+        "ConnectionSetupMilliseconds": 366.8314,
+        "WarmupMilliseconds": 2010.3399,
+        "MeasurementMilliseconds": 5997.5556,
+        "WarmupDrainMilliseconds": 1.0192,
+        "MeasurementDrainMilliseconds": 14.2089,
+        "FirstError": null
+      },
+      "BrokerObservation": {
+        "TotalProcessorMilliseconds": 9562.5,
+        "PrivateMemoryBytes": 35966976,
+        "PeakWorkingSetBytes": 74985472,
+        "UptimeMilliseconds": 8668.565
+      },
+      "ClientObservation": {
+        "TotalProcessorMilliseconds": 7625,
+        "PrivateMemoryBytes": 55705600,
+        "PeakWorkingSetBytes": 86474752,
+        "UptimeMilliseconds": 8672.5273
+      }
+    },
+    {
+      "Round": 1,
+      "Variant": "candidate",
+      "Commit": "d573600",
+      "Result": {
+        "PublishedMessages": 377,
+        "Publishers": 1,
+        "ReceivedMessages": 37631,
+        "FailedOperations": 0,
+        "WarmupPublishedMessages": 130,
+        "WarmupReceivedMessages": 13000,
+        "MeasurementReceivedMessages": 37700,
+        "PublishWindowThroughputPerSecond": 62.628834531379745,
+        "EndToEndThroughputPerSecond": 62.59465365946443,
+        "PublishCallLatencyP50Microseconds": 14948,
+        "PublishCallLatencyP95Microseconds": 23006,
+        "PublishCallLatencyP99Microseconds": 27426,
+        "PublishCallLatencyMaxMicroseconds": 32890,
+        "DeliveryLatencyP50Microseconds": 16592,
+        "DeliveryLatencyP95Microseconds": 25295,
+        "DeliveryLatencyP99Microseconds": 30014,
+        "DeliveryLatencyMaxMicroseconds": 36265,
+        "SequenceRegressions": 0,
+        "DuplicateDeliveryMessages": 0,
+        "MissingDeliveryMessages": 0,
+        "UnsequencedDeliveryMessages": 0,
+        "LoadObservation": {
+          "ProcessCpuMilliseconds": 4984.375,
+          "WorkingSetBytes": 82522112,
+          "AllocatedBytesDelta": 697918904,
+          "Gen0CollectionCountDelta": 42,
+          "Gen1CollectionCountDelta": 42,
+          "Gen2CollectionCountDelta": 1,
+          "ThreadPoolPendingWorkItemCount": 0,
+          "ThreadPoolCompletedWorkItemCountDelta": 78782
+        },
+        "ConnectionSetupMilliseconds": 245.2847,
+        "WarmupMilliseconds": 2017.4282,
+        "MeasurementMilliseconds": 6019.5915,
+        "WarmupDrainMilliseconds": 8.8906,
+        "MeasurementDrainMilliseconds": 3.2833,
+        "FirstError": null
+      },
+      "BrokerObservation": {
+        "TotalProcessorMilliseconds": 9812.5,
+        "PrivateMemoryBytes": 42684416,
+        "PeakWorkingSetBytes": 74084352,
+        "UptimeMilliseconds": 8503.3391
+      },
+      "ClientObservation": {
+        "TotalProcessorMilliseconds": 14906.25,
+        "PrivateMemoryBytes": 59633664,
+        "PeakWorkingSetBytes": 99069952,
+        "UptimeMilliseconds": 8506.9098
+      }
+    },
+    {
+      "Round": 2,
+      "Variant": "candidate",
+      "Commit": "d573600",
+      "Result": {
+        "PublishedMessages": 390,
+        "Publishers": 1,
+        "ReceivedMessages": 38954,
+        "FailedOperations": 0,
+        "WarmupPublishedMessages": 120,
+        "WarmupReceivedMessages": 12000,
+        "MeasurementReceivedMessages": 39000,
+        "PublishWindowThroughputPerSecond": 64.8412955257594,
+        "EndToEndThroughputPerSecond": 64.78301253865241,
+        "PublishCallLatencyP50Microseconds": 14799,
+        "PublishCallLatencyP95Microseconds": 19950,
+        "PublishCallLatencyP99Microseconds": 22430,
+        "PublishCallLatencyMaxMicroseconds": 77834,
+        "DeliveryLatencyP50Microseconds": 16086,
+        "DeliveryLatencyP95Microseconds": 21740,
+        "DeliveryLatencyP99Microseconds": 28910,
+        "DeliveryLatencyMaxMicroseconds": 80378,
+        "SequenceRegressions": 0,
+        "DuplicateDeliveryMessages": 0,
+        "MissingDeliveryMessages": 0,
+        "UnsequencedDeliveryMessages": 0,
+        "LoadObservation": {
+          "ProcessCpuMilliseconds": 4125,
+          "WorkingSetBytes": 86605824,
+          "AllocatedBytesDelta": 721804856,
+          "Gen0CollectionCountDelta": 42,
+          "Gen1CollectionCountDelta": 42,
+          "Gen2CollectionCountDelta": 0,
+          "ThreadPoolPendingWorkItemCount": 0,
+          "ThreadPoolCompletedWorkItemCountDelta": 81119
+        },
+        "ConnectionSetupMilliseconds": 263.2429,
+        "WarmupMilliseconds": 2001.0909,
+        "MeasurementMilliseconds": 6014.6855,
+        "WarmupDrainMilliseconds": 15.4131,
+        "MeasurementDrainMilliseconds": 5.4002,
+        "FirstError": null
+      },
+      "BrokerObservation": {
+        "TotalProcessorMilliseconds": 9796.875,
+        "PrivateMemoryBytes": 45535232,
+        "PeakWorkingSetBytes": 76386304,
+        "UptimeMilliseconds": 8525.0037
+      },
+      "ClientObservation": {
+        "TotalProcessorMilliseconds": 21453.125,
+        "PrivateMemoryBytes": 60141568,
+        "PeakWorkingSetBytes": 108744704,
+        "UptimeMilliseconds": 8528.7849
+      }
+    },
+    {
+      "Round": 2,
+      "Variant": "baseline",
+      "Commit": "418aefc",
+      "Result": {
+        "PublishedMessages": 406,
+        "Publishers": 1,
+        "ReceivedMessages": 40566,
+        "FailedOperations": 0,
+        "WarmupPublishedMessages": 123,
+        "WarmupReceivedMessages": 12300,
+        "MeasurementReceivedMessages": 40600,
+        "PublishWindowThroughputPerSecond": 67.4700387327877,
+        "EndToEndThroughputPerSecond": 67.44478456624115,
+        "PublishCallLatencyP50Microseconds": 14071,
+        "PublishCallLatencyP95Microseconds": 18140,
+        "PublishCallLatencyP99Microseconds": 21178,
+        "PublishCallLatencyMaxMicroseconds": 24111,
+        "DeliveryLatencyP50Microseconds": 12694,
+        "DeliveryLatencyP95Microseconds": 16573,
+        "DeliveryLatencyP99Microseconds": 19331,
+        "DeliveryLatencyMaxMicroseconds": 27733,
+        "SequenceRegressions": 0,
+        "DuplicateDeliveryMessages": 0,
+        "MissingDeliveryMessages": 0,
+        "UnsequencedDeliveryMessages": 0,
+        "LoadObservation": {
+          "ProcessCpuMilliseconds": 3593.75,
+          "WorkingSetBytes": 99561472,
+          "AllocatedBytesDelta": 751636656,
+          "Gen0CollectionCountDelta": 43,
+          "Gen1CollectionCountDelta": 43,
+          "Gen2CollectionCountDelta": 0,
+          "ThreadPoolPendingWorkItemCount": 0,
+          "ThreadPoolCompletedWorkItemCountDelta": 85111
+        },
+        "ConnectionSetupMilliseconds": 396.1097,
+        "WarmupMilliseconds": 2014.2157,
+        "MeasurementMilliseconds": 6017.4858,
+        "WarmupDrainMilliseconds": 16.1935,
+        "MeasurementDrainMilliseconds": 2.2506,
+        "FirstError": null
+      },
+      "BrokerObservation": {
+        "TotalProcessorMilliseconds": 7984.375,
+        "PrivateMemoryBytes": 39903232,
+        "PeakWorkingSetBytes": 74207232,
+        "UptimeMilliseconds": 8728.267
+      },
+      "ClientObservation": {
+        "TotalProcessorMilliseconds": 26046.875,
+        "PrivateMemoryBytes": 77877248,
+        "PeakWorkingSetBytes": 108744704,
+        "UptimeMilliseconds": 8733.1249
+      }
+    },
+    {
+      "Round": 3,
+      "Variant": "baseline",
+      "Commit": "418aefc",
+      "Result": {
+        "PublishedMessages": 416,
+        "Publishers": 1,
+        "ReceivedMessages": 41596,
+        "FailedOperations": 0,
+        "WarmupPublishedMessages": 129,
+        "WarmupReceivedMessages": 12900,
+        "MeasurementReceivedMessages": 41600,
+        "PublishWindowThroughputPerSecond": 69.20871496768393,
+        "EndToEndThroughputPerSecond": 69.09466538857038,
+        "PublishCallLatencyP50Microseconds": 13960,
+        "PublishCallLatencyP95Microseconds": 17169,
+        "PublishCallLatencyP99Microseconds": 18950,
+        "PublishCallLatencyMaxMicroseconds": 20317,
+        "DeliveryLatencyP50Microseconds": 12640,
+        "DeliveryLatencyP95Microseconds": 15841,
+        "DeliveryLatencyP99Microseconds": 18476,
+        "DeliveryLatencyMaxMicroseconds": 22702,
+        "SequenceRegressions": 0,
+        "DuplicateDeliveryMessages": 0,
+        "MissingDeliveryMessages": 0,
+        "UnsequencedDeliveryMessages": 0,
+        "LoadObservation": {
+          "ProcessCpuMilliseconds": 5218.75,
+          "WorkingSetBytes": 95539200,
+          "AllocatedBytesDelta": 770110976,
+          "Gen0CollectionCountDelta": 45,
+          "Gen1CollectionCountDelta": 45,
+          "Gen2CollectionCountDelta": 0,
+          "ThreadPoolPendingWorkItemCount": 0,
+          "ThreadPoolCompletedWorkItemCountDelta": 86949
+        },
+        "ConnectionSetupMilliseconds": 230.41,
+        "WarmupMilliseconds": 1994.6536,
+        "MeasurementMilliseconds": 6010.8037,
+        "WarmupDrainMilliseconds": 0.033,
+        "MeasurementDrainMilliseconds": 9.9166,
+        "FirstError": null
+      },
+      "BrokerObservation": {
+        "TotalProcessorMilliseconds": 7234.375,
+        "PrivateMemoryBytes": 36175872,
+        "PeakWorkingSetBytes": 74727424,
+        "UptimeMilliseconds": 8487.1274
+      },
+      "ClientObservation": {
+        "TotalProcessorMilliseconds": 32359.375,
+        "PrivateMemoryBytes": 72544256,
+        "PeakWorkingSetBytes": 114651136,
+        "UptimeMilliseconds": 8490.3133
+      }
+    },
+    {
+      "Round": 3,
+      "Variant": "candidate",
+      "Commit": "d573600",
+      "Result": {
+        "PublishedMessages": 404,
+        "Publishers": 1,
+        "ReceivedMessages": 40300,
+        "FailedOperations": 0,
+        "WarmupPublishedMessages": 132,
+        "WarmupReceivedMessages": 13200,
+        "MeasurementReceivedMessages": 40400,
+        "PublishWindowThroughputPerSecond": 67.3127457300518,
+        "EndToEndThroughputPerSecond": 67.1600782408262,
+        "PublishCallLatencyP50Microseconds": 14177,
+        "PublishCallLatencyP95Microseconds": 19017,
+        "PublishCallLatencyP99Microseconds": 23051,
+        "PublishCallLatencyMaxMicroseconds": 78407,
+        "DeliveryLatencyP50Microseconds": 15605,
+        "DeliveryLatencyP95Microseconds": 20485,
+        "DeliveryLatencyP99Microseconds": 26629,
+        "DeliveryLatencyMaxMicroseconds": 83912,
+        "SequenceRegressions": 0,
+        "DuplicateDeliveryMessages": 0,
+        "MissingDeliveryMessages": 0,
+        "UnsequencedDeliveryMessages": 0,
+        "LoadObservation": {
+          "ProcessCpuMilliseconds": 4125,
+          "WorkingSetBytes": 96604160,
+          "AllocatedBytesDelta": 747836312,
+          "Gen0CollectionCountDelta": 44,
+          "Gen1CollectionCountDelta": 44,
+          "Gen2CollectionCountDelta": 0,
+          "ThreadPoolPendingWorkItemCount": 0,
+          "ThreadPoolCompletedWorkItemCountDelta": 84185
+        },
+        "ConnectionSetupMilliseconds": 228.7731,
+        "WarmupMilliseconds": 1995.7544,
+        "MeasurementMilliseconds": 6001.8351,
+        "WarmupDrainMilliseconds": 10.387,
+        "MeasurementDrainMilliseconds": 13.6316,
+        "FirstError": null
+      },
+      "BrokerObservation": {
+        "TotalProcessorMilliseconds": 10656.25,
+        "PrivateMemoryBytes": 42115072,
+        "PeakWorkingSetBytes": 73228288,
+        "UptimeMilliseconds": 8458.4648
+      },
+      "ClientObservation": {
+        "TotalProcessorMilliseconds": 37703.125,
+        "PrivateMemoryBytes": 73093120,
+        "PeakWorkingSetBytes": 114651136,
+        "UptimeMilliseconds": 8462.6224
+      }
+    }
+  ],
+  "Summary": {
+    "BaselineEndToEndThroughput": 68.19948615845685,
+    "CandidateEndToEndThroughput": 64.78301253865241,
+    "ThroughputChangeRatio": -0.05009529854618687,
+    "BaselinePublishCallP99Microseconds": 20390,
+    "CandidatePublishCallP99Microseconds": 23051,
+    "BaselineDeliveryP99Microseconds": 19331,
+    "CandidateDeliveryP99Microseconds": 28910,
+    "DeliveryP99Ratio": 1.4955253220216234,
+    "Failures": 0,
+    "SequenceRegressions": 0,
+    "MissingDeliveryMessages": 0,
+    "DuplicateDeliveryMessages": 0,
+    "Passed": false,
+    "FailureReason": "Candidate throughput must improve by at least -5%: actual=-5.0%. Candidate delivery p99 must not regress by more than 5%: actual=49.6%."
+  }
+}

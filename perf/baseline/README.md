@@ -154,6 +154,12 @@
 - The next step is alternating same-machine A/B regression investigation with
   stable Broker/client processes. New Egress, fairness or timer-wheel
   optimization must wait until the regression is explained.
+- The alternating A/B investigation is complete. The dominant regression is
+  `d14f433`, which creates a `MqttZeroShardInvocation<T>` and
+  `TaskCompletionSource<T>` for each network PUBLISH crossing from the
+  connection reader to its Session Shard. The later `6eca005` de-lock commit is
+  neutral, and `ec8ba3f` is not a confirmed throughput cause. Evidence:
+  `shard-owned-egress-ab-investigation-2026-11-26.md`.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`

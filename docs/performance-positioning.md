@@ -46,25 +46,37 @@ The `refactor/shard-owned-egress-timers` branch implements:
 Correctness, allocation, Release build, formatting, supply-chain and NuGet
 consumer gates pass. The branch is nevertheless blocked by the ordinary release
 gate: on the same machine and date, several MQTTZero development-matrix cells
-retained less than 95 percent of the preceding baseline throughput. The MQTTnet
-control also drifted during the run, so the raw delta cannot yet be attributed
-to one code change.
+retained less than 95 percent of the preceding baseline throughput.
+
+Alternating same-machine A/B has now isolated the dominant regression to
+`d14f433 refactor: move session mutations onto owning shards`. Every network
+PUBLISH crossing to its Session Shard creates a new
+`MqttZeroShardInvocation<T>`, `TaskCompletionSource<T>` and async execution
+state, adding about 2.2 MiB per 1,000 QoS 0 publishes at 100 subscribers.
+`d424810 -> d14f433` retains `0.862x` throughput for QoS 0 / 1 / 32 B and
+`0.819x` for QoS 0 / 100 / 32 B over five alternating rounds.
+
+The later `6eca005` de-lock commit is neutral, and direct five-round testing
+did not confirm `ec8ba3f` as a throughput cause. Master-only q0/1/32-B drift is
+small and not independently attributed to a single commit.
 
 The branch is not merged, no package version was raised and no performance
 leadership claim is made. Evidence and raw results are recorded in
-`perf/baseline/shard-owned-egress-timers-2026-11-26.md`.
+`perf/baseline/shard-owned-egress-timers-2026-11-26.md` and
+`perf/baseline/shard-owned-egress-ab-investigation-2026-11-26.md`.
 
 ## Next Performance Step
 
-The next step is a regression investigation, not another architectural
-optimization:
+The next step is to repair the identified cross-Shard command path:
 
-1. Compare the previous baseline commit and the current branch with alternating
-   A/B runs using the same Broker and MQTTnet client processes.
-2. Instrument Shard enqueue age, timer-wheel tick cost, fanout dispatch and
-   Session Egress batch execution in the regressed QoS 0/1 fanout cells.
-3. Re-run the 1/100 subscriber, 32 B/8 KiB matrix before changing batching,
-   fairness, SessionEgress or timer-wheel ownership again.
+1. Remove the per-message `MqttZeroShardInvocation<T>` and
+   `RunContinuationsAsynchronously` allocation from the network PUBLISH path.
+2. Preserve Session Shard ownership, per-connection ordering, cancellation and
+   shutdown semantics.
+3. Add an off-Shard PUBLISH allocation sentinel covering the actual connection
+   reader path.
+4. Re-run the QoS 0 32 B/8 KiB/64 KiB matrix and QoS 1 fanout p99 cells before
+   reopening the release gate.
 
 Development regression checks may use two repetitions to keep iteration cost
 bounded. Final performance claims and published comparison matrices still
@@ -79,7 +91,7 @@ named metrics.
 
 ## Current Decision
 
-The completed ownership and de-locking work is technically ready for further
-investigation, but it is not eligible for integration. A new optimization may
-start only after the same-machine regression is explained or reproduced with a
-stable A/B harness.
+The ownership and de-locking architecture remains technically valid, but the
+current branch is not eligible for integration. The per-PUBLISH cross-Shard
+invocation must be replaced and benchmarked without allocation before merge or
+release.

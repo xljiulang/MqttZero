@@ -8,12 +8,14 @@
 - 目标框架：`net10.0`
 - 记录日期：2026-11-26
 - 当前证据：
-  `perf/baseline/shard-owned-egress-timers-2026-11-26.md`
-- 下一步：先做同机交替 A/B 回归调查，确认性能损失来自架构变更、机器热状态还是
-  Benchmark 漂移；调查完成前不恢复新的架构优化，不合并 `master`，不提升版本。
+  `perf/baseline/shard-owned-egress-timers-2026-11-26.md`、
+  `perf/baseline/shard-owned-egress-ab-investigation-2026-11-26.md`
+- 下一步：替换 `d14f433` 引入的逐 PUBLISH 跨 Shard
+  `InvokeAsync` 分配路径，并用真实 off-Shard PUBLISH 分配测试和完整性能矩阵验收；
+  修复前不合并 `master`，不提升版本。
 
 > 本文保留总体架构设计和历史任务追踪。当前可执行顺序、前置门禁和停止条件
-> 以上述性能回归调查为准；下方未勾选历史项不应在没有新证据和新计划授权时直接恢复执行。
+> 以上述跨 Shard PUBLISH 根因为准；下方未勾选历史项不应在没有新证据和新计划授权时直接恢复执行。
 
 ## 背景与目标
 
@@ -120,6 +122,11 @@
 - [x] 保留 `MaxInflight`、Receive Maximum、QoS 1/2 Inflight、DUP、重连恢复、过期和队列驱逐语义。
 - [x] 保留 PUBACK 与订阅者网络 Flush 解耦；发布者确认等待持久化入站接受，不等待全部订阅者发送完成。
 - [ ] 同机性能矩阵恢复到旧基线 `5%` 内，并定位当前吞吐回退。
+
+> A/B 已完成：首个主要吞吐回退为 `d14f433`。该提交在连接读取线程与 Session
+> Shard 之间逐 PUBLISH 创建 `MqttZeroShardInvocation<T>`、TaskCompletionSource
+> 和异步续接。后续 `6eca005` 去锁与 `ec8ba3f` 连接循环合并没有复现主要吞吐
+> 回退。下一步必须先消除该热路径分配，再恢复性能门禁。
 
 ### Phase 3：内存密度与单 Slab Lease
 

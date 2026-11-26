@@ -18,8 +18,18 @@ Consequences:
 
 - Do not merge `refactor/shard-owned-egress-timers` to `master`.
 - Do not raise the package version.
-- Keep the branch for performance investigation.
+- Keep the branch for the identified cross-Shard PUBLISH fix.
 - Do not claim general superiority over MQTTnet.
+
+The subsequent alternating same-machine A/B investigation is complete. It
+identifies `d14f433 refactor: move session mutations onto owning shards` as the
+first dominant throughput regression: `d424810 -> d14f433` retains only
+`0.862x` on QoS 0 / 1 / 32 B and `0.819x` on QoS 0 / 100 / 32 B over five
+alternating rounds. The later `6eca005` de-lock commit and the `ec8ba3f`
+connection-loop merge do not add a repeatable throughput regression.
+
+Evidence and allocation diagnostics:
+`perf/baseline/shard-owned-egress-ab-investigation-2026-11-26.md`.
 
 ## Environment
 
@@ -164,11 +174,15 @@ raw delta to one code change.
 
 ## Next Action
 
-Investigate the measured regression before merging:
+Before merging, remove the per-PUBLISH allocating cross-Shard invocation
+introduced by `d14f433`:
 
-1. Compare current and previous commits with the same Broker and client
-   processes under alternating A/B runs to separate thermal and machine drift.
-2. Instrument Shard enqueue age, timer-wheel tick duration, fanout dispatch and
-   Session Egress batch execution in the regressed QoS 0/1 fanout cells.
-3. Re-run the 1/100 subscriber 32 B and 8 KiB matrix before attempting any
-   further architectural change.
+1. Replace `MqttZeroShardInvocation<T>` allocation and
+   `RunContinuationsAsynchronously` completion on the network PUBLISH path with
+   a reusable Shard command/waiter.
+2. Preserve per-connection order, cancellation, shutdown and Session Shard
+   ownership.
+3. Add an off-Shard PUBLISH allocation sentinel and require `0 B/op` after
+   warmup.
+4. Re-run the strict QoS 0 32 B/8 KiB/64 KiB comparisons and the QoS 1
+   fanout p99 cells before reopening the release gate.
