@@ -3,7 +3,8 @@ namespace MqttZero.BrokerBenchmarks;
 internal static class BenchmarkGateEvaluator
 {
     public static BenchmarkGateResult Evaluate(
-        IReadOnlyList<BrokerComparisonResult> results)
+        IReadOnlyList<BrokerComparisonResult> results,
+        bool enforceRankingComparison = true)
     {
         ArgumentNullException.ThrowIfNull(results);
 
@@ -84,7 +85,7 @@ internal static class BenchmarkGateEvaluator
             if (mqttNetThroughput > 0)
             {
                 throughputRatio = mqttZeroThroughput / mqttNetThroughput;
-                if (throughputRatio <= 1.0)
+                if (enforceRankingComparison && throughputRatio <= 1.0)
                 {
                     failureReasons.Add(
                         "mqttzero throughput ratio must be greater than 1.0.");
@@ -100,7 +101,7 @@ internal static class BenchmarkGateEvaluator
             if (mqttNetP99 > 0)
             {
                 p99Ratio = mqttZeroP99 / mqttNetP99;
-                if (p99Ratio >= 1.0)
+                if (enforceRankingComparison && p99Ratio >= 1.0)
                 {
                     failureReasons.Add(
                         "mqttzero p99 ratio must be less than 1.0.");

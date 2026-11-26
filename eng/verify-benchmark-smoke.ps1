@@ -43,8 +43,16 @@ function Invoke-BenchmarkSmoke {
         --seconds 2 `
         --repetitions 1 `
         --max-pending 1024 `
+        --comparison-gate false `
         --start-port $Port `
         --output $OutputPath
+
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw (
+            "Benchmark smoke for $Client exited with code " +
+            "$LASTEXITCODE. Inspect $OutputPath.")
+    }
 
     if (-not (Test-Path -LiteralPath $OutputPath))
     {

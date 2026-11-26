@@ -53,6 +53,67 @@ public sealed class BenchmarkGateEvaluatorTests
     }
 
     [Fact]
+    public void RankingComparisonCanBeDisabledForSmokeRuns()
+    {
+        BrokerComparisonResult[] results =
+        [
+            Create("mqttzero", throughput: 80, p99: 120, failures: 0),
+            Create("mqttnet", throughput: 100, p99: 100, failures: 0)
+        ];
+
+        BenchmarkGateResult enforced = BenchmarkGateEvaluator.Evaluate(results);
+        BenchmarkGateResult structuralOnly = BenchmarkGateEvaluator.Evaluate(
+            results,
+            enforceRankingComparison: false);
+
+        Assert.False(enforced.Passed);
+        Assert.Contains("throughput", enforced.Summaries[0].FailureReason);
+        Assert.Contains("p99", enforced.Summaries[0].FailureReason);
+        Assert.True(structuralOnly.Passed);
+        BenchmarkSummary summary = Assert.Single(structuralOnly.Summaries);
+        Assert.Null(summary.FailureReason);
+        Assert.Equal(0.8, summary.ThroughputRatio, 3);
+        Assert.Equal(1.2, summary.P99Ratio, 3);
+    }
+
+    [Fact]
+    public void StructuralChecksStillApplyWhenRankingIsDisabled()
+    {
+        BrokerComparisonResult[] failedOperations =
+        [
+            Create("mqttzero", throughput: 80, p99: 120, failures: 2),
+            Create("mqttnet", throughput: 100, p99: 100, failures: 0)
+        ];
+        BrokerComparisonResult[] deliveryGaps =
+        [
+            Create(
+                "mqttzero",
+                throughput: 80,
+                p99: 120,
+                failures: 0,
+                missingDeliveries: 1),
+            Create("mqttnet", throughput: 100, p99: 100, failures: 0)
+        ];
+        BrokerComparisonResult[] missingBroker =
+        [
+            Create("mqttzero", throughput: 80, p99: 120, failures: 0)
+        ];
+
+        Assert.False(
+            BenchmarkGateEvaluator.Evaluate(
+                failedOperations,
+                enforceRankingComparison: false).Passed);
+        Assert.False(
+            BenchmarkGateEvaluator.Evaluate(
+                deliveryGaps,
+                enforceRankingComparison: false).Passed);
+        Assert.False(
+            BenchmarkGateEvaluator.Evaluate(
+                missingBroker,
+                enforceRankingComparison: false).Passed);
+    }
+
+    [Fact]
     public void GateRejectsMissingBroker()
     {
         BrokerComparisonResult[] results =
