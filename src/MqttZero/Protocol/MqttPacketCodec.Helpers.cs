@@ -52,37 +52,12 @@ public static partial class MqttPacketCodec
 
     private static bool TryReadUInt16(ref SequenceReader<byte> reader, out ushort value)
     {
-        value = 0;
-        if (!reader.TryRead(out byte high) || !reader.TryRead(out byte low))
-        {
-            return false;
-        }
-
-        value = BinaryPrimitives.ReadUInt16BigEndian([high, low]);
-        return true;
+        return MqttZeroWireFormat.TryReadUInt16(ref reader, out value);
     }
 
     private static bool TryReadVariableByteInteger(ref SequenceReader<byte> reader, out int value)
     {
-        value = 0;
-        int multiplier = 1;
-        for (int index = 0; index < 4; index++)
-        {
-            if (!reader.TryRead(out byte encodedByte))
-            {
-                return false;
-            }
-
-            value += (encodedByte & 0x7F) * multiplier;
-            if ((encodedByte & 0x80) == 0)
-            {
-                return true;
-            }
-
-            multiplier *= 128;
-        }
-
-        return false;
+        return MqttZeroWireFormat.TryReadVariableByteInteger(ref reader, out value);
     }
 
     private static void WriteProperties(IBufferWriter<byte> writer, ReadOnlySequence<byte> properties)
@@ -155,40 +130,11 @@ public static partial class MqttPacketCodec
 
     private static int WriteVariableByteInteger(Span<byte> destination, int value)
     {
-        int index = 0;
-        do
-        {
-            byte encodedByte = (byte)(value % 128);
-            value /= 128;
-            if (value > 0)
-            {
-                encodedByte |= 0x80;
-            }
-
-            destination[index++] = encodedByte;
-        }
-        while (value > 0);
-
-        return index;
+        return MqttZeroWireFormat.WriteVariableByteInteger(destination, value);
     }
 
     private static int GetVariableByteIntegerSize(long value)
     {
-        if (value < 128)
-        {
-            return 1;
-        }
-
-        if (value < 16_384)
-        {
-            return 2;
-        }
-
-        if (value < 2_097_152)
-        {
-            return 3;
-        }
-
-        return 4;
+        return MqttZeroWireFormat.GetVariableByteIntegerSize(value);
     }
 }

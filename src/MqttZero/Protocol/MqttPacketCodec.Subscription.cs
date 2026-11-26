@@ -213,7 +213,7 @@ public static partial class MqttPacketCodec
         }
 
         Span<byte> fixedHeader = writer.GetSpan(1 + 4);
-        fixedHeader[0] = 0x82;
+        fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.Subscribe);
         int lengthBytes = WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(1 + lengthBytes);
         WriteUInt16(writer, packet.PacketIdentifier);
@@ -264,7 +264,7 @@ public static partial class MqttPacketCodec
             packet.ReasonCodes.Length;
 
         Span<byte> fixedHeader = writer.GetSpan(1 + 4);
-        fixedHeader[0] = 0x90;
+        fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.SubAck);
         int lengthBytes = WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(1 + lengthBytes);
         WriteUInt16(writer, packet.PacketIdentifier);
@@ -304,7 +304,7 @@ public static partial class MqttPacketCodec
         }
 
         Span<byte> fixedHeader = writer.GetSpan(1 + 4);
-        fixedHeader[0] = 0xA2;
+        fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.Unsubscribe);
         int lengthBytes = WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(1 + lengthBytes);
         WriteUInt16(writer, packet.PacketIdentifier);
@@ -341,7 +341,7 @@ public static partial class MqttPacketCodec
             packet.ReasonCodes.Length;
 
         Span<byte> fixedHeader = writer.GetSpan(1 + 4);
-        fixedHeader[0] = 0xB0;
+        fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.UnsubAck);
         int lengthBytes = WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(1 + lengthBytes);
         WriteUInt16(writer, packet.PacketIdentifier);

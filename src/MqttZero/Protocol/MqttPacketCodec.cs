@@ -134,7 +134,7 @@ public static partial class MqttPacketCodec
                 break;
             case MqttPubRecPacket pubRecPacket:
                 EncodeAcknowledgement(
-                    0x50,
+                    MqttPacketHeader.GetFirstByte(MqttPacketType.PubRec),
                     pubRecPacket.PacketIdentifier,
                     pubRecPacket.ReasonCode,
                     pubRecPacket.ReasonString,
@@ -143,7 +143,7 @@ public static partial class MqttPacketCodec
                 break;
             case MqttPubRelPacket pubRelPacket:
                 EncodeAcknowledgement(
-                    0x62,
+                    MqttPacketHeader.GetFirstByte(MqttPacketType.PubRel),
                     pubRelPacket.PacketIdentifier,
                     pubRelPacket.ReasonCode,
                     pubRelPacket.ReasonString,
@@ -152,7 +152,7 @@ public static partial class MqttPacketCodec
                 break;
             case MqttPubCompPacket pubCompPacket:
                 EncodeAcknowledgement(
-                    0x70,
+                    MqttPacketHeader.GetFirstByte(MqttPacketType.PubComp),
                     pubCompPacket.PacketIdentifier,
                     pubCompPacket.ReasonCode,
                     pubCompPacket.ReasonString,

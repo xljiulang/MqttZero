@@ -534,7 +534,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         {
             bool includeReason = reasonCode != MqttReasonCode.Success;
             Span<byte> destination = frame.Writer.GetSpan(encodedLength);
-            destination[0] = 0x40;
+            destination[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.PubAck);
             destination[1] = includeReason ? (byte)4 : (byte)2;
             BinaryPrimitives.WriteUInt16BigEndian(
                 destination[2..],
@@ -566,7 +566,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             {
                 bool includeReason = reasonCode != MqttReasonCode.Success;
                 Span<byte> header = _writer.GetSpan(includeReason ? 6 : 4);
-                header[0] = 0x40;
+                header[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.PubAck);
                 header[1] = includeReason ? (byte)4 : (byte)2;
                 BinaryPrimitives.WriteUInt16BigEndian(header[2..], packetIdentifier);
                 _writer.Advance(4);
@@ -594,7 +594,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         return SendAckDirectAsync(
-            0x50,
+            MqttPacketHeader.GetFirstByte(MqttPacketType.PubRec),
             packetIdentifier,
             reasonCode,
             cancellationToken);
@@ -606,7 +606,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         return SendAckDirectAsync(
-            0x62,
+            MqttPacketHeader.GetFirstByte(MqttPacketType.PubRel),
             packetIdentifier,
             reasonCode,
             cancellationToken);
@@ -618,7 +618,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         return SendAckDirectAsync(
-            0x70,
+            MqttPacketHeader.GetFirstByte(MqttPacketType.PubComp),
             packetIdentifier,
             reasonCode,
             cancellationToken);
@@ -637,7 +637,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         if (frame != null)
         {
             Span<byte> destination = frame.Writer.GetSpan(2);
-            destination[0] = 0xD0;
+            destination[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.PingResp);
             destination[1] = 0;
             frame.Writer.Advance(2);
             await PostControlFrameAsync(frame, cancellationToken)
@@ -651,7 +651,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             try
             {
                 Span<byte> header = _writer.GetSpan(2);
-                header[0] = 0xD0;
+                header[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.PingResp);
                 header[1] = 0;
                 _writer.Advance(2);
                 _ = await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -803,7 +803,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             try
             {
                 Span<byte> fixedHeader = _writer.GetSpan(5);
-                fixedHeader[0] = 0x20;
+                fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.ConnAck);
                 int lengthBytes = MqttZeroPacketWriter.WriteVariableByteInteger(
                     fixedHeader[1..],
                     (uint)bodyLength);
@@ -894,7 +894,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             try
             {
                 Span<byte> fixedHeader = _writer.GetSpan(5);
-                fixedHeader[0] = 0xE0;
+                fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.Disconnect);
                 int lengthBytes = MqttZeroPacketWriter.WriteVariableByteInteger(
                     fixedHeader[1..],
                     (uint)bodyLength);
@@ -1272,22 +1272,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
 
     private static int GetVariableByteIntegerSize(long value)
     {
-        if (value < 128)
-        {
-            return 1;
-        }
-
-        if (value < 16_384)
-        {
-            return 2;
-        }
-
-        if (value < 2_097_152)
-        {
-            return 3;
-        }
-
-        return 4;
+        return MqttZeroWireFormat.GetVariableByteIntegerSize(value);
     }
 
     private MqttZeroEgressControlFrame? TryRentEgressControlFrame(

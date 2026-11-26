@@ -61,43 +61,49 @@ internal static class Mqtt5PropertyWriter
         WritePropertyLength(writer, propertyLength);
         if (packet.SessionExpiryInterval.HasValue)
         {
-            WriteUInt32(writer, 0x11, packet.SessionExpiryInterval.Value);
+            WriteUInt32(
+                writer,
+                Mqtt5PropertyId.SessionExpiryInterval,
+                packet.SessionExpiryInterval.Value);
         }
 
         if (packet.ReceiveMaximum != ushort.MaxValue)
         {
-            WriteUInt16(writer, 0x21, packet.ReceiveMaximum);
+            WriteUInt16(writer, Mqtt5PropertyId.ReceiveMaximum, packet.ReceiveMaximum);
         }
 
         if (packet.MaximumPacketSize != uint.MaxValue)
         {
-            WriteUInt32(writer, 0x27, packet.MaximumPacketSize);
+            WriteUInt32(
+                writer,
+                Mqtt5PropertyId.MaximumPacketSize,
+                packet.MaximumPacketSize);
         }
 
         if (packet.TopicAliasMaximum != 0)
         {
-            WriteUInt16(writer, 0x22, packet.TopicAliasMaximum);
+            WriteUInt16(writer, Mqtt5PropertyId.TopicAliasMaximum, packet.TopicAliasMaximum);
         }
 
         if (!packet.RequestProblemInformation)
         {
-            WriteBoolean(writer, 0x17, false);
+            WriteBoolean(writer, Mqtt5PropertyId.RequestProblemInformation, false);
         }
 
         if (packet.RequestResponseInformation)
         {
-            WriteBoolean(writer, 0x19, true);
+            WriteBoolean(writer, Mqtt5PropertyId.RequestResponseInformation, true);
         }
 
         WriteUserProperties(writer, packet.UserProperties);
         if (packet.AuthenticationMethod != null)
         {
-            WriteString(writer, 0x15, packet.AuthenticationMethod);
+            WriteString(writer, Mqtt5PropertyId.AuthenticationMethod, packet.AuthenticationMethod);
         }
 
         if (packet.AuthenticationData.HasValue)
         {
-            WriteBinary(writer, 0x16, packet.AuthenticationData.Value.Span);
+            WriteBinary(writer, Mqtt5PropertyId.AuthenticationData, packet.AuthenticationData.Value.Span);
         }
     }
 
@@ -124,7 +130,7 @@ internal static class Mqtt5PropertyWriter
         WritePropertyLength(writer, propertyLength);
         if (packet.WillDelayInterval != 0)
         {
-            WriteUInt32(writer, 0x18, packet.WillDelayInterval);
+            WriteUInt32(writer, Mqtt5PropertyId.WillDelayInterval, packet.WillDelayInterval);
         }
 
         WriteMessageProperties(
@@ -245,66 +251,81 @@ internal static class Mqtt5PropertyWriter
         WritePropertyLength(writer, propertyLength);
         if (packet.TopicAliasMaximum.HasValue)
         {
-            WriteUInt16(writer, 0x22, packet.TopicAliasMaximum.Value);
+            WriteUInt16(writer, Mqtt5PropertyId.TopicAliasMaximum, packet.TopicAliasMaximum.Value);
         }
 
         if (packet.ReceiveMaximum.HasValue)
         {
-            WriteUInt16(writer, 0x21, packet.ReceiveMaximum.Value);
+            WriteUInt16(writer, Mqtt5PropertyId.ReceiveMaximum, packet.ReceiveMaximum.Value);
         }
 
         if (packet.MaximumPacketSize.HasValue)
         {
-            WriteUInt32(writer, 0x27, packet.MaximumPacketSize.Value);
+            WriteUInt32(writer, Mqtt5PropertyId.MaximumPacketSize, packet.MaximumPacketSize.Value);
         }
 
         if (packet.SessionExpiryInterval.HasValue)
         {
-            WriteUInt32(writer, 0x11, packet.SessionExpiryInterval.Value);
+            WriteUInt32(
+                writer,
+                Mqtt5PropertyId.SessionExpiryInterval,
+                packet.SessionExpiryInterval.Value);
         }
 
         if (!string.IsNullOrEmpty(packet.AssignedClientIdentifier))
         {
-            WriteString(writer, 0x12, packet.AssignedClientIdentifier);
+            WriteString(
+                writer,
+                Mqtt5PropertyId.AssignedClientIdentifier,
+                packet.AssignedClientIdentifier);
         }
 
         if (!string.IsNullOrEmpty(packet.ReasonString))
         {
-            WriteString(writer, 0x1F, packet.ReasonString);
+            WriteString(writer, Mqtt5PropertyId.ReasonString, packet.ReasonString);
         }
 
         if (packet.MaximumQos.HasValue)
         {
-            WriteByteProperty(writer, 0x24, (byte)packet.MaximumQos.Value);
+            WriteByteProperty(writer, Mqtt5PropertyId.MaximumQos, (byte)packet.MaximumQos.Value);
         }
 
-        WriteAvailabilityProperty(writer, 0x25, packet.RetainAvailable);
-        WriteAvailabilityProperty(writer, 0x28, packet.WildcardSubscriptionAvailable);
-        WriteAvailabilityProperty(writer, 0x29, packet.SubscriptionIdentifierAvailable);
-        WriteAvailabilityProperty(writer, 0x2A, packet.SharedSubscriptionAvailable);
+        WriteAvailabilityProperty(writer, Mqtt5PropertyId.RetainAvailable, packet.RetainAvailable);
+        WriteAvailabilityProperty(
+            writer,
+            Mqtt5PropertyId.WildcardSubscriptionAvailable,
+            packet.WildcardSubscriptionAvailable);
+        WriteAvailabilityProperty(
+            writer,
+            Mqtt5PropertyId.SubscriptionIdentifierAvailable,
+            packet.SubscriptionIdentifierAvailable);
+        WriteAvailabilityProperty(
+            writer,
+            Mqtt5PropertyId.SharedSubscriptionAvailable,
+            packet.SharedSubscriptionAvailable);
         if (packet.ServerKeepAlive.HasValue)
         {
-            WriteUInt16(writer, 0x13, packet.ServerKeepAlive.Value);
+            WriteUInt16(writer, Mqtt5PropertyId.ServerKeepAlive, packet.ServerKeepAlive.Value);
         }
 
         if (packet.ResponseInformation != null)
         {
-            WriteString(writer, 0x1A, packet.ResponseInformation);
+            WriteString(writer, Mqtt5PropertyId.ResponseInformation, packet.ResponseInformation);
         }
 
         if (packet.ServerReference != null)
         {
-            WriteString(writer, 0x1C, packet.ServerReference);
+            WriteString(writer, Mqtt5PropertyId.ServerReference, packet.ServerReference);
         }
 
         if (packet.AuthenticationMethod != null)
         {
-            WriteString(writer, 0x15, packet.AuthenticationMethod);
+            WriteString(writer, Mqtt5PropertyId.AuthenticationMethod, packet.AuthenticationMethod);
         }
 
         if (packet.AuthenticationData.HasValue)
         {
-            WriteBinary(writer, 0x16, packet.AuthenticationData.Value.Span);
+            WriteBinary(writer, Mqtt5PropertyId.AuthenticationData, packet.AuthenticationData.Value.Span);
         }
 
         WriteUserProperties(writer, packet.UserProperties);
@@ -334,17 +355,20 @@ internal static class Mqtt5PropertyWriter
         WritePropertyLength(writer, propertyLength);
         if (packet.SessionExpiryInterval.HasValue)
         {
-            WriteUInt32(writer, 0x11, packet.SessionExpiryInterval.Value);
+            WriteUInt32(
+                writer,
+                Mqtt5PropertyId.SessionExpiryInterval,
+                packet.SessionExpiryInterval.Value);
         }
 
         if (packet.ReasonString != null)
         {
-            WriteString(writer, 0x1F, packet.ReasonString);
+            WriteString(writer, Mqtt5PropertyId.ReasonString, packet.ReasonString);
         }
 
         if (packet.ServerReference != null)
         {
-            WriteString(writer, 0x1C, packet.ServerReference);
+            WriteString(writer, Mqtt5PropertyId.ServerReference, packet.ServerReference);
         }
 
         WriteUserProperties(writer, packet.UserProperties);
@@ -374,7 +398,7 @@ internal static class Mqtt5PropertyWriter
         WritePropertyLength(writer, propertyLength);
         if (packet.SubscriptionIdentifier.HasValue)
         {
-            WriteByte(writer, 0x0B);
+            WriteByte(writer, Mqtt5PropertyId.SubscriptionIdentifier);
             WriteVariableByteInteger(writer, packet.SubscriptionIdentifier.Value);
         }
 
@@ -412,7 +436,7 @@ internal static class Mqtt5PropertyWriter
         WritePropertyLength(writer, propertyLength);
         if (reasonString != null)
         {
-            WriteString(writer, 0x1F, reasonString);
+            WriteString(writer, Mqtt5PropertyId.ReasonString, reasonString);
         }
 
         WriteUserProperties(writer, userProperties);
@@ -489,30 +513,33 @@ internal static class Mqtt5PropertyWriter
 
             WriteBoolean(
                 writer,
-                0x01,
+                Mqtt5PropertyId.PayloadFormatIndicator,
                 properties.PayloadFormatIndicator.Value ==
                     MqttPayloadFormatIndicator.Utf8);
         }
 
         if (properties.MessageExpiryInterval.HasValue)
         {
-            WriteUInt32(writer, 0x02, properties.MessageExpiryInterval.Value);
+            WriteUInt32(
+                writer,
+                Mqtt5PropertyId.MessageExpiryInterval,
+                properties.MessageExpiryInterval.Value);
         }
 
         if (properties.ContentType != null)
         {
-            WriteString(writer, 0x03, properties.ContentType);
+            WriteString(writer, Mqtt5PropertyId.ContentType, properties.ContentType);
         }
 
         if (properties.ResponseTopic != null)
         {
             ValidateTopicName(properties.ResponseTopic);
-            WriteString(writer, 0x08, properties.ResponseTopic);
+            WriteString(writer, Mqtt5PropertyId.ResponseTopic, properties.ResponseTopic);
         }
 
         if (properties.CorrelationData.HasValue)
         {
-            WriteBinary(writer, 0x09, properties.CorrelationData.Value.Span);
+            WriteBinary(writer, Mqtt5PropertyId.CorrelationData, properties.CorrelationData.Value.Span);
         }
 
         foreach (uint subscriptionIdentifier in subscriptionIdentifiers)
@@ -522,7 +549,7 @@ internal static class Mqtt5PropertyWriter
                 throw new ArgumentException("MQTT subscription identifiers cannot be zero.");
             }
 
-            WriteByte(writer, 0x0B);
+            WriteByte(writer, Mqtt5PropertyId.SubscriptionIdentifier);
             WriteVariableByteInteger(writer, subscriptionIdentifier);
         }
 
@@ -533,7 +560,7 @@ internal static class Mqtt5PropertyWriter
 
         if (topicAlias.HasValue)
         {
-            WriteUInt16(writer, 0x23, topicAlias.Value);
+            WriteUInt16(writer, Mqtt5PropertyId.TopicAlias, topicAlias.Value);
         }
 
         WriteUserProperties(writer, properties.UserProperties);
@@ -648,7 +675,7 @@ internal static class Mqtt5PropertyWriter
         int nameLength = Encoding.UTF8.GetByteCount(property.Name);
         int valueLength = Encoding.UTF8.GetByteCount(property.Value);
         Span<byte> destination = writer.GetSpan(1 + 4 + nameLength + valueLength);
-        destination[0] = 0x26;
+        destination[0] = Mqtt5PropertyId.UserProperty;
         BinaryPrimitives.WriteUInt16BigEndian(destination[1..], (ushort)nameLength);
         Encoding.UTF8.GetBytes(property.Name, destination[3..]);
         int valueOffset = 3 + nameLength;
@@ -734,27 +761,12 @@ internal static class Mqtt5PropertyWriter
     private static void WriteVariableByteInteger(IBufferWriter<byte> writer, uint value)
     {
         Span<byte> destination = writer.GetSpan(4);
-        int count = MqttZeroPacketWriter.WriteVariableByteInteger(destination, value);
+        int count = MqttZeroWireFormat.WriteVariableByteInteger(destination, (int)value);
         writer.Advance(count);
     }
 
     private static int GetVariableByteIntegerSize(uint value)
     {
-        if (value < 128)
-        {
-            return 1;
-        }
-
-        if (value < 16_384)
-        {
-            return 2;
-        }
-
-        if (value < 2_097_152)
-        {
-            return 3;
-        }
-
-        return 4;
+        return MqttZeroWireFormat.GetVariableByteIntegerSize(value);
     }
 }
