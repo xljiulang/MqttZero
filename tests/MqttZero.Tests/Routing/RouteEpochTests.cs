@@ -17,6 +17,16 @@ public sealed class RouteEpochTests
     [InlineData("foo/#", "foo/", 1)]
     [InlineData("foo/#", "foo/bar", 1)]
     [InlineData("+/bar", "/bar", 1)]
+    [InlineData("devices/+/temperature", "devices/a/temperature", 1)]
+    [InlineData("devices/#", "devices/a/temperature", 1)]
+    [InlineData("devices/+/temperature", "devices/a/humidity", 0)]
+    [InlineData("devices/#", "devices", 1)]
+    [InlineData("+", "a", 1)]
+    [InlineData("#", "a/b", 1)]
+    [InlineData("a//b", "a//b", 1)]
+    [InlineData("a/+/b", "a//b", 1)]
+    [InlineData("a/#", "a/", 1)]
+    [InlineData("a/+", "a", 0)]
     public void EpochPreservesMqttWildcardSemantics(
         string filter,
         string topic,

@@ -148,13 +148,7 @@ namespace MqttZero.Tests.Broker
             Pipe input = new();
             Pipe output = new();
             Task accept = broker.AcceptConnectionAsync(
-                input.Reader,
-                output.Writer,
-                new IPEndPoint(IPAddress.Loopback, 0),
-                false,
-                false,
-                null,
-                true,
+                CreateTransport(input, output),
                 CancellationToken.None).AsTask();
 
             Assert.Equal(1, broker.ActiveConnectionCount);
@@ -178,13 +172,7 @@ namespace MqttZero.Tests.Broker
             Pipe input = new();
             Pipe output = new();
             Task accept = broker.AcceptConnectionAsync(
-                input.Reader,
-                output.Writer,
-                new IPEndPoint(IPAddress.Loopback, 0),
-                false,
-                false,
-                null,
-                true,
+                CreateTransport(input, output),
                 CancellationToken.None).AsTask();
             ArrayBufferWriter<byte> writer = new();
             MqttPacketCodec.Encode(
@@ -228,25 +216,13 @@ namespace MqttZero.Tests.Broker
             Pipe firstInput = new();
             Pipe firstOutput = new();
             Task firstAccept = broker.AcceptConnectionAsync(
-                firstInput.Reader,
-                firstOutput.Writer,
-                new IPEndPoint(IPAddress.Loopback, 0),
-                false,
-                false,
-                null,
-                true,
+                CreateTransport(firstInput, firstOutput),
                 CancellationToken.None).AsTask();
             Pipe secondInput = new();
             Pipe secondOutput = new();
 
             await broker.AcceptConnectionAsync(
-                secondInput.Reader,
-                secondOutput.Writer,
-                new IPEndPoint(IPAddress.Loopback, 0),
-                false,
-                false,
-                null,
-                true,
+                CreateTransport(secondInput, secondOutput),
                 CancellationToken.None);
 
             Assert.Equal(1, broker.ActiveConnectionCount);
@@ -278,6 +254,18 @@ namespace MqttZero.Tests.Broker
                     throw new EndOfStreamException();
                 }
             }
+        }
+
+        private static MqttZeroTransportConnection CreateTransport(
+            Pipe input,
+            Pipe output)
+        {
+            return new MqttZeroTransportConnection
+            {
+                Input = input.Reader,
+                Output = output.Writer,
+                RemoteEndPoint = new IPEndPoint(IPAddress.Loopback, 0)
+            };
         }
 
         private static async Task PublishQosOneToSubscriberAsync(

@@ -305,17 +305,6 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     }
 
     /// <summary>
-    /// Gets the time provider used by the broker.
-    /// </summary>
-    public TimeProvider TimeProvider
-    {
-        get
-        {
-            return _timeProvider;
-        }
-    }
-
-    /// <summary>
     /// Stops the broker and releases pooled resources.
     /// </summary>
     /// <returns>A task representing disposal.</returns>

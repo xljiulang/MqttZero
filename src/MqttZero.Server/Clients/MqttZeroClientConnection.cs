@@ -200,16 +200,6 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         };
     }
 
-    public void ResetStatistics()
-    {
-        Interlocked.Exchange(ref _packetsReceived, 0);
-        Interlocked.Exchange(ref _packetsSent, 0);
-        Interlocked.Exchange(ref _bytesReceived, 0);
-        Interlocked.Exchange(ref _bytesSent, 0);
-        Interlocked.Exchange(ref _messagesReceived, 0);
-        Interlocked.Exchange(ref _messagesSent, 0);
-    }
-
     public void SetInboundTopicAlias(ushort alias, ReadOnlySequence<byte> topic)
     {
         (_inboundTopicAliases ??= new MqttZeroTopicAliasTable(

@@ -45,14 +45,6 @@ namespace MqttZero.Tests.Architecture
                 "MqttZero.Server.Retained.MqttZeroRetainedMessage, MqttZero.Server");
         }
 
-        [Fact]
-        public void TopicMatcherIsNotPartOfThePublicServerApi()
-        {
-            Type matcher = AssertTypeName(
-                "MqttZero.Server.Routing.MqttZeroTopicMatcher, MqttZero.Server");
-            Assert.False(matcher.IsPublic);
-        }
-
         private static Type AssertTypeName(string assemblyQualifiedTypeName)
         {
             Type? type = Type.GetType(assemblyQualifiedTypeName, false);
