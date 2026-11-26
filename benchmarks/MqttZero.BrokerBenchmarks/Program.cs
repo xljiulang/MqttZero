@@ -873,13 +873,6 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
         diagnosticsSnapshot.EgressBatchByteCount,
         averageEgressBatchMessages,
         diagnosticsSnapshot.EgressFlushStartCount,
-        diagnosticsSnapshot.SessionLockWaitCount,
-        ToAverageMicroseconds(
-            diagnosticsSnapshot.TotalSessionLockWaitTicks,
-            diagnosticsSnapshot.SessionLockWaitCount),
-        ToAverageMicroseconds(
-            diagnosticsSnapshot.MaxSessionLockWaitTicks,
-            1),
         ToAverageMicroseconds(
             diagnosticsSnapshot.TotalPendingSelectionTicks,
             diagnosticsSnapshot.EgressDataBatchCount),

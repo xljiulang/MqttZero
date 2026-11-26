@@ -29,7 +29,6 @@ internal sealed class MqttZeroFanoutDiagnostics
     private long _maxPendingSelectionTicks;
     private long _maxPublishEncodeTicks;
     private long _maxPublishWriteTicks;
-    private long _maxSessionLockWaitTicks;
     private long _fanoutSchedulerBatchCount;
     private long _fanoutSchedulerEnqueueCount;
     private long _fanoutSchedulerFailureCount;
@@ -42,9 +41,7 @@ internal sealed class MqttZeroFanoutDiagnostics
     private long _totalPendingSelectionTicks;
     private long _totalPublishEncodeTicks;
     private long _totalPublishWriteTicks;
-    private long _sessionLockWaitCount;
     private long _shardOwnershipViolationCount;
-    private long _totalSessionLockWaitTicks;
 
     public MqttZeroFanoutDiagnostics()
         : this(AppContext.TryGetSwitch(
@@ -97,9 +94,6 @@ internal sealed class MqttZeroFanoutDiagnostics
             Interlocked.Read(ref _maxFanoutSchedulerWaitTicks) *
                 1_000_000d /
                 System.Diagnostics.Stopwatch.Frequency,
-            Interlocked.Read(ref _sessionLockWaitCount),
-            Interlocked.Read(ref _totalSessionLockWaitTicks),
-            Interlocked.Read(ref _maxSessionLockWaitTicks),
             Interlocked.Read(ref _totalPendingSelectionTicks),
             Interlocked.Read(ref _maxPendingSelectionTicks),
             Interlocked.Read(ref _totalInflightUpdateTicks),
@@ -129,18 +123,6 @@ internal sealed class MqttZeroFanoutDiagnostics
 
         Interlocked.Add(ref _totalEgressDrainTicks, elapsedTicks);
         InterlockedMax(ref _maxEgressDrainTicks, elapsedTicks);
-    }
-
-    public void RecordSessionLockWait(long elapsedTicks)
-    {
-        if (!_enabled)
-        {
-            return;
-        }
-
-        Interlocked.Increment(ref _sessionLockWaitCount);
-        Interlocked.Add(ref _totalSessionLockWaitTicks, elapsedTicks);
-        InterlockedMax(ref _maxSessionLockWaitTicks, elapsedTicks);
     }
 
     public void RecordPendingSelection(long elapsedTicks)
@@ -357,9 +339,6 @@ internal sealed class MqttZeroFanoutDiagnostics
         Interlocked.Exchange(ref _fanoutSchedulerBatchCount, 0);
         Interlocked.Exchange(ref _fanoutSchedulerFailureCount, 0);
         Interlocked.Exchange(ref _maxFanoutSchedulerWaitTicks, 0);
-        Interlocked.Exchange(ref _sessionLockWaitCount, 0);
-        Interlocked.Exchange(ref _totalSessionLockWaitTicks, 0);
-        Interlocked.Exchange(ref _maxSessionLockWaitTicks, 0);
         Interlocked.Exchange(ref _totalPendingSelectionTicks, 0);
         Interlocked.Exchange(ref _maxPendingSelectionTicks, 0);
         Interlocked.Exchange(ref _totalInflightUpdateTicks, 0);

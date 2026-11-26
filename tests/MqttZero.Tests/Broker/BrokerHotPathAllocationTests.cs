@@ -351,14 +351,11 @@ namespace MqttZero.Tests.Broker
                 Thread.Yield();
             }
 
-            lock (receiver.SyncRoot)
+            while (receiver.PendingMessages.Count > 0)
             {
-                while (receiver.PendingMessages.Count > 0)
-                {
-                    MqttZeroQueuedMessage queued =
-                        receiver.PendingMessages.Dequeue();
-                    queued.Release();
-                }
+                MqttZeroQueuedMessage queued =
+                    receiver.PendingMessages.Dequeue();
+                queued.Release();
             }
         }
 
@@ -403,12 +400,9 @@ namespace MqttZero.Tests.Broker
                 (Stopwatch.Frequency * 5);
             while (Stopwatch.GetTimestamp() < deadline)
             {
-                lock (receiver.SyncRoot)
+                if (receiver.PendingMessages.Count > 0)
                 {
-                    if (receiver.PendingMessages.Count > 0)
-                    {
-                        return;
-                    }
+                    return;
                 }
 
                 Thread.Yield();
@@ -533,17 +527,14 @@ namespace MqttZero.Tests.Broker
                 lease.Release();
             }
 
-            lock (receiver.SyncRoot)
+            if (receiver.PendingMessages.Count == 0)
             {
-                if (receiver.PendingMessages.Count == 0)
-                {
-                    throw new InvalidOperationException("The PUBLISH was not queued.");
-                }
-
-                MqttZeroQueuedMessage queued =
-                    receiver.PendingMessages.Dequeue();
-                queued.Release();
+                throw new InvalidOperationException("The PUBLISH was not queued.");
             }
+
+            MqttZeroQueuedMessage queued =
+                receiver.PendingMessages.Dequeue();
+            queued.Release();
         }
 
     }

@@ -1106,20 +1106,7 @@ public sealed partial class MqttZeroBroker
             return null;
         }
 
-        SessionMutationLease mutation;
         try
-        {
-            mutation = await AcquireSessionMutationAsync(
-                clientId,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch
-        {
-            await newConnection.DisposeAsync().ConfigureAwait(false);
-            throw;
-        }
-
-        using (mutation)
         {
             try
             {
@@ -1166,6 +1153,11 @@ public sealed partial class MqttZeroBroker
                 await newConnection.DisposeAsync().ConfigureAwait(false);
                 throw;
             }
+        }
+        catch
+        {
+            await newConnection.DisposeAsync().ConfigureAwait(false);
+            throw;
         }
     }
 
@@ -1396,10 +1388,7 @@ public sealed partial class MqttZeroBroker
                     "The MQTT session changed while the connection was being established.");
             }
 
-            lock (previous.SyncRoot)
-            {
-                previous.Connection = null;
-            }
+            previous.Connection = null;
 
             _sessions[transaction.ClientId] = transaction.Session;
             return;
@@ -1865,96 +1854,4 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    private async ValueTask<SessionMutationLease> AcquireSessionMutationAsync(
-        string clientId,
-        CancellationToken cancellationToken)
-    {
-        SessionMutationLock mutationLock;
-        lock (_sessionGate)
-        {
-            if (!_sessionMutationLocks.TryGetValue(
-                    clientId,
-                    out SessionMutationLock? existingLock))
-            {
-                mutationLock = new SessionMutationLock();
-                _sessionMutationLocks.Add(clientId, mutationLock);
-            }
-            else
-            {
-                mutationLock = existingLock;
-            }
-
-            mutationLock.ReferenceCount++;
-        }
-
-        try
-        {
-            await mutationLock.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch
-        {
-            ReleaseSessionMutationReference(clientId, mutationLock);
-            throw;
-        }
-
-        return new SessionMutationLease(this, clientId, mutationLock);
-    }
-
-    private void ReleaseSessionMutation(SessionMutationLease lease)
-    {
-        lease.MutationLock.Gate.Release();
-        ReleaseSessionMutationReference(lease.ClientId, lease.MutationLock);
-    }
-
-    private void ReleaseSessionMutationReference(
-        string clientId,
-        SessionMutationLock mutationLock)
-    {
-        lock (_sessionGate)
-        {
-            mutationLock.ReferenceCount--;
-            if (mutationLock.ReferenceCount == 0 &&
-                _sessionMutationLocks.TryGetValue(clientId, out SessionMutationLock? current) &&
-                ReferenceEquals(current, mutationLock))
-            {
-                _sessionMutationLocks.Remove(clientId);
-                mutationLock.Gate.Dispose();
-            }
-        }
-    }
-
-    private sealed class SessionMutationLock
-    {
-        public SemaphoreSlim Gate { get; } = new(1, 1);
-
-        public int ReferenceCount { get; set; }
-    }
-
-    private sealed class SessionMutationLease : IDisposable
-    {
-        private readonly MqttZeroBroker _broker;
-        private int _disposed;
-
-        public SessionMutationLease(
-            MqttZeroBroker broker,
-            string clientId,
-            SessionMutationLock mutationLock)
-        {
-            _broker = broker;
-            ClientId = clientId;
-            MutationLock = mutationLock;
-        }
-
-        public string ClientId { get; }
-
-        public SessionMutationLock MutationLock { get; }
-
-        public void Dispose()
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) == 0)
-            {
-                _broker.ReleaseSessionMutation(this);
-            }
-        }
-    }
 }

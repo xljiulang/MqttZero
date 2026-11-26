@@ -24,10 +24,10 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
 {
-    // Lock hierarchy: _lifecycleGate -> _routeMutationGate -> session.SyncRoot,
-    // and _retainedMutationGate -> _retainedGate. _sessionGate, _retainedGate
-    // and session.SyncRoot are leaves. Every write to one PipeWriter must run
-    // through the owning connection's write gate or on its session shard.
+    // Lock hierarchy: _lifecycleGate -> _routeMutationGate, and
+    // _retainedMutationGate -> _retainedGate. _sessionGate and _retainedGate
+    // are leaves. Every write to one PipeWriter must run through the owning
+    // connection's write gate or on its session shard.
     private readonly object _sessionGate = new();
     private readonly MqttZeroBufferPool _bufferPool;
     private readonly IMqttZeroPublishInterceptor[] _publishInterceptors;
@@ -49,14 +49,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly MqttZeroSharedGroupCursors _sharedGroupCursors = new();
     private readonly Dictionary<MqttZeroSharedGroupKey, int>
         _sharedGroupReferences = [];
-    private readonly List<(
-        MqttZeroClientConnection Connection,
-        MqttZeroSessionEgress? Pump)> _keepAliveExpired = [];
-    private readonly List<(MqttZeroSessionState Session, MqttZeroWillMessage Will)> _dueWills = [];
-    private readonly List<MqttZeroSessionState> _expiredSessions = [];
-    private readonly List<string> _expiredRetainedTopics = [];
     private readonly ConcurrentDictionary<long, CancellationTokenSource> _acceptedConnections = new();
-    private readonly Dictionary<string, SessionMutationLock> _sessionMutationLocks = [];
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _retainedMutationGate = new(1, 1);
     private readonly SemaphoreSlim _routeMutationGate = new(1, 1);

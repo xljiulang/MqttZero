@@ -49,8 +49,6 @@ internal sealed class MqttZeroSessionState
 
     public int ShardId { get; }
 
-    public object SyncRoot { get; } = new();
-
     public MqttZeroSubscriptionCollection Subscriptions { get; } = new();
 
     public ConcurrentDictionary<object, object?> Items { get; } = new();

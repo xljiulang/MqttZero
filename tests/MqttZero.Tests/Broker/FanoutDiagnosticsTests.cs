@@ -102,7 +102,6 @@ public sealed class FanoutDiagnosticsTests
     {
         MqttZeroFanoutDiagnostics diagnostics = new(enabled: true);
 
-        diagnostics.RecordSessionLockWait(11);
         diagnostics.RecordPendingSelection(12);
         diagnostics.RecordInflightUpdate(13);
         diagnostics.RecordPublishEncode(14);
@@ -111,9 +110,6 @@ public sealed class FanoutDiagnosticsTests
         MqttZeroFanoutDiagnosticsSnapshot snapshot =
             diagnostics.GetSnapshot();
 
-        Assert.Equal(1, snapshot.SessionLockWaitCount);
-        Assert.Equal(11, snapshot.TotalSessionLockWaitTicks);
-        Assert.Equal(11, snapshot.MaxSessionLockWaitTicks);
         Assert.Equal(12, snapshot.TotalPendingSelectionTicks);
         Assert.Equal(13, snapshot.TotalInflightUpdateTicks);
         Assert.Equal(14, snapshot.TotalPublishEncodeTicks);

@@ -185,8 +185,6 @@ public sealed partial class MqttZeroBroker
             MqttZeroShardSet? shardSet = _shardSet;
             if (shardSet != null)
             {
-                await ReleaseAllSessionMessagesOnShardsAsync(
-                    cancellationToken).ConfigureAwait(false);
                 foreach (MqttZeroSessionState session in _sessions.Values)
                 {
                     MqttZeroSessionEgress? pump =
@@ -194,6 +192,8 @@ public sealed partial class MqttZeroBroker
                     await StopEgressAsync(pump).ConfigureAwait(false);
                 }
 
+                await ReleaseAllSessionMessagesOnShardsAsync(
+                    cancellationToken).ConfigureAwait(false);
                 await shardSet.DisposeAsync().ConfigureAwait(false);
                 _shardSet = null;
             }

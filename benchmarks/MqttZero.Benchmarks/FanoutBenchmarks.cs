@@ -166,18 +166,16 @@ public class FanoutBenchmarks : IDisposable
     {
         foreach (MqttZeroSessionState receiver in _receivers)
         {
-            lock (receiver.SyncRoot)
+            foreach (MqttZeroQueuedMessage message in
+                receiver.InflightMessages.Values)
             {
-                foreach (MqttZeroQueuedMessage message in receiver.InflightMessages.Values)
-                {
-                    message.Release();
-                }
+                message.Release();
+            }
 
-                receiver.InflightMessages.Clear();
-                while (receiver.PendingMessages.Count > 0)
-                {
-                    receiver.PendingMessages.Dequeue().Release();
-                }
+            receiver.InflightMessages.Clear();
+            while (receiver.PendingMessages.Count > 0)
+            {
+                receiver.PendingMessages.Dequeue().Release();
             }
         }
     }

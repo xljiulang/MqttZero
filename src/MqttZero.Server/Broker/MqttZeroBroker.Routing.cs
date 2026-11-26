@@ -243,11 +243,8 @@ public sealed partial class MqttZeroBroker
             if (sender != null &&
                 lease.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtLeastOnce)
             {
-                MqttZeroClientConnection? senderConnection;
-                lock (sender.SyncRoot)
-                {
-                    senderConnection = sender.Connection;
-                }
+                MqttZeroClientConnection? senderConnection =
+                    sender.Connection;
 
                 if (senderConnection != null)
                 {

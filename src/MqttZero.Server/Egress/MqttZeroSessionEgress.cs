@@ -374,11 +374,8 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         MqttZeroClientConnection connection,
         CancellationToken cancellationToken)
     {
-        List<MqttZeroQueuedMessage> inflight;
-        lock (session.SyncRoot)
-        {
-            inflight = [.. session.InflightMessages.Values];
-        }
+        List<MqttZeroQueuedMessage> inflight =
+            [.. session.InflightMessages.Values];
 
         foreach (MqttZeroQueuedMessage message in inflight)
         {
@@ -452,15 +449,12 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
                 }
                 catch
                 {
-                    lock (session.SyncRoot)
+                    for (int restore = expired.Count - 1;
+                        restore >= index;
+                        restore--)
                     {
-                        for (int restore = expired.Count - 1;
-                            restore >= index;
-                            restore--)
-                        {
-                            session.PendingMessages.Prepend(
-                                expired[restore]);
-                        }
+                        session.PendingMessages.Prepend(
+                            expired[restore]);
                     }
 
                     throw;
@@ -486,10 +480,7 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
                 }
                 catch
                 {
-                    lock (session.SyncRoot)
-                    {
-                        session.PendingMessages.Prepend(tooLarge);
-                    }
+                    session.PendingMessages.Prepend(tooLarge);
 
                     throw;
                 }
@@ -529,24 +520,21 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
                     }
                     catch
                     {
-                        lock (session.SyncRoot)
+                        for (int restore = batch.Count - 1;
+                            restore >= index;
+                            restore--)
                         {
-                            for (int restore = batch.Count - 1;
-                                restore >= index;
-                                restore--)
+                            MqttZeroQueuedMessage restoreMessage =
+                                batch[restore];
+                            if (restoreMessage.QualityOfServiceLevel !=
+                                MqttQualityOfServiceLevel.AtMostOnce)
                             {
-                                MqttZeroQueuedMessage restoreMessage =
-                                    batch[restore];
-                                if (restoreMessage.QualityOfServiceLevel !=
-                                    MqttQualityOfServiceLevel.AtMostOnce)
-                                {
-                                    session.InflightMessages.Remove(
-                                        restoreMessage.PacketIdentifier);
-                                }
-
-                                session.PendingMessages.Prepend(
-                                    restoreMessage);
+                                session.InflightMessages.Remove(
+                                    restoreMessage.PacketIdentifier);
                             }
+
+                            session.PendingMessages.Prepend(
+                                restoreMessage);
                         }
 
                         batch.Clear();

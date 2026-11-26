@@ -67,9 +67,6 @@ public sealed partial class MqttZeroBroker
         EnsureSessionShard(
             session,
             nameof(DetachConnectionOnShardAsync));
-        using SessionMutationLease mutation = await AcquireSessionMutationAsync(
-            session.ClientId,
-            cancellationToken).ConfigureAwait(false);
         DateTimeOffset now = _timeProvider.GetUtcNow();
         bool removeSession = false;
         MqttZeroSessionLifecycleSnapshot lifecycle =

@@ -510,12 +510,9 @@ public sealed partial class MqttZeroBroker
         }
 
         List<MqttZeroQueuedMessage> expired = [];
-        lock (session.SyncRoot)
-        {
-            session.PendingMessages.RemoveExpired(
-                _timeProvider.GetUtcNow(),
-                expired);
-        }
+        session.PendingMessages.RemoveExpired(
+            _timeProvider.GetUtcNow(),
+            expired);
 
         for (int index = 0; index < expired.Count; index++)
         {
@@ -529,15 +526,12 @@ public sealed partial class MqttZeroBroker
             }
             catch
             {
-                lock (session.SyncRoot)
+                for (int restore = expired.Count - 1;
+                    restore >= index;
+                    restore--)
                 {
-                    for (int restore = expired.Count - 1;
-                        restore >= index;
-                        restore--)
-                    {
-                        session.PendingMessages.Prepend(
-                            expired[restore]);
-                    }
+                    session.PendingMessages.Prepend(
+                        expired[restore]);
                 }
 
                 RescheduleSessionMessageExpiry(session);

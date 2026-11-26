@@ -31,93 +31,81 @@ internal sealed class MqttZeroSessionEgressBufferState
             options.MaxInflight,
             connection.ReceiveMaximum);
         bool diagnosticsEnabled = diagnostics.Enabled;
-        long lockWaitStarted = diagnosticsEnabled
+        long pendingSelectionStarted = diagnosticsEnabled
             ? Stopwatch.GetTimestamp()
             : 0;
-        lock (session.SyncRoot)
+        ExpiredMessages.Clear();
+        OutboundBatch.Clear();
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        session.PendingMessages.RemoveExpired(
+            now,
+            ExpiredMessages);
+        hasNext = session.PendingMessages.Count > 0 &&
+            (session.PendingMessages[0].QualityOfServiceLevel ==
+                MqttQualityOfServiceLevel.AtMostOnce ||
+            session.InflightMessages.Count < inflightLimit);
+        if (!hasNext)
         {
-            if (diagnosticsEnabled)
+            return;
+        }
+
+        next = session.PendingMessages.Dequeue();
+        ValidateEncodedLength(
+            connection,
+            next,
+            out nextTooLarge);
+        if (nextTooLarge)
+        {
+            return;
+        }
+
+        _ = budget.TryAdd(
+            next.EncodedLength,
+            timeProvider.GetTimestamp());
+        OutboundBatch.Add(next);
+        AddInflightIfNeeded(
+            session,
+            next,
+            diagnostics,
+            diagnosticsEnabled);
+
+        while (!connection.HasPendingControlWrites &&
+            session.PendingMessages.Count > 0)
+        {
+            MqttZeroQueuedMessage head = session.PendingMessages[0];
+            if (head.QualityOfServiceLevel !=
+                    MqttQualityOfServiceLevel.AtMostOnce &&
+                session.InflightMessages.Count >= inflightLimit)
             {
-                diagnostics.RecordSessionLockWait(
-                    Stopwatch.GetTimestamp() - lockWaitStarted);
+                break;
             }
 
-            long pendingSelectionStarted = diagnosticsEnabled
-                ? Stopwatch.GetTimestamp()
-                : 0;
-            ExpiredMessages.Clear();
-            OutboundBatch.Clear();
-            DateTimeOffset now = timeProvider.GetUtcNow();
-            session.PendingMessages.RemoveExpired(
-                now,
-                ExpiredMessages);
-            hasNext = session.PendingMessages.Count > 0 &&
-                (session.PendingMessages[0].QualityOfServiceLevel ==
-                    MqttQualityOfServiceLevel.AtMostOnce ||
-                session.InflightMessages.Count < inflightLimit);
-            if (!hasNext)
-            {
-                return;
-            }
-
-            next = session.PendingMessages.Dequeue();
             ValidateEncodedLength(
                 connection,
-                next,
-                out nextTooLarge);
-            if (nextTooLarge)
+                head,
+                out bool headTooLarge);
+            if (headTooLarge ||
+                !budget.TryAdd(
+                    head.EncodedLength,
+                    timeProvider.GetTimestamp()))
             {
-                return;
+                break;
             }
 
-            _ = budget.TryAdd(
-                next.EncodedLength,
-                timeProvider.GetTimestamp());
-            OutboundBatch.Add(next);
+            MqttZeroQueuedMessage candidate =
+                session.PendingMessages.Dequeue();
+            OutboundBatch.Add(candidate);
             AddInflightIfNeeded(
                 session,
-                next,
+                candidate,
                 diagnostics,
                 diagnosticsEnabled);
+        }
 
-            while (!connection.HasPendingControlWrites &&
-                session.PendingMessages.Count > 0)
-            {
-                MqttZeroQueuedMessage head = session.PendingMessages[0];
-                if (head.QualityOfServiceLevel !=
-                        MqttQualityOfServiceLevel.AtMostOnce &&
-                    session.InflightMessages.Count >= inflightLimit)
-                {
-                    break;
-                }
-
-                ValidateEncodedLength(
-                    connection,
-                    head,
-                    out bool headTooLarge);
-                if (headTooLarge ||
-                    !budget.TryAdd(
-                        head.EncodedLength,
-                        timeProvider.GetTimestamp()))
-                {
-                    break;
-                }
-
-                MqttZeroQueuedMessage candidate =
-                    session.PendingMessages.Dequeue();
-                OutboundBatch.Add(candidate);
-                AddInflightIfNeeded(
-                    session,
-                    candidate,
-                    diagnostics,
-                    diagnosticsEnabled);
-            }
-
-            if (diagnosticsEnabled)
-            {
-                diagnostics.RecordPendingSelection(
-                    Stopwatch.GetTimestamp() - pendingSelectionStarted);
-            }
+        if (diagnosticsEnabled)
+        {
+            diagnostics.RecordPendingSelection(
+                Stopwatch.GetTimestamp() - pendingSelectionStarted);
         }
     }
 

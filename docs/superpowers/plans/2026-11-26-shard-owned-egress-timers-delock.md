@@ -3,10 +3,10 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 > **Status:** In progress on `refactor/shard-owned-egress-timers`.
-> Tasks 1 through 5 are complete. Fast PUBLISH, acknowledgements, CONNECT,
-> detach, management disconnect, timer handling, route mutation and Session
-> queue release now execute on the owning Session Shard. Only Egress and Timer
-> internal locks remain for Task 6 removal.
+> Tasks 1 through 6 are complete. Session `SyncRoot`, mutation locks and
+> mutation leases have been removed. All Session mutation paths execute on the
+> owning Shard, and a Roslyn source guard prevents lock regressions. Next is
+> Task 7 final verification and documentation.
 
 **Goal:** Make one Session Shard the sole owner of all mutable Session and outbound state, replace the global deadline scanner with per-Shard hierarchical timer wheels, and remove `session.SyncRoot` completely without changing public APIs or MQTT behavior.
 
@@ -482,11 +482,11 @@ git commit -m "refactor: move session mutations onto owning shards"
 
 ### Step 1: Write failing source and concurrency tests
 
-- [ ] Add a Roslyn source test asserting `session.SyncRoot` and `_sessionMutationLocks` do not occur in `src/`.
-- [ ] Add deterministic Route Enqueue and PUBACK concurrency tests.
-- [ ] Add concurrent Detach and Takeover tests.
-- [ ] Add concurrent management snapshot and 1000-reconnect tests.
-- [ ] Assert Buffer Pool, Lease, QueuedMessage and Timer nodes return to zero after each conflict sequence.
+- [x] Add a Roslyn source test asserting `session.SyncRoot` and `_sessionMutationLocks` do not occur in `src/`.
+- [x] Add deterministic Route Enqueue and PUBACK concurrency tests.
+- [x] Add concurrent Detach and Takeover tests.
+- [x] Add concurrent management snapshot and 1000-reconnect tests.
+- [x] Assert Buffer Pool, Lease, QueuedMessage and Timer nodes return to zero after each conflict sequence.
 
 ### Step 2: Verify RED
 
@@ -499,12 +499,12 @@ Expected: source test reports remaining `session.SyncRoot` sites.
 
 ### Step 3: Delete the locks
 
-- [ ] Delete the Session `SyncRoot` property.
-- [ ] Delete all `lock (session.SyncRoot)` blocks.
-- [ ] Delete per-client Session Mutation Lock code and lock hierarchy comments.
-- [ ] Keep only valid `_sessionGate` dictionary atomicity, lifecycle and route/retained mutation gates where they protect global structures.
-- [ ] Change any caller that depended on Session locks into one of: Shard invocation, immutable snapshot publication, atomic count update or Session Egress command.
-- [ ] Verify no lock escapes through generated code, tests or Benchmark reflection.
+- [x] Delete the Session `SyncRoot` property.
+- [x] Delete all `lock (session.SyncRoot)` blocks.
+- [x] Delete per-client Session Mutation Lock code and lock hierarchy comments.
+- [x] Keep only valid `_sessionGate` dictionary atomicity, lifecycle and route/retained mutation gates where they protect global structures.
+- [x] Change any caller that depended on Session locks into one of: Shard invocation, immutable snapshot publication, atomic count update or Session Egress command.
+- [x] Verify no lock escapes through generated code, tests or Benchmark reflection.
 
 ### Step 4: Verify GREEN
 

@@ -962,12 +962,9 @@ namespace MqttZero.Tests.Broker
                 secondReleased = true;
 
                 Assert.Equal(1, receiver.PendingMessages.Count);
-                lock (receiver.SyncRoot)
-                {
-                    MqttZeroQueuedMessage queued =
-                        receiver.PendingMessages.Dequeue();
-                    queued.Release();
-                }
+                MqttZeroQueuedMessage queued =
+                    receiver.PendingMessages.Dequeue();
+                queued.Release();
 
                 Assert.Equal(0, bufferPool.RentedBytes);
             }
@@ -1056,10 +1053,7 @@ namespace MqttZero.Tests.Broker
                     publisherConnection,
                     first,
                     TestContext.Current.CancellationToken);
-                lock (receiver.SyncRoot)
-                {
-                    receiver.Connection = secondConnection;
-                }
+                receiver.Connection = secondConnection;
 
                 await broker.RoutePublishLeaseAsync(
                     publisher,
@@ -1068,14 +1062,11 @@ namespace MqttZero.Tests.Broker
                     TestContext.Current.CancellationToken);
 
                 Assert.Equal(2, receiver.PendingMessages.Count);
-                lock (receiver.SyncRoot)
+                while (receiver.PendingMessages.Count > 0)
                 {
-                    while (receiver.PendingMessages.Count > 0)
-                    {
-                        MqttZeroQueuedMessage queued =
-                            receiver.PendingMessages.Dequeue();
-                        queued.Release();
-                    }
+                    MqttZeroQueuedMessage queued =
+                        receiver.PendingMessages.Dequeue();
+                    queued.Release();
                 }
             }
             finally
