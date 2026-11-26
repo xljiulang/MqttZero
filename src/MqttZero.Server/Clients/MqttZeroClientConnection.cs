@@ -23,7 +23,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     private readonly PipeWriter _writer;
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly DateTimeOffset _connectedAt;
-    private MqttZeroEgressActor? _egress;
+    private MqttZeroSessionEgress? _egress;
     private MqttZeroTopicAliasTable? _inboundTopicAliases;
     private readonly TimeProvider _timeProvider;
     private int _disposed;
@@ -80,7 +80,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
 
     internal int ShardId { get; set; }
 
-    internal MqttZeroEgressActor? Egress
+    internal MqttZeroSessionEgress? Egress
     {
         get
         {
@@ -88,7 +88,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
-    internal void AttachEgress(MqttZeroEgressActor egress)
+    internal void AttachEgress(MqttZeroSessionEgress egress)
     {
         ArgumentNullException.ThrowIfNull(egress);
         _egress = egress;
@@ -1153,7 +1153,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     private MqttZeroEgressControlFrame? TryRentEgressControlFrame(
         int encodedLength)
     {
-        MqttZeroEgressActor? egress = _egress;
+        MqttZeroSessionEgress? egress = _egress;
         if (egress == null || egress.IsStopping)
         {
             return null;
@@ -1169,8 +1169,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         bool ownsFrame = true;
         try
         {
-            MqttZeroEgressActor egress = _egress ??
-                throw new ObjectDisposedException(nameof(MqttZeroEgressActor));
+            MqttZeroSessionEgress egress = _egress ??
+                throw new ObjectDisposedException(nameof(MqttZeroSessionEgress));
             ownsFrame = !await egress.PostControlAsync(
                 frame,
                 cancellationToken).ConfigureAwait(false);

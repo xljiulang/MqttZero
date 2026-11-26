@@ -154,7 +154,7 @@ public sealed partial class MqttZeroBroker
             foreach (MqttZeroSessionState session in _sessions.Values)
             {
                 MqttZeroClientConnection? connection;
-                MqttZeroEgressActor? pump;
+                MqttZeroSessionEgress? pump;
                 lock (session.SyncRoot)
                 {
                     connection = session.Connection;
@@ -217,7 +217,7 @@ public sealed partial class MqttZeroBroker
 
             foreach (MqttZeroSessionState session in _sessions.Values)
             {
-                MqttZeroEgressActor? pump;
+                MqttZeroSessionEgress? pump;
                 lock (session.SyncRoot)
                 {
                     pump = session.Egress;

@@ -190,7 +190,7 @@ public sealed partial class MqttZeroBroker
         }
 
         MqttZeroClientConnection? connection;
-        MqttZeroEgressActor? pump;
+        MqttZeroSessionEgress? pump;
         lock (session.SyncRoot)
         {
             connection = session.Connection;

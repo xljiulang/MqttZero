@@ -51,7 +51,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         _sharedGroupReferences = [];
     private readonly List<(
         MqttZeroClientConnection Connection,
-        MqttZeroEgressActor? Pump)> _keepAliveExpired = [];
+        MqttZeroSessionEgress? Pump)> _keepAliveExpired = [];
     private readonly List<(MqttZeroSessionState Session, MqttZeroWillMessage Will)> _dueWills = [];
     private readonly List<MqttZeroSessionState> _expiredSessions = [];
     private readonly List<string> _expiredRetainedTopics = [];

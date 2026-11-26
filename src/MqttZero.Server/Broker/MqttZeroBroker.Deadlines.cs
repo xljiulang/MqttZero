@@ -162,7 +162,7 @@ public sealed partial class MqttZeroBroker
         }
 
         MqttZeroClientConnection? connection;
-        MqttZeroEgressActor? pump = null;
+        MqttZeroSessionEgress? pump = null;
         DateTimeOffset rescheduleAt = default;
         bool reschedule = false;
         lock (session.SyncRoot)
@@ -441,7 +441,7 @@ public sealed partial class MqttZeroBroker
         RemoveSessionDeadlines(session.ClientId);
         await RemoveSessionSubscriptionsFromRouteAsync(session)
             .ConfigureAwait(false);
-        MqttZeroEgressActor? pump;
+        MqttZeroSessionEgress? pump;
         lock (session.SyncRoot)
         {
             pump = session.Egress;

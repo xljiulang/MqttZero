@@ -543,7 +543,7 @@ public sealed partial class MqttZeroBroker
 
     private void SignalEgress(MqttZeroSessionState session)
     {
-        MqttZeroEgressActor? egress = session.Egress;
+        MqttZeroSessionEgress? egress = session.Egress;
         if (egress == null)
         {
             return;
@@ -892,13 +892,13 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    internal MqttZeroEgressActor StartEgress(
+    internal MqttZeroSessionEgress StartEgress(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
         CancellationToken cancellationToken)
     {
         int resumePending = 1;
-        MqttZeroEgressActor? egress = null;
+        MqttZeroSessionEgress? egress = null;
 
         async ValueTask<bool> DrainAsync(
             CancellationToken pumpCancellationToken)
@@ -932,7 +932,7 @@ public sealed partial class MqttZeroBroker
             }
         }
 
-        egress = new MqttZeroEgressActor(
+        egress = new MqttZeroSessionEgress(
             ShardSet.GetEgressScheduler(session.ShardId),
             connection.WriteEncodedControlBatchAsync,
             DrainAsync,
@@ -1001,7 +1001,7 @@ public sealed partial class MqttZeroBroker
     private async ValueTask<bool> DrainQueuedMessagesOnceAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
-        MqttZeroEgressActor egress,
+        MqttZeroSessionEgress egress,
         CancellationToken cancellationToken)
     {
         while (true)

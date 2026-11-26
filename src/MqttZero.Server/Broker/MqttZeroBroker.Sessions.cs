@@ -27,7 +27,7 @@ public sealed partial class MqttZeroBroker
             CancellationToken.None).ConfigureAwait(false);
         DateTimeOffset now = _timeProvider.GetUtcNow();
         bool removeSession = false;
-        MqttZeroEgressActor? pump;
+        MqttZeroSessionEgress? pump;
 
         lock (session.SyncRoot)
         {
@@ -156,7 +156,7 @@ public sealed partial class MqttZeroBroker
     }
 
     private static async ValueTask StopEgressAsync(
-        MqttZeroEgressActor? pump)
+        MqttZeroSessionEgress? pump)
     {
         if (pump != null)
         {

@@ -133,7 +133,7 @@ namespace MqttZero.Tests.Broker
                 broker,
                 "retained");
             await using MqttZeroClientConnection connectionLifetime = connection;
-            await using MqttZeroEgressActor pump =
+            await using MqttZeroSessionEgress pump =
                 broker.StartEgress(
                     session,
                     connection,

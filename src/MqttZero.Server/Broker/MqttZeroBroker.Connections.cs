@@ -981,7 +981,7 @@ public sealed partial class MqttZeroBroker
 
         public MqttZeroSessionState? PreviousPumpSession { get; set; }
 
-        public MqttZeroEgressActor? PreviousPump { get; set; }
+        public MqttZeroSessionEgress? PreviousPump { get; set; }
 
         public bool PreviousPumpStopped { get; set; }
 
@@ -1492,7 +1492,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroSessionState? replacedSession,
         MqttZeroClientConnection? oldConnection,
         MqttZeroSessionState? previousPumpSession,
-        MqttZeroEgressActor? previousPump,
+        MqttZeroSessionEgress? previousPump,
         bool previousPumpStopped,
         bool previousCleanStart,
         uint previousExpiryInterval,
@@ -1689,7 +1689,7 @@ public sealed partial class MqttZeroBroker
     private void RestoreSessionEgress(
         MqttZeroSessionState? session,
         MqttZeroClientConnection? connection,
-        MqttZeroEgressActor? pump,
+        MqttZeroSessionEgress? pump,
         bool pumpStopped)
     {
         if (session == null || connection == null)

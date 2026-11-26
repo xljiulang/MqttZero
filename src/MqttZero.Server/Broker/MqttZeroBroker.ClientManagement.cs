@@ -403,7 +403,7 @@ public sealed partial class MqttZeroBroker
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken)
     {
-        MqttZeroEgressActor? pump;
+        MqttZeroSessionEgress? pump;
         lock (session.SyncRoot)
         {
             if (!ReferenceEquals(session.Connection, connection))
