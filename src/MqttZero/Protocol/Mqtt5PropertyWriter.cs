@@ -384,7 +384,7 @@ internal static class Mqtt5PropertyWriter
                 throw new ArgumentException("MQTT subscription identifiers cannot be zero.");
             }
 
-            length += 1 + GetVariableByteIntegerSize(packet.SubscriptionIdentifier.Value);
+            length += 1 + MqttZeroWireFormat.GetVariableByteIntegerSize(packet.SubscriptionIdentifier.Value);
         }
 
         return length + GetUserPropertiesLength(packet.UserProperties);
@@ -481,7 +481,7 @@ internal static class Mqtt5PropertyWriter
                 throw new ArgumentException("MQTT subscription identifiers cannot be zero.");
             }
 
-            length += 1 + GetVariableByteIntegerSize(subscriptionIdentifier);
+            length += 1 + MqttZeroWireFormat.GetVariableByteIntegerSize(subscriptionIdentifier);
         }
 
         if (topicAlias == 0)
@@ -617,9 +617,9 @@ internal static class Mqtt5PropertyWriter
     private static void WritePropertyLength(IBufferWriter<byte> writer, int length)
     {
         Span<byte> destination = writer.GetSpan(4);
-        int count = MqttZeroPacketWriter.WriteVariableByteInteger(
+        int count = MqttZeroWireFormat.WriteVariableByteInteger(
             destination,
-            (uint)length);
+            length);
         writer.Advance(count);
     }
 
@@ -765,8 +765,4 @@ internal static class Mqtt5PropertyWriter
         writer.Advance(count);
     }
 
-    private static int GetVariableByteIntegerSize(uint value)
-    {
-        return MqttZeroWireFormat.GetVariableByteIntegerSize(value);
-    }
 }

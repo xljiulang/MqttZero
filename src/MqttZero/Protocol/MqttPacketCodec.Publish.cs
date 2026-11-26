@@ -27,7 +27,7 @@ public static partial class MqttPacketCodec
 
         ushort packetIdentifier = 0;
         if (qos > MqttQualityOfServiceLevel.AtMostOnce &&
-            !TryReadUInt16(ref reader, out packetIdentifier))
+            !MqttZeroWireFormat.TryReadUInt16(ref reader, out packetIdentifier))
         {
             return false;
         }
@@ -90,7 +90,7 @@ public static partial class MqttPacketCodec
             2 +
             (int)packet.TopicName.Length +
             (packet.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtMostOnce ? 0 : 2) +
-            GetVariableByteIntegerSize(propertiesLength) +
+            MqttZeroWireFormat.GetVariableByteIntegerSize(propertiesLength) +
             propertiesLength +
             (int)packet.Payload.Length;
 
@@ -108,7 +108,7 @@ public static partial class MqttPacketCodec
         }
 
         fixedHeader[0] = firstByte;
-        int lengthBytes = WriteVariableByteInteger(fixedHeader[1..], bodyLength);
+        int lengthBytes = MqttZeroWireFormat.WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(1 + lengthBytes);
 
         WriteUtf8(writer, packet.TopicName);

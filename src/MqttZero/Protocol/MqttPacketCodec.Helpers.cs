@@ -13,7 +13,7 @@ public static partial class MqttPacketCodec
         out ReadOnlySequence<byte> properties)
     {
         properties = ReadOnlySequence<byte>.Empty;
-        if (!TryReadVariableByteInteger(ref reader, out int propertyLength) ||
+        if (!MqttZeroWireFormat.TryReadVariableByteInteger(ref reader, out int propertyLength) ||
             propertyLength < 0 ||
             reader.Remaining < propertyLength)
         {
@@ -37,7 +37,7 @@ public static partial class MqttPacketCodec
 
     private static bool TryReadBinary(ref SequenceReader<byte> reader, out ReadOnlySequence<byte> value)
     {
-        if (!TryReadUInt16(ref reader, out ushort length) || reader.Remaining < length)
+        if (!MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort length) || reader.Remaining < length)
         {
             value = ReadOnlySequence<byte>.Empty;
             return false;
@@ -50,21 +50,11 @@ public static partial class MqttPacketCodec
         return true;
     }
 
-    private static bool TryReadUInt16(ref SequenceReader<byte> reader, out ushort value)
-    {
-        return MqttZeroWireFormat.TryReadUInt16(ref reader, out value);
-    }
-
-    private static bool TryReadVariableByteInteger(ref SequenceReader<byte> reader, out int value)
-    {
-        return MqttZeroWireFormat.TryReadVariableByteInteger(ref reader, out value);
-    }
-
     private static void WriteProperties(IBufferWriter<byte> writer, ReadOnlySequence<byte> properties)
     {
         int length = (int)properties.Length;
         Span<byte> lengthSpan = writer.GetSpan(4);
-        int lengthBytes = WriteVariableByteInteger(lengthSpan, length);
+        int lengthBytes = MqttZeroWireFormat.WriteVariableByteInteger(lengthSpan, length);
         writer.Advance(lengthBytes);
         WriteSequence(writer, properties);
     }
@@ -126,15 +116,5 @@ public static partial class MqttPacketCodec
         Span<byte> destination = writer.GetSpan(2);
         BinaryPrimitives.WriteUInt16BigEndian(destination, value);
         writer.Advance(2);
-    }
-
-    private static int WriteVariableByteInteger(Span<byte> destination, int value)
-    {
-        return MqttZeroWireFormat.WriteVariableByteInteger(destination, value);
-    }
-
-    private static int GetVariableByteIntegerSize(long value)
-    {
-        return MqttZeroWireFormat.GetVariableByteIntegerSize(value);
     }
 }

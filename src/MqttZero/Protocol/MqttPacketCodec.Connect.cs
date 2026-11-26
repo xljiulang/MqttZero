@@ -22,7 +22,7 @@ public static partial class MqttPacketCodec
             protocolVersion != (byte)MqttProtocolVersion.V500 ||
             !reader.TryRead(out byte connectFlags) ||
             (connectFlags & 0x01) != 0 ||
-            !TryReadUInt16(ref reader, out ushort keepAliveSeconds) ||
+            !MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort keepAliveSeconds) ||
             !TryReadProperties(ref reader, out ReadOnlySequence<byte> properties) ||
             !TryReadUtf8(ref reader, out ReadOnlySequence<byte> clientId))
         {
@@ -108,14 +108,14 @@ public static partial class MqttPacketCodec
             ? Mqtt5PropertyWriter.GetWillPropertiesLength(packet)
             : 0;
         int bodyLength = 10 +
-            GetVariableByteIntegerSize(connectPropertiesLength) +
+            MqttZeroWireFormat.GetVariableByteIntegerSize(connectPropertiesLength) +
             connectPropertiesLength +
             2 +
             (int)packet.ClientId.Length;
 
         if (packet.HasWill)
         {
-            bodyLength += GetVariableByteIntegerSize(willPropertiesLength) +
+            bodyLength += MqttZeroWireFormat.GetVariableByteIntegerSize(willPropertiesLength) +
                 willPropertiesLength +
                 2 +
                 (int)packet.WillTopic.Length +
@@ -135,7 +135,7 @@ public static partial class MqttPacketCodec
 
         Span<byte> fixedHeader = writer.GetSpan(1 + 4);
         fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.Connect);
-        int lengthBytes = WriteVariableByteInteger(fixedHeader[1..], bodyLength);
+        int lengthBytes = MqttZeroWireFormat.WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(1 + lengthBytes);
 
         WriteUtf8(writer, "MQTT"u8);
@@ -174,12 +174,12 @@ public static partial class MqttPacketCodec
         int propertiesLength = Mqtt5PropertyWriter.GetConnAckPropertiesLength(packet);
         int bodyLength =
             2 +
-            GetVariableByteIntegerSize(propertiesLength) +
+            MqttZeroWireFormat.GetVariableByteIntegerSize(propertiesLength) +
             propertiesLength;
 
         Span<byte> fixedHeader = writer.GetSpan(1 + 4);
         fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.ConnAck);
-        int lengthBytes = WriteVariableByteInteger(fixedHeader[1..], bodyLength);
+        int lengthBytes = MqttZeroWireFormat.WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(1 + lengthBytes);
         WriteByte(writer, packet.SessionPresent ? (byte)1 : (byte)0);
         WriteByte(writer, (byte)packet.ReasonCode);

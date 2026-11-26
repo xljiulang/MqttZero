@@ -34,7 +34,7 @@ public static partial class MqttPacketCodec
             return false;
         }
 
-        if (!TryReadVariableByteInteger(ref reader, out int remainingLength) || remainingLength < 0)
+        if (!MqttZeroWireFormat.TryReadVariableByteInteger(ref reader, out int remainingLength) || remainingLength < 0)
         {
             return false;
         }
@@ -96,7 +96,7 @@ public static partial class MqttPacketCodec
 
         SequenceReader<byte> reader = new(sequence);
         _ = reader.TryRead(out _);
-        if (!TryReadVariableByteInteger(ref reader, out int remainingLength))
+        if (!MqttZeroWireFormat.TryReadVariableByteInteger(ref reader, out int remainingLength))
         {
             return false;
         }

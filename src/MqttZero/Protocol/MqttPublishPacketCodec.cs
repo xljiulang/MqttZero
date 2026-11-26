@@ -24,7 +24,7 @@ internal static class MqttPublishPacketCodec
             return false;
         }
 
-        if (!TryReadVariableByteInteger(ref reader, out int remainingLength) ||
+        if (!MqttZeroWireFormat.TryReadVariableByteInteger(ref reader, out int remainingLength) ||
             reader.Remaining < remainingLength)
         {
             return false;
@@ -45,7 +45,7 @@ internal static class MqttPublishPacketCodec
 
         ushort packetIdentifier = 0;
         if (qos > MqttQualityOfServiceLevel.AtMostOnce &&
-            (!TryReadUInt16(ref bodyReader, out packetIdentifier) ||
+            (!MqttZeroWireFormat.TryReadUInt16(ref bodyReader, out packetIdentifier) ||
                 packetIdentifier == 0))
         {
             return false;
@@ -95,7 +95,7 @@ internal static class MqttPublishPacketCodec
             view.Duplicate,
             view.QualityOfServiceLevel,
             view.Retain);
-        int fixedHeaderLength = 1 + WriteVariableByteInteger(fixedHeader[1..], bodyLength);
+        int fixedHeaderLength = 1 + MqttZeroWireFormat.WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(fixedHeaderLength);
         WriteUInt16(writer, (ushort)view.Topic.Length);
         WriteSequence(writer, view.Topic);
@@ -105,7 +105,7 @@ internal static class MqttPublishPacketCodec
         }
 
         Span<byte> propertyLengthSpan = writer.GetSpan(4);
-        int propertyLengthBytes = WriteVariableByteInteger(propertyLengthSpan, propertyLength);
+        int propertyLengthBytes = MqttZeroWireFormat.WriteVariableByteInteger(propertyLengthSpan, propertyLength);
         writer.Advance(propertyLengthBytes);
         if (view.Properties.IsEmpty)
         {
@@ -132,11 +132,11 @@ internal static class MqttPublishPacketCodec
             2 +
             (int)view.Topic.Length +
             (view.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtMostOnce ? 0 : 2) +
-            GetVariableByteIntegerSize((uint)propertyLength) +
+            MqttZeroWireFormat.GetVariableByteIntegerSize((uint)propertyLength) +
             propertyLength;
         uint remainingLength = (uint)bodyHeaderLength +
             (uint)view.Payload.Length;
-        int remainingLengthSize = GetVariableByteIntegerSize(remainingLength);
+        int remainingLengthSize = MqttZeroWireFormat.GetVariableByteIntegerSize(remainingLength);
         int headerLength = 1 + remainingLengthSize + bodyHeaderLength;
         writer.Reset();
         Span<byte> destination = writer.GetSpan(headerLength);
@@ -145,9 +145,9 @@ internal static class MqttPublishPacketCodec
             view.Duplicate,
             view.QualityOfServiceLevel,
             view.Retain);
-        offset += MqttZeroPacketWriter.WriteVariableByteInteger(
+        offset += MqttZeroWireFormat.WriteVariableByteInteger(
             destination[offset..],
-            remainingLength);
+            (int)remainingLength);
         BinaryPrimitives.WriteUInt16BigEndian(
             destination[offset..],
             (ushort)view.Topic.Length);
@@ -161,9 +161,9 @@ internal static class MqttPublishPacketCodec
             offset += 2;
         }
 
-        offset += MqttZeroPacketWriter.WriteVariableByteInteger(
+        offset += MqttZeroWireFormat.WriteVariableByteInteger(
             destination[offset..],
-            (uint)propertyLength);
+            propertyLength);
         if (view.Properties.IsEmpty)
         {
             WriteScalarProperties(destination, view, ref offset);
@@ -216,7 +216,7 @@ internal static class MqttPublishPacketCodec
     public static int GetEncodedLength(in MqttZeroPublishView view)
     {
         int bodyLength = GetBodyLength(view);
-        return 1 + GetVariableByteIntegerSize((uint)bodyLength) + bodyLength;
+        return 1 + MqttZeroWireFormat.GetVariableByteIntegerSize((uint)bodyLength) + bodyLength;
     }
 
     private static bool TryReadProperties(
@@ -232,7 +232,7 @@ internal static class MqttPublishPacketCodec
         subscriptionIdentifier = null;
         subscriptionIdentifiers = ReadOnlyMemory<uint>.Empty;
         topicAlias = null;
-        if (!TryReadVariableByteInteger(ref reader, out int length) ||
+        if (!MqttZeroWireFormat.TryReadVariableByteInteger(ref reader, out int length) ||
             reader.Remaining < length)
         {
             return false;
@@ -264,7 +264,7 @@ internal static class MqttPublishPacketCodec
                     messageExpiryInterval = expiry;
                     break;
                 case SubscriptionIdentifier:
-                    if (!TryReadVariableByteInteger(ref propertyReader, out int subscriptionId) ||
+                    if (!MqttZeroWireFormat.TryReadVariableByteInteger(ref propertyReader, out int subscriptionId) ||
                         subscriptionId == 0)
                     {
                         return false;
@@ -295,7 +295,7 @@ internal static class MqttPublishPacketCodec
                     break;
                 case TopicAlias:
                     if (topicAlias.HasValue ||
-                        !TryReadUInt16(ref propertyReader, out ushort alias) ||
+                        !MqttZeroWireFormat.TryReadUInt16(ref propertyReader, out ushort alias) ||
                         alias == 0)
                     {
                         return false;
@@ -320,7 +320,7 @@ internal static class MqttPublishPacketCodec
 
     private static bool TryReadTopic(ref SequenceReader<byte> reader, out ReadOnlySequence<byte> topic)
     {
-        if (!TryReadUInt16(ref reader, out ushort length) || reader.Remaining < length)
+        if (!MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort length) || reader.Remaining < length)
         {
             topic = ReadOnlySequence<byte>.Empty;
             return false;
@@ -331,11 +331,6 @@ internal static class MqttPublishPacketCodec
             : reader.Sequence.Slice(reader.Position, length);
         reader.Advance(length);
         return true;
-    }
-
-    private static bool TryReadUInt16(ref SequenceReader<byte> reader, out ushort value)
-    {
-        return MqttZeroWireFormat.TryReadUInt16(ref reader, out value);
     }
 
     private static bool TryReadUInt32(ref SequenceReader<byte> reader, out uint value)
@@ -354,16 +349,6 @@ internal static class MqttPublishPacketCodec
         return true;
     }
 
-    private static bool TryReadVariableByteInteger(ref SequenceReader<byte> reader, out int value)
-    {
-        return MqttZeroWireFormat.TryReadVariableByteInteger(ref reader, out value);
-    }
-
-    private static bool TrySkipBinary(ref SequenceReader<byte> reader)
-    {
-        return MqttZeroWireFormat.TrySkipBinary(ref reader);
-    }
-
     private static int GetScalarPropertyLength(in MqttZeroPublishView view)
     {
         int length = 0;
@@ -374,12 +359,12 @@ internal static class MqttPublishPacketCodec
 
         if (view.SubscriptionIdentifier.HasValue)
         {
-            length += 1 + GetVariableByteIntegerSize(view.SubscriptionIdentifier.Value);
+            length += 1 + MqttZeroWireFormat.GetVariableByteIntegerSize(view.SubscriptionIdentifier.Value);
         }
 
         foreach (uint subscriptionIdentifier in view.SubscriptionIdentifiers.Span)
         {
-            length += 1 + GetVariableByteIntegerSize(subscriptionIdentifier);
+            length += 1 + MqttZeroWireFormat.GetVariableByteIntegerSize(subscriptionIdentifier);
         }
 
         if (view.TopicAlias.HasValue)
@@ -397,7 +382,7 @@ internal static class MqttPublishPacketCodec
             2 +
             (int)view.Topic.Length +
             (view.QualityOfServiceLevel == MqttQualityOfServiceLevel.AtMostOnce ? 0 : 2) +
-            GetVariableByteIntegerSize((uint)propertyLength) +
+            MqttZeroWireFormat.GetVariableByteIntegerSize((uint)propertyLength) +
             propertyLength +
             (int)view.Payload.Length;
     }
@@ -464,17 +449,17 @@ internal static class MqttPublishPacketCodec
         if (view.SubscriptionIdentifier.HasValue)
         {
             destination[offset++] = SubscriptionIdentifier;
-            offset += MqttZeroPacketWriter.WriteVariableByteInteger(
+            offset += MqttZeroWireFormat.WriteVariableByteInteger(
                 destination[offset..],
-                view.SubscriptionIdentifier.Value);
+                (int)view.SubscriptionIdentifier.Value);
         }
 
         foreach (uint subscriptionIdentifier in view.SubscriptionIdentifiers.Span)
         {
             destination[offset++] = SubscriptionIdentifier;
-            offset += MqttZeroPacketWriter.WriteVariableByteInteger(
+            offset += MqttZeroWireFormat.WriteVariableByteInteger(
                 destination[offset..],
-                subscriptionIdentifier);
+                (int)subscriptionIdentifier);
         }
 
         if (view.TopicAlias.HasValue)
@@ -517,14 +502,14 @@ internal static class MqttPublishPacketCodec
         if (view.SubscriptionIdentifier.HasValue &&
             !hasEncodedSubscriptionIdentifiers)
         {
-            length += 1 + GetVariableByteIntegerSize(view.SubscriptionIdentifier.Value);
+            length += 1 + MqttZeroWireFormat.GetVariableByteIntegerSize(view.SubscriptionIdentifier.Value);
         }
 
         if (!hasEncodedSubscriptionIdentifiers)
         {
             foreach (uint subscriptionIdentifier in view.SubscriptionIdentifiers.Span)
             {
-                length += 1 + GetVariableByteIntegerSize(subscriptionIdentifier);
+                length += 1 + MqttZeroWireFormat.GetVariableByteIntegerSize(subscriptionIdentifier);
             }
         }
 
@@ -586,9 +571,9 @@ internal static class MqttPublishPacketCodec
                 SubscriptionIdentifier))
         {
             destination[offset++] = SubscriptionIdentifier;
-            offset += MqttZeroPacketWriter.WriteVariableByteInteger(
+            offset += MqttZeroWireFormat.WriteVariableByteInteger(
                 destination[offset..],
-                view.SubscriptionIdentifier.Value);
+                (int)view.SubscriptionIdentifier.Value);
         }
 
         bool hasEncodedSubscriptionIdentifiers =
@@ -600,9 +585,9 @@ internal static class MqttPublishPacketCodec
             foreach (uint subscriptionIdentifier in view.SubscriptionIdentifiers.Span)
             {
                 destination[offset++] = SubscriptionIdentifier;
-                offset += MqttZeroPacketWriter.WriteVariableByteInteger(
+                offset += MqttZeroWireFormat.WriteVariableByteInteger(
                     destination[offset..],
-                    subscriptionIdentifier);
+                    (int)subscriptionIdentifier);
             }
         }
 
@@ -677,20 +662,12 @@ internal static class MqttPublishPacketCodec
         writer.Advance(4);
     }
 
-    private static int WriteVariableByteInteger(Span<byte> destination, int value)
-    {
-        return MqttZeroWireFormat.WriteVariableByteInteger(destination, value);
-    }
-
     private static void WriteVariableByteInteger(IBufferWriter<byte> writer, uint value)
     {
         Span<byte> destination = writer.GetSpan(4);
-        int length = WriteVariableByteInteger(destination, (int)value);
+        int length = MqttZeroWireFormat.WriteVariableByteInteger(
+            destination,
+            (int)value);
         writer.Advance(length);
-    }
-
-    private static int GetVariableByteIntegerSize(uint value)
-    {
-        return MqttZeroWireFormat.GetVariableByteIntegerSize(value);
     }
 }
