@@ -268,6 +268,10 @@ static async Task CompareAsync(
         true);
     BenchmarkClientKind clientKind = BenchmarkClientSelection.Parse(
         GetValue(arguments, "client", "mqttnet"));
+    bool enforceRankingComparison = GetBool(
+        arguments,
+        "comparison-gate",
+        true);
     if (clientKind == BenchmarkClientKind.Raw &&
         qosLevels.Contains(2))
     {
@@ -476,13 +480,24 @@ static async Task CompareAsync(
         }
     }
 
-    BenchmarkGateResult gate = BenchmarkGateEvaluator.Evaluate(results);
+    BenchmarkGateResult gate = BenchmarkGateEvaluator.Evaluate(
+        results,
+        enforceRankingComparison);
     BenchmarkReport report = new(environment, results, gate);
     await BenchmarkOutputWriter.WriteAsync(
         outputPath,
         report,
         BrokerBenchmarkJsonContext.Default.BenchmarkReport,
         CancellationToken.None).ConfigureAwait(false);
+    Console.WriteLine(
+        $"compare gate passed={gate.Passed} " +
+        $"ranking-enforced={enforceRankingComparison} " +
+        $"cells={gate.Summaries.Count}");
+    foreach (string error in gate.Errors)
+    {
+        Console.Error.WriteLine($"compare gate failure: {error}");
+    }
+
     if (!gate.Passed)
     {
         Environment.ExitCode = 1;
