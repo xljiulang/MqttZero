@@ -1,10 +1,18 @@
+using MqttZero.Server.Broker;
+using MqttZero.Server.Clients;
+using MqttZero.Server.Sessions;
 using System.IO.Pipelines;
+using System.Diagnostics;
 
 namespace MqttZero.Server.Egress;
 
 internal sealed class MqttZeroSessionEgress : IAsyncDisposable
 {
     private readonly MqttZeroEgressActor _actor;
+    private readonly MqttZeroBroker? _broker;
+    private readonly MqttZeroSessionState? _session;
+    private readonly MqttZeroClientConnection? _connection;
+    private int _resumePending;
 
     internal MqttZeroSessionEgress(
         MqttZeroEgressScheduler scheduler,
@@ -19,6 +27,24 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
             scheduler,
             writeControls,
             drainData,
+            faulted);
+    }
+
+    internal MqttZeroSessionEgress(
+        MqttZeroBroker broker,
+        MqttZeroSessionState session,
+        MqttZeroClientConnection connection,
+        MqttZeroEgressScheduler scheduler,
+        Action<Exception> faulted)
+    {
+        _broker = broker;
+        _session = session;
+        _connection = connection;
+        _resumePending = 1;
+        _actor = new MqttZeroEgressActor(
+            scheduler,
+            connection.WriteEncodedControlBatchAsync,
+            DrainOwnedAsync,
             faulted);
     }
 
@@ -71,5 +97,42 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     public ValueTask DisposeAsync()
     {
         return _actor.DisposeAsync();
+    }
+
+    private async ValueTask<bool> DrainOwnedAsync(
+        CancellationToken cancellationToken)
+    {
+        MqttZeroBroker broker = _broker ??
+            throw new InvalidOperationException(
+                "The session egress owner is not attached to a broker.");
+        MqttZeroSessionState session = _session ??
+            throw new InvalidOperationException(
+                "The session egress owner has no session.");
+        MqttZeroClientConnection connection = _connection ??
+            throw new InvalidOperationException(
+                "The session egress owner has no connection.");
+
+        long started = Stopwatch.GetTimestamp();
+        try
+        {
+            if (Interlocked.Exchange(ref _resumePending, 0) != 0)
+            {
+                await MqttZeroBroker.ResumeInflightMessagesAsync(
+                    session,
+                    connection,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            return await broker.DrainQueuedMessagesOnceAsync(
+                session,
+                connection,
+                this,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            broker.RecordEgressDrainTiming(
+                Stopwatch.GetTimestamp() - started);
+        }
     }
 }

@@ -897,45 +897,13 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection connection,
         CancellationToken cancellationToken)
     {
-        int resumePending = 1;
         MqttZeroSessionEgress? egress = null;
 
-        async ValueTask<bool> DrainAsync(
-            CancellationToken pumpCancellationToken)
-        {
-            if (egress is not { } actor)
-            {
-                return false;
-            }
-
-            long started = Stopwatch.GetTimestamp();
-            try
-            {
-                if (Interlocked.Exchange(ref resumePending, 0) != 0)
-                {
-                    await ResumeInflightMessagesAsync(
-                        session,
-                        connection,
-                        pumpCancellationToken).ConfigureAwait(false);
-                }
-
-                return await DrainQueuedMessagesOnceAsync(
-                    session,
-                    connection,
-                    actor,
-                    pumpCancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                _fanoutDiagnostics.RecordEgressDrainTiming(
-                    Stopwatch.GetTimestamp() - started);
-            }
-        }
-
         egress = new MqttZeroSessionEgress(
+            this,
+            session,
+            connection,
             ShardSet.GetEgressScheduler(session.ShardId),
-            connection.WriteEncodedControlBatchAsync,
-            DrainAsync,
             OnEgressFailure);
         lock (session.SyncRoot)
         {
@@ -970,7 +938,12 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    private static async ValueTask ResumeInflightMessagesAsync(
+    internal void RecordEgressDrainTiming(long elapsedTicks)
+    {
+        _fanoutDiagnostics.RecordEgressDrainTiming(elapsedTicks);
+    }
+
+    internal static async ValueTask ResumeInflightMessagesAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
         CancellationToken cancellationToken)
@@ -998,7 +971,7 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    private async ValueTask<bool> DrainQueuedMessagesOnceAsync(
+    internal async ValueTask<bool> DrainQueuedMessagesOnceAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
         MqttZeroSessionEgress egress,
