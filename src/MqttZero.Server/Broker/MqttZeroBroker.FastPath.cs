@@ -30,7 +30,8 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection senderConnection,
         MqttZeroMessageLease lease,
         bool suppressPublisherAck,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool scheduleQosZeroWithoutWaiting = false)
     {
         MqttZeroMessageLease effectiveLease = lease;
         bool ownsEffectiveLease = false;
@@ -167,14 +168,30 @@ public sealed partial class MqttZeroBroker
                 }
                 else
                 {
-                    await dispatcher.DispatchQosZeroAsync(
-                        plan,
-                        buffer,
-                        effectiveLease,
-                        senderConnection,
-                        publisherShardId,
-                        qosZeroPlanBuffers.ReturnCallback,
-                        cancellationToken).ConfigureAwait(false);
+                    if (scheduleQosZeroWithoutWaiting &&
+                        plan.Batches[publisherShardId].Count > 0)
+                    {
+                        await dispatcher.DispatchScheduledAsync(
+                            plan,
+                            buffer,
+                            effectiveLease,
+                            senderConnection,
+                            publisherShardId,
+                            cancellationToken,
+                            qosZeroPlanBuffers.ReturnCallback)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await dispatcher.DispatchQosZeroAsync(
+                            plan,
+                            buffer,
+                            effectiveLease,
+                            senderConnection,
+                            publisherShardId,
+                            qosZeroPlanBuffers.ReturnCallback,
+                            cancellationToken).ConfigureAwait(false);
+                    }
                 }
             }
             else

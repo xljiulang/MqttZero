@@ -130,7 +130,8 @@ internal sealed class MqttZeroFanoutDispatcher
         MqttZeroMessageLease lease,
         MqttZeroClientConnection? senderConnection,
         int publisherShardId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<MqttZeroRoutePlanBuffer>? returnBuffer = null)
     {
         ArgumentNullException.ThrowIfNull(buffer);
         ArgumentNullException.ThrowIfNull(lease);
@@ -145,6 +146,7 @@ internal sealed class MqttZeroFanoutDispatcher
             plan.NonEmptyBatchCount,
             _deliver,
             _faulted,
+            returnBuffer,
             autoRelease: true);
         Exception? schedulingFailure = null;
         for (int shardId = 0; shardId < plan.Batches.Length; shardId++)

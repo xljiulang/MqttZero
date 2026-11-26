@@ -23,6 +23,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection connection,
         MqttZeroMessageLease lease,
         ushort packetIdentifier,
+        bool releaseSourceLease,
         CancellationToken cancellationToken)
     {
         EnsureSessionShard(
@@ -98,7 +99,8 @@ public sealed partial class MqttZeroBroker
 
         if (!inserted)
         {
-            if (!prepared.UsesSourceLease)
+            if (releaseSourceLease &&
+                !prepared.UsesSourceLease)
             {
                 storedLease.Release();
             }
@@ -130,7 +132,8 @@ public sealed partial class MqttZeroBroker
                     session.InboundQos2Messages.Remove(packetIdentifier);
                 }
 
-                if (!prepared.UsesSourceLease)
+                if (releaseSourceLease &&
+                    !prepared.UsesSourceLease)
                 {
                     storedLease.Release();
                 }
@@ -139,7 +142,8 @@ public sealed partial class MqttZeroBroker
             }
         }
 
-        if (!prepared.UsesSourceLease)
+        if (releaseSourceLease &&
+            !prepared.UsesSourceLease)
         {
             lease.Release();
         }

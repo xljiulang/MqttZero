@@ -10,6 +10,7 @@ internal sealed class MqttZeroInboundWork
         Pool = new(
             MqttZeroBoundedObjectPool<MqttZeroInboundWork>.
                 DefaultCapacity);
+    private Action? _completed;
 
     private MqttZeroInboundWork()
     {
@@ -37,7 +38,8 @@ internal sealed class MqttZeroInboundWork
         MqttZeroMessageLease lease,
         MqttZeroSessionState sender,
         MqttZeroClientConnection? senderConnection,
-        long messageId = 0)
+        long messageId = 0,
+        Action? completed = null)
     {
         if (!Pool.TryRent(out MqttZeroInboundWork? work) ||
             work is null)
@@ -50,17 +52,21 @@ internal sealed class MqttZeroInboundWork
         work.Sender = sender;
         work.SenderConnection = senderConnection;
         work.MessageId = messageId;
+        work._completed = completed;
         work.CreatedTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
         return work;
     }
 
     public void Release()
     {
+        Action? completed = _completed;
+        _completed = null;
         Lease.Release();
         Lease = null!;
         Sender = null!;
-        SenderConnection = null!;
+        SenderConnection = null;
         MessageId = 0;
+        completed?.Invoke();
         _ = Pool.Return(this);
     }
 }
