@@ -9,6 +9,7 @@ namespace MqttZero.Server.Egress;
 internal sealed class MqttZeroSessionEgress : IAsyncDisposable
 {
     private readonly MqttZeroEgressActor _actor;
+    private readonly MqttZeroSessionEgressBufferState _state = new();
     private readonly MqttZeroBroker? _broker;
     private readonly MqttZeroSessionState? _session;
     private readonly MqttZeroClientConnection? _connection;
@@ -61,6 +62,14 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         get
         {
             return _actor.IsStopping;
+        }
+    }
+
+    internal MqttZeroSessionEgressBufferState StateData
+    {
+        get
+        {
+            return _state;
         }
     }
 

@@ -175,16 +175,6 @@ public sealed partial class MqttZeroBroker
             now >= session.DisconnectedAt.Value.AddSeconds(session.ExpiryInterval);
     }
 
-    private int GetInflightLimit(MqttZeroClientConnection? connection)
-    {
-        if (connection == null)
-        {
-            return _options.MaxInflight;
-        }
-
-        return Math.Min(_options.MaxInflight, connection.ReceiveMaximum);
-    }
-
     private uint ClampSessionExpiry(uint requestedExpiry)
     {
         if (!_options.MaxSessionExpiryInterval.HasValue)

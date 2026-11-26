@@ -989,117 +989,22 @@ public sealed partial class MqttZeroBroker
                 _options.OutboundBatchBytes,
                 _options.OutboundBatchMessages,
                 batchStartedTimestamp + batchDurationTicks);
-            MqttZeroQueuedMessage? next = null;
-            bool hasNext = false;
-            bool nextTooLarge = false;
-            int inflightLimit = GetInflightLimit(connection);
-            List<MqttZeroQueuedMessage> expired = session.ExpiredMessages;
-            List<MqttZeroQueuedMessage> batch = session.OutboundBatch;
+            List<MqttZeroQueuedMessage> expired =
+                egress.StateData.ExpiredMessages;
+            List<MqttZeroQueuedMessage> batch =
+                egress.StateData.OutboundBatch;
             bool diagnosticsEnabled = _fanoutDiagnostics.Enabled;
-            long lockWaitStarted = diagnosticsEnabled
-                ? Stopwatch.GetTimestamp()
-                : 0;
-            lock (session.SyncRoot)
-            {
-                if (diagnosticsEnabled)
-                {
-                    _fanoutDiagnostics.RecordSessionLockWait(
-                        Stopwatch.GetTimestamp() - lockWaitStarted);
-                }
-
-                long pendingSelectionStarted = diagnosticsEnabled
-                    ? Stopwatch.GetTimestamp()
-                    : 0;
-                expired.Clear();
-                batch.Clear();
-                DateTimeOffset now = _timeProvider.GetUtcNow();
-                session.PendingMessages.RemoveExpired(now, expired);
-                hasNext = session.PendingMessages.Count > 0 &&
-                    (session.PendingMessages[0].QualityOfServiceLevel ==
-                        MqttQualityOfServiceLevel.AtMostOnce ||
-                    session.InflightMessages.Count < inflightLimit);
-                if (hasNext)
-                {
-                    next = session.PendingMessages.Dequeue();
-                    ValidateEncodedLength(
-                        connection,
-                        next,
-                        out nextTooLarge);
-                    if (!nextTooLarge)
-                    {
-                        _ = budget.TryAdd(
-                            next.EncodedLength,
-                            _timeProvider.GetTimestamp());
-                        batch.Add(next);
-                        if (next.QualityOfServiceLevel !=
-                            MqttQualityOfServiceLevel.AtMostOnce)
-                        {
-                            long inflightStarted = diagnosticsEnabled
-                                ? Stopwatch.GetTimestamp()
-                                : 0;
-                            next.PacketIdentifier = session.GetNextPacketIdentifier();
-                            session.InflightMessages[next.PacketIdentifier] = next;
-                            if (diagnosticsEnabled)
-                            {
-                                _fanoutDiagnostics.RecordInflightUpdate(
-                                    Stopwatch.GetTimestamp() - inflightStarted);
-                            }
-                        }
-
-                        while (!connection.HasPendingControlWrites &&
-                            session.PendingMessages.Count > 0)
-                        {
-                            MqttZeroQueuedMessage head =
-                                session.PendingMessages[0];
-                            if (head.QualityOfServiceLevel !=
-                                    MqttQualityOfServiceLevel.AtMostOnce &&
-                                session.InflightMessages.Count >=
-                                    inflightLimit)
-                            {
-                                break;
-                            }
-
-                            ValidateEncodedLength(
-                                connection,
-                                head,
-                                out bool headTooLarge);
-                            if (headTooLarge ||
-                                !budget.TryAdd(
-                                    head.EncodedLength,
-                                    _timeProvider.GetTimestamp()))
-                            {
-                                break;
-                            }
-
-                            MqttZeroQueuedMessage candidate =
-                                session.PendingMessages.Dequeue();
-                            batch.Add(candidate);
-                            if (candidate.QualityOfServiceLevel !=
-                                MqttQualityOfServiceLevel.AtMostOnce)
-                            {
-                                long inflightStarted = diagnosticsEnabled
-                                    ? Stopwatch.GetTimestamp()
-                                    : 0;
-                                candidate.PacketIdentifier =
-                                    session.GetNextPacketIdentifier();
-                                session.InflightMessages[candidate.PacketIdentifier] =
-                                    candidate;
-                                if (diagnosticsEnabled)
-                                {
-                                    _fanoutDiagnostics.RecordInflightUpdate(
-                                        Stopwatch.GetTimestamp() - inflightStarted);
-                                }
-                            }
-
-                        }
-                        if (diagnosticsEnabled)
-                        {
-                            _fanoutDiagnostics.RecordPendingSelection(
-                                Stopwatch.GetTimestamp() - pendingSelectionStarted);
-                        }
-                    }
-                }
-            }
+            egress.StateData.SelectBatch(
+                session,
+                connection,
+                _options,
+                _timeProvider,
+                _fanoutDiagnostics,
+                ref budget,
+                out MqttZeroQueuedMessage? next,
+                out bool hasNext,
+                out bool nextTooLarge,
+                out _);
 
             for (int index = 0; index < expired.Count; index++)
             {
@@ -1296,26 +1201,6 @@ public sealed partial class MqttZeroBroker
                 message.Release();
             }
         }
-    }
-
-    private static void ValidateEncodedLength(
-        MqttZeroClientConnection connection,
-        MqttZeroQueuedMessage message,
-        out bool tooLarge)
-    {
-        if (!message.IsEncodedLengthValidFor(connection.MaximumPacketSize))
-        {
-            int encodedLength = connection.GetPublishEncodedLength(
-                message.Lease,
-                message.QualityOfServiceLevel,
-                message.Retain,
-                message.SubscriptionIdentifiers);
-            message.SetEncodedLength(
-                encodedLength,
-                connection.MaximumPacketSize);
-        }
-
-        tooLarge = message.EncodedLength > connection.MaximumPacketSize;
     }
 
     internal bool CanDispatchInbound
