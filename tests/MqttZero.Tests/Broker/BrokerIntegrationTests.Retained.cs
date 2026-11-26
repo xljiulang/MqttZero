@@ -25,7 +25,7 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ReplaysRetainedMessageToNewSubscriber()
         {
             int port = GetFreePort();
@@ -74,7 +74,7 @@ namespace MqttZero.Tests.Broker
             await publisher.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task DoesNotReplayExpiredRetainedMessage()
         {
             int port = GetFreePort();

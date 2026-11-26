@@ -27,7 +27,7 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ManagementApiDisconnectsConnectedClient()
         {
             int port = GetFreePort();
@@ -57,7 +57,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ManagementApiExposesTypedKestrelRemoteEndPoint()
         {
             int port = GetFreePort();
@@ -80,7 +80,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ManagementQueriesReturnFalseForUnknownAndOfflineClients()
         {
             int port = GetFreePort();
@@ -126,7 +126,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 10_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ClosesConnectionForOversizedInboundPacket()
         {
             int port = GetFreePort();

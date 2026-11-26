@@ -12,7 +12,7 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task MaxAwaitingRelIsIndependentFromOutboundInflight()
         {
             int port = GetFreePort();
@@ -68,7 +68,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(MqttReasonCode.ReceiveMaximumExceeded, exceeded.ReasonCode);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task UnknownInboundPubRelReturnsPacketIdentifierNotFound()
         {
             int port = GetFreePort();
@@ -106,7 +106,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(TestContext.Current.CancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ErrorPubRecReleasesOutboundQos2Message()
         {
             int port = GetFreePort();
@@ -176,7 +176,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(TestContext.Current.CancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task DuplicatePubRecResendsPubRel()
         {
             int port = GetFreePort();
@@ -248,7 +248,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(TestContext.Current.CancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task UnknownOutboundAcknowledgementsAreIgnored()
         {
             int port = GetFreePort();

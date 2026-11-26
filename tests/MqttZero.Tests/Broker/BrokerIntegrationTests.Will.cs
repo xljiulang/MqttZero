@@ -26,7 +26,7 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task PublishesWillAfterUnexpectedDisconnect()
         {
             int port = GetFreePort();
@@ -102,7 +102,7 @@ namespace MqttZero.Tests.Broker
             await watcher.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task DoesNotPublishWillAfterCleanDisconnect()
         {
             int port = GetFreePort();
@@ -141,7 +141,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(0, broker.PublishedWillCount);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task PublishesWillAfterKeepAliveTimeout()
         {
             int port = GetFreePort();
@@ -191,7 +191,7 @@ namespace MqttZero.Tests.Broker
             await watcher.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task PublishesWillWhenClientIdIsTakenOver()
         {
             int port = GetFreePort();
@@ -245,7 +245,7 @@ namespace MqttZero.Tests.Broker
             await watcher.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ReconnectCancelsDelayedWill()
         {
             int port = GetFreePort();

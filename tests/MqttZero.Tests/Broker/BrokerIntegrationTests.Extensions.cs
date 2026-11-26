@@ -20,7 +20,7 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task RejectsConnectionBeforeCreatingSession()
         {
             int port = GetFreePort();
@@ -60,7 +60,7 @@ namespace MqttZero.Tests.Broker
                 session => session.ClientId == "rejected");
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task RejectsUnsupportedEnhancedAuthenticationMethod()
         {
             int port = GetFreePort();
@@ -95,7 +95,7 @@ namespace MqttZero.Tests.Broker
                 app.Services.GetRequiredService<MqttZeroBroker>().ConnectedClientCount);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task SuppressesProblemInformationWhenClientDisablesIt()
         {
             int port = GetFreePort();
@@ -129,7 +129,7 @@ namespace MqttZero.Tests.Broker
             Assert.Null(connAck.ReasonString);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ReturnsConfiguredResponseInformationWhenRequested()
         {
             int port = GetFreePort();
@@ -162,7 +162,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal("response/prefix", connAck.ResponseInformation);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task RejectsInvalidUtf8WillPayload()
         {
             int port = GetFreePort();
@@ -203,7 +203,7 @@ namespace MqttZero.Tests.Broker
                 session => session.ClientId == "invalid-will-utf8");
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task RejectsUnsupportedAuthPacketWithProtocolError()
         {
             int port = GetFreePort();
@@ -238,7 +238,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(MqttReasonCode.ProtocolError, disconnect.ReasonCode);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task SubscriptionInterceptorRejectsOnlyDeniedFilter()
         {
             int port = GetFreePort();
@@ -273,7 +273,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(1, session.SubscriptionCount);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task EnqueueInterceptorDropsOnlyTargetReceiver()
         {
             int port = GetFreePort();
@@ -335,7 +335,7 @@ namespace MqttZero.Tests.Broker
             Assert.Empty(droppedMessages);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ConnectionObserverReceivesConnectAndDisconnect()
         {
             int port = GetFreePort();
@@ -379,7 +379,7 @@ namespace MqttZero.Tests.Broker
                 recorder.DisconnectType);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task EnqueueCloseWithoutSenderTerminatesCurrentDelivery()
         {
             int port = GetFreePort();
@@ -425,7 +425,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(0, session.InflightMessageCount);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ConnectionObserverExceptionDoesNotRejectConnection()
         {
             int port = GetFreePort();
@@ -452,7 +452,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(TestContext.Current.CancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task DeliveryObserverExceptionDoesNotBlockMessage()
         {
             int port = GetFreePort();

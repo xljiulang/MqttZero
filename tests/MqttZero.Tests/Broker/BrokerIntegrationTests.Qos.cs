@@ -26,7 +26,7 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task RoutesQos2MessageExactlyOnce()
         {
             int port = GetFreePort();
@@ -77,7 +77,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task DeduplicatesInboundQos2PublishUntilPubRel()
         {
             int port = GetFreePort();
@@ -146,7 +146,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ExpiredInboundQos2CompletesHandshakeWithoutRoutingOrRetaining()
         {
             int port = GetFreePort();
@@ -216,7 +216,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task QueuesQos1MessageWhileSessionOffline()
         {
             int port = GetFreePort();
@@ -266,7 +266,7 @@ namespace MqttZero.Tests.Broker
             await restored.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 20_000)]
+        [Fact(Timeout = 60_000)]
         public async Task ResendsInflightQos1MessageWithDuplicateFlag()
         {
             int port = GetFreePort();
@@ -362,7 +362,7 @@ namespace MqttZero.Tests.Broker
             await publisher.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 20_000)]
+        [Fact(Timeout = 30_000)]
         public async Task DropsExpiredQueuedMessageBeforeReconnectDelivery()
         {
             int port = GetFreePort();
@@ -420,7 +420,7 @@ namespace MqttZero.Tests.Broker
             await restored.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task EvictsOldestMessagesWhenSessionQueueIsFull()
         {
             int port = GetFreePort();

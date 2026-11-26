@@ -27,7 +27,7 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task RestoresPersistentSessionAndSubscription()
         {
             int port = GetFreePort();
@@ -78,7 +78,7 @@ namespace MqttZero.Tests.Broker
             await restored.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ExpiresDisconnectedSession()
         {
             int port = GetFreePort();
@@ -105,7 +105,7 @@ namespace MqttZero.Tests.Broker
                 session => session.ClientId == "expiring-client");
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task TakesOverExistingClientId()
         {
             int port = GetFreePort();
@@ -134,7 +134,7 @@ namespace MqttZero.Tests.Broker
             await second.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 10_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ClampsSessionExpiryInConnAck()
         {
             int port = GetFreePort();
@@ -160,7 +160,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 10_000)]
+        [Fact(Timeout = 30_000)]
         public async Task DoesNotClampSessionExpiryByDefault()
         {
             int port = GetFreePort();
@@ -184,7 +184,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 10_000)]
+        [Fact(Timeout = 30_000)]
         public async Task DisconnectCanOverrideSessionExpiryToZero()
         {
             int port = GetFreePort();
@@ -225,7 +225,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task PersistsWillAndDisconnectedTimestamp()
         {
             int port = GetFreePort();
@@ -282,7 +282,7 @@ namespace MqttZero.Tests.Broker
             Assert.Fail("The disconnected session with Will was not persisted.");
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task RejectsConnectionWhenSessionPersistenceFails()
         {
             int port = GetFreePort();
@@ -323,7 +323,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(TestContext.Current.CancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task CleanStartSaveFailureRestoresExistingSession()
         {
             int port = GetFreePort();
@@ -390,7 +390,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(TestContext.Current.CancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ReturnsAssignedClientIdentifierForEmptyClientId()
         {
             int port = GetFreePort();

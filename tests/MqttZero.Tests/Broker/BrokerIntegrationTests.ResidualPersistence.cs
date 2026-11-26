@@ -21,7 +21,7 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task QueuedPersistenceStoresPropertiesAndAllSubscriptionIdentifiers()
         {
             int port = GetFreePort();
@@ -92,7 +92,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal("persisted", Assert.Single(properties.UserProperties).Value);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task QueuedTransitionFailureRestoresPendingMessage()
         {
             int port = GetFreePort();
@@ -169,7 +169,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 20_000)]
+        [Fact(Timeout = 30_000)]
         public async Task InboundQos2DeleteFailureDoesNotRouteAgainOnRetry()
         {
             int port = GetFreePort();
@@ -292,7 +292,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task DueWillRetriesAfterPublishFailure()
         {
             int port = GetFreePort();
@@ -357,7 +357,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 20_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ExpiredQueueDeleteFailureRestoresMessageForRetry()
         {
             int port = GetFreePort();

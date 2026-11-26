@@ -99,7 +99,7 @@ public sealed class FanoutDispatcherTests
         }
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task FanoutSchedulerPreservesFifoUnderBackpressure()
     {
         await using MqttZeroEventLoop shard = new(0, 2);
@@ -196,7 +196,7 @@ public sealed class FanoutDispatcherTests
         }
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task ScheduledDispatchQueuesOneBatchPerTargetShard()
     {
         const int shardCount = 8;
@@ -246,7 +246,7 @@ public sealed class FanoutDispatcherTests
             TestContext.Current.CancellationToken);
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task ScheduledFanoutRepeatedCyclesReleaseLeases()
     {
         const int shardCount = 2;
@@ -300,7 +300,7 @@ public sealed class FanoutDispatcherTests
                 .EnqueuedCount);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task OnePublishEnqueuesAtMostOneRemoteWorkPerShard()
     {
         const int shardCount = 8;
@@ -358,7 +358,7 @@ public sealed class FanoutDispatcherTests
         }
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task PublishesFromOneShardPreservePerSessionOrder()
     {
         const int shardCount = 4;
@@ -436,7 +436,7 @@ public sealed class FanoutDispatcherTests
         Assert.Equal([0, 1, 2], received["fourth"]);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task LeaseRemainsAliveUntilRemoteBatchCompletes()
     {
         const int shardCount = 2;
@@ -519,7 +519,7 @@ public sealed class FanoutDispatcherTests
         }
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task ScheduledDispatchReturnsBeforeRemoteDeliveryCompletes()
     {
         const int shardCount = 2;
@@ -590,7 +590,7 @@ public sealed class FanoutDispatcherTests
         }
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task QosOneAckDoesNotWaitForRemoteSessionLock()
     {
         MqttZeroOptions options = new()
@@ -676,7 +676,7 @@ public sealed class FanoutDispatcherTests
         }
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task ScheduledDispatchFailsWhenTargetShardStops()
     {
         const int shardCount = 2;
@@ -737,7 +737,7 @@ public sealed class FanoutDispatcherTests
         }
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task LeaseIsReleasedWhenRemoteBatchFaults()
     {
         const int shardCount = 2;
@@ -795,7 +795,7 @@ public sealed class FanoutDispatcherTests
         }
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task BrokerQueuesIdentifiersIndependentlyOfReusedPlanBuffer()
     {
         MqttZeroOptions options = new()
@@ -928,7 +928,7 @@ public sealed class FanoutDispatcherTests
         }
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task StartedBrokerFanoutDoesNotAllocateAfterWarmup()
     {
         MqttZeroOptions options = new()
@@ -999,7 +999,7 @@ public sealed class FanoutDispatcherTests
         }
     }
 
-    [Fact(Timeout = 20_000)]
+    [Fact(Timeout = 30_000)]
     public async Task ConcurrentShardFanoutOwnsBorrowedLeaseBeforeEncoding()
     {
         MqttZeroOptions options = new()

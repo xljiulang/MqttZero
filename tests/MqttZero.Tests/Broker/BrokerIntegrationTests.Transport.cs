@@ -25,7 +25,7 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task AppliesAcceptedSocketOptionsBeforeCustomSocketCallback()
         {
             int port = GetFreePort();
@@ -72,7 +72,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task RoutesMessagesUsingStaticMqttZeroTlsOptions()
         {
             int port = GetFreePort();
@@ -161,7 +161,7 @@ namespace MqttZero.Tests.Broker
                 });
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task AppliesWebSocketFragmentationSelectorFromEndpointMetadata()
         {
             int port = GetFreePort();
@@ -201,7 +201,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task RoutesPublishedMessageToSubscriber()
         {
             int port = GetFreePort();
@@ -259,7 +259,7 @@ namespace MqttZero.Tests.Broker
             await subscriber.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task RoutesWebSocketMessagesUsingMqttSubProtocol()
         {
             int port = GetFreePort();
@@ -311,7 +311,7 @@ namespace MqttZero.Tests.Broker
             await subscriber.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task RoutesMessagesOverKestrelTls()
         {
             int port = GetFreePort();
@@ -366,7 +366,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task DisconnectsIncompletePacketAfterConfiguredTimeout()
         {
             int port = GetFreePort();

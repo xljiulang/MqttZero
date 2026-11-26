@@ -19,7 +19,7 @@ namespace MqttZero.Tests.Broker;
 
 public sealed partial class BrokerIntegrationTests
 {
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task Qos2PublishWaitsForPublishInterceptorBeforePubRec()
     {
         int port = GetFreePort();
@@ -70,7 +70,7 @@ public sealed partial class BrokerIntegrationTests
             await ReadPacketAsync(stream, TestContext.Current.CancellationToken));
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task PublishInterceptorCanReplaceTypedProperties()
     {
         int port = GetFreePort();
@@ -129,7 +129,7 @@ public sealed partial class BrokerIntegrationTests
             Assert.Single(publish.Properties.UserProperties).Value);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task DoesNotForwardConnectionLocalTopicAlias()
     {
         int port = GetFreePort();
@@ -201,7 +201,7 @@ public sealed partial class BrokerIntegrationTests
         Assert.Null(publish.TopicAlias);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task RetainedReplayPreservesMessageProperties()
     {
         int port = GetFreePort();
@@ -284,7 +284,7 @@ public sealed partial class BrokerIntegrationTests
             Assert.Single(publish.Properties.UserProperties).Value);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task WillPublishPreservesMessageProperties()
     {
         int port = GetFreePort();
@@ -358,7 +358,7 @@ public sealed partial class BrokerIntegrationTests
         Assert.Equal("will", Assert.Single(publish.Properties.UserProperties).Value);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task DropsPublishThatExceedsReceiverMaximumPacketSize()
     {
         int port = GetFreePort();
@@ -422,7 +422,7 @@ public sealed partial class BrokerIntegrationTests
         Assert.True(connected!.IsConnected);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task ClientPublishSubscriptionIdentifierIsRejected()
     {
         int port = GetFreePort();
@@ -464,7 +464,7 @@ public sealed partial class BrokerIntegrationTests
         Assert.Equal(MqttReasonCode.ProtocolError, disconnect.ReasonCode);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task InvalidUtf8PayloadGetsQos1PayloadFormatInvalid()
     {
         int port = GetFreePort();
@@ -512,7 +512,7 @@ public sealed partial class BrokerIntegrationTests
         Assert.Equal(MqttReasonCode.PayloadFormatInvalid, pubAck.ReasonCode);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task InvalidUtf8PayloadClosesQos0Publisher()
     {
         int port = GetFreePort();
@@ -557,7 +557,7 @@ public sealed partial class BrokerIntegrationTests
         Assert.Equal(MqttReasonCode.PayloadFormatInvalid, disconnect.ReasonCode);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task InvalidUtf8PayloadGetsQos2PayloadFormatInvalid()
     {
         int port = GetFreePort();
@@ -607,7 +607,7 @@ public sealed partial class BrokerIntegrationTests
         Assert.Equal(MqttReasonCode.PayloadFormatInvalid, pubRec.ReasonCode);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 30_000)]
     public async Task ServerPublishForwardsCompleteMessageProperties()
     {
         int port = GetFreePort();

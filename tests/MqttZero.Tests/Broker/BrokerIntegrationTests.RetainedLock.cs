@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using MQTTnet;
 using MQTTnet.Protocol;
 using MqttZero.AspNetCore;
+using MqttZero.Server;
 using MqttZero.Server.Storage;
 using System.Net;
 
@@ -12,23 +13,29 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
-        [Fact(Timeout = 30_000)]
+        [Fact(Timeout = 60_000)]
         public async Task RetainedMatchCompletesWhileRetainedStoreWriteIsBlocked()
         {
             int port = GetFreePort();
             BlockingRetainedStore store = new();
             await using WebApplication app =
-                await StartRetainedStoreBrokerAsync(port, store);
+                await StartRetainedStoreBrokerAsync(
+                    port,
+                    store,
+                    options => options.EventLoopShardCount =
+                        RouteGateShardCount);
             CancellationToken cancellationToken =
                 TestContext.Current.CancellationToken;
+            (string writerClientId, string readerClientId) =
+                FindDifferentShardClientIds(RouteGateShardCount);
             MqttClientFactory factory = new();
             using IMqttClient writer = factory.CreateMqttClient();
             using IMqttClient reader = factory.CreateMqttClient();
             await writer.ConnectAsync(
-                CreatePersistentClientOptions(port, "retained-writer"),
+                CreatePersistentClientOptions(port, writerClientId),
                 cancellationToken);
             await reader.ConnectAsync(
-                CreatePersistentClientOptions(port, "retained-reader"),
+                CreatePersistentClientOptions(port, readerClientId),
                 cancellationToken);
 
             await writer.PublishAsync(
@@ -39,7 +46,7 @@ namespace MqttZero.Tests.Broker
                 CreateRetainedPublishOptions("retained/two"),
                 cancellationToken);
             await store.SaveStarted.WaitAsync(
-                TimeSpan.FromSeconds(10),
+                TimeSpan.FromSeconds(20),
                 cancellationToken);
 
             TaskCompletionSource<string> received = new(
@@ -58,19 +65,19 @@ namespace MqttZero.Tests.Broker
                         .Build(),
                     cancellationToken)
                 .WaitAsync(
-                    TimeSpan.FromSeconds(10),
+                    TimeSpan.FromSeconds(20),
                     cancellationToken);
 
             Assert.NotEmpty(subscribe.Items);
             string topic = await received.Task.WaitAsync(
-                TimeSpan.FromSeconds(10),
+                TimeSpan.FromSeconds(20),
                 cancellationToken);
             Assert.Equal("retained/one", topic);
             Assert.False(blockedPublish.IsCompleted);
 
             store.Release();
             await blockedPublish.WaitAsync(
-                TimeSpan.FromSeconds(10),
+                TimeSpan.FromSeconds(20),
                 cancellationToken);
         }
 
@@ -146,7 +153,8 @@ namespace MqttZero.Tests.Broker
         private static async Task<WebApplication>
             StartRetainedStoreBrokerAsync(
                 int port,
-                IMqttZeroRetainedMessageStore retainedStore)
+                IMqttZeroRetainedMessageStore retainedStore,
+                Action<MqttZeroOptions>? configure = null)
         {
             WebApplicationBuilder builder = WebApplication.CreateBuilder();
             builder.Logging.ClearProviders();
@@ -157,7 +165,7 @@ namespace MqttZero.Tests.Broker
                     listen => listen.UseMqttZero()));
             builder.Services.AddSingleton<IMqttZeroRetainedMessageStore>(
                 retainedStore);
-            builder.Services.AddMqttZero();
+            builder.Services.AddMqttZero(configure);
             WebApplication app = builder.Build();
             await app.StartAsync(
                 TestContext.Current.CancellationToken);

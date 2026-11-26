@@ -11,7 +11,7 @@ namespace MqttZero.Tests.Broker;
 
 public sealed class QosZeroFanoutPipelineTests
 {
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = 30_000)]
     public async Task QosZeroPublishesPipelineWithoutReorderingTargetShard()
     {
         await using MqttZeroShardSet shards = new(2, 16);

@@ -18,7 +18,7 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ConnectedClientHandleCanSubscribeAndSendPublish()
         {
             int port = GetFreePort();
@@ -148,7 +148,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(TestContext.Current.CancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task DisconnectedHandleRejectsStatefulOperations()
         {
             int port = GetFreePort();

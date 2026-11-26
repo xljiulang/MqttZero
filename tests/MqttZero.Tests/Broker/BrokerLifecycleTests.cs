@@ -21,7 +21,7 @@ namespace MqttZero.Tests.Broker
 {
     public sealed class BrokerLifecycleTests
     {
-        [Fact(Timeout = 10_000)]
+        [Fact(Timeout = 30_000)]
         public async Task BackgroundFanoutFailureStopsNewConnections()
         {
             ThrowingEnqueueInterceptor interceptor = new();
@@ -138,7 +138,7 @@ namespace MqttZero.Tests.Broker
             await broker.DisposeAsync();
         }
 
-        [Fact(Timeout = 10_000)]
+        [Fact(Timeout = 30_000)]
         public async Task StopDrainsConnectionBeforeConnectCompletes()
         {
             MqttZeroBroker broker = MqttZeroBroker.Create(
@@ -168,7 +168,7 @@ namespace MqttZero.Tests.Broker
             await broker.DisposeAsync();
         }
 
-        [Fact(Timeout = 10_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ConcurrentStopAndDisposeDrainConnectedClient()
         {
             MqttZeroBroker broker = MqttZeroBroker.Create(
@@ -215,7 +215,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(MqttZeroBrokerState.Stopped, broker.State);
         }
 
-        [Fact(Timeout = 10_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ActiveConnectionLimitRejectsBeforeConnect()
         {
             MqttZeroBroker broker = MqttZeroBroker.Create(

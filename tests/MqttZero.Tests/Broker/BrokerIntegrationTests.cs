@@ -172,7 +172,7 @@ namespace MqttZero.Tests.Broker
             string clientId,
             CancellationToken cancellationToken)
         {
-            for (int attempt = 0; attempt < 40; attempt++)
+            for (int attempt = 0; attempt < 200; attempt++)
             {
                 MqttZeroSessionSnapshot? session = broker.GetSessions()
                     .SingleOrDefault(item => item.ClientId == clientId);

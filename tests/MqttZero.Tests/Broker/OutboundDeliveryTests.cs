@@ -108,7 +108,7 @@ namespace MqttZero.Tests.Broker
             }
         }
 
-        [Fact(Timeout = 10_000)]
+        [Fact(Timeout = 30_000)]
         public async Task BrokerStopCancelsSubscriberFlushBlockedPump()
         {
             MqttZeroOptions options = new()

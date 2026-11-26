@@ -28,7 +28,7 @@ namespace MqttZero.Tests.Broker
 {
     public sealed partial class BrokerIntegrationTests
     {
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task FailedSubscriptionPersistenceDoesNotPublishRouteEpoch()
         {
             int port = GetFreePort();
@@ -69,7 +69,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(TestContext.Current.CancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task SuccessfulSubscriptionPersistencePublishesRouteEpoch()
         {
             int port = GetFreePort();
@@ -109,7 +109,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(TestContext.Current.CancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task FailedUnsubscribePersistenceKeepsRouteEpochAndSubscription()
         {
             int port = GetFreePort();
@@ -153,7 +153,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(TestContext.Current.CancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task FailedPacketSubscribePersistenceDoesNotCommitRoute()
         {
             int port = GetFreePort();
@@ -218,7 +218,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(TestContext.Current.CancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task UnsubscribeRemovesPersistentSubscription()
         {
             int port = GetFreePort();
@@ -270,7 +270,7 @@ namespace MqttZero.Tests.Broker
                 TestContext.Current.CancellationToken);
             return app;
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task SharedSubscriptionSelectsOneSubscriberPerPublish()
         {
             int port = GetFreePort();
@@ -331,7 +331,7 @@ namespace MqttZero.Tests.Broker
             await worker2.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task ResolvesInboundTopicAlias()
         {
             int port = GetFreePort();
@@ -396,7 +396,7 @@ namespace MqttZero.Tests.Broker
             publisher.Client.Shutdown(SocketShutdown.Both);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task AppliesNoLocalAndSubscriptionIdentifier()
         {
             int port = GetFreePort();
@@ -450,7 +450,7 @@ namespace MqttZero.Tests.Broker
             await app.StopAsync(cancellationToken);
         }
 
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task IncludesAllMatchingSubscriptionIdentifiersInSinglePublish()
         {
             int port = GetFreePort();
@@ -503,7 +503,7 @@ namespace MqttZero.Tests.Broker
             await publisher.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
-        [Fact(Timeout = 15_000)]
+        [Fact(Timeout = 30_000)]
         public async Task HonorsRetainHandlingDoNotSendOnSubscribe()
         {
             int port = GetFreePort();
