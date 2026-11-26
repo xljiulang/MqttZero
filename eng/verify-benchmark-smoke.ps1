@@ -49,6 +49,9 @@ function Invoke-BenchmarkSmoke {
 
     if ($LASTEXITCODE -ne 0)
     {
+        Write-BenchmarkFailureAnnotations `
+            -Client $Client `
+            -OutputPath $OutputPath
         throw (
             "Benchmark smoke for $Client exited with code " +
             "$LASTEXITCODE. Inspect $OutputPath.")
@@ -56,12 +59,18 @@ function Invoke-BenchmarkSmoke {
 
     if (-not (Test-Path -LiteralPath $OutputPath))
     {
+        Write-Output (
+            "::error title=Benchmark smoke::" +
+            "Benchmark smoke did not produce $OutputPath.")
         throw "Benchmark smoke did not produce $OutputPath."
     }
 
     $document = Get-Content -Raw -LiteralPath $OutputPath | ConvertFrom-Json
     if ($null -eq $document.Results)
     {
+        Write-Output (
+            "::error title=Benchmark smoke::" +
+            "Benchmark smoke output $OutputPath does not contain Results.")
         throw "Benchmark smoke output $OutputPath does not contain Results."
     }
 
@@ -73,6 +82,9 @@ function Invoke-BenchmarkSmoke {
         )
         if ($brokerResults.Count -eq 0)
         {
+            Write-Output (
+                "::error title=Benchmark smoke::" +
+                "Benchmark smoke output $OutputPath is missing $broker.")
             throw "Benchmark smoke output $OutputPath is missing $broker."
         }
 
@@ -83,6 +95,12 @@ function Invoke-BenchmarkSmoke {
         ).Sum
         if ($failures -ne 0)
         {
+            Write-BenchmarkFailureAnnotations `
+                -Client $Client `
+                -OutputPath $OutputPath
+            Write-Output (
+                "::error title=Benchmark smoke::" +
+                "Benchmark smoke for $broker reported $failures failures.")
             throw "Benchmark smoke for $broker reported $failures failures."
         }
     }
@@ -90,11 +108,96 @@ function Invoke-BenchmarkSmoke {
     Write-Output "Benchmark smoke passed for $Client."
 }
 
-Invoke-BenchmarkSmoke `
-    -Client 'mqttnet' `
-    -Port $StartPort `
-    -OutputPath $mqttNetOutput
-Invoke-BenchmarkSmoke `
-    -Client 'raw' `
-    -Port ($StartPort + 1000) `
-    -OutputPath $rawOutput
+function Write-BenchmarkFailureAnnotations {
+    param(
+        [Parameter(Mandatory)]
+        [string] $Client,
+
+        [Parameter(Mandatory)]
+        [string] $OutputPath
+    )
+
+    if (-not (Test-Path -LiteralPath $OutputPath))
+    {
+        Write-Output (
+            "::error title=Benchmark smoke::" +
+            "$Client did not write $OutputPath.")
+        return
+    }
+
+    $document = Get-Content -Raw -LiteralPath $OutputPath | ConvertFrom-Json
+    if ($null -eq $document.Results)
+    {
+        Write-Output (
+            "::error title=Benchmark smoke::" +
+            "$Client output has no Results.")
+        return
+    }
+
+    foreach ($comparison in $document.Results)
+    {
+        $result = $comparison.Result
+        if ($result.FailedOperations -eq 0 -and
+            $result.MissingDeliveryMessages -eq 0 -and
+            $result.DuplicateDeliveryMessages -eq 0 -and
+            $result.SequenceRegressions -eq 0 -and
+            $result.UnsequencedDeliveryMessages -eq 0)
+        {
+            continue
+        }
+
+        Write-Output (
+            "::error title=Benchmark delivery::" +
+            "$Client broker=$($comparison.Broker) " +
+            "qos=$($comparison.Qos) " +
+            "payload=$($comparison.PayloadSize) " +
+            "failed=$($result.FailedOperations) " +
+            "missing=$($result.MissingDeliveryMessages) " +
+            "duplicates=$($result.DuplicateDeliveryMessages) " +
+            "regressions=$($result.SequenceRegressions) " +
+            "unsequenced=$($result.UnsequencedDeliveryMessages)")
+    }
+
+    if ($null -eq $document.Gate)
+    {
+        return
+    }
+
+    if (-not $document.Gate.Passed)
+    {
+        Write-Output (
+            "::error title=Benchmark gate::" +
+            "$Client comparison gate failed.")
+    }
+
+    foreach ($summary in $document.Gate.Summaries)
+    {
+        if ($summary.Passed)
+        {
+            continue
+        }
+
+        Write-Output (
+            "::error title=Benchmark gate::" +
+            "$Client qos=$($summary.Qos) " +
+            "payload=$($summary.PayloadSize) " +
+            "throughput-ratio=$($summary.ThroughputRatio.ToString('F3')) " +
+            "p99-ratio=$($summary.P99Ratio.ToString('F3')) " +
+            "reason=$($summary.FailureReason)")
+    }
+}
+
+try {
+    Invoke-BenchmarkSmoke `
+        -Client 'mqttnet' `
+        -Port $StartPort `
+        -OutputPath $mqttNetOutput
+    Invoke-BenchmarkSmoke `
+        -Client 'raw' `
+        -Port ($StartPort + 1000) `
+        -OutputPath $rawOutput
+}
+catch {
+    Write-Output "::error title=Benchmark smoke::$($_.Exception.Message)"
+    throw
+}
