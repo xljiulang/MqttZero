@@ -105,7 +105,7 @@ internal sealed class MqttZeroRouteEpoch
             }
             else
             {
-                node = child!;
+                node = child;
             }
 
             if (delimiter < 0)
@@ -347,7 +347,7 @@ internal sealed class MqttZeroRouteEpoch
                 out MqttZeroRouteTrieNode? exactChild))
         {
             MatchNode(
-                exactChild!,
+                exactChild,
                 rest,
                 hasMoreLevels,
                 sender,

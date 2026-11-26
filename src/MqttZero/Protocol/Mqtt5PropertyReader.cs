@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using static MqttZero.Protocol.Mqtt5PropertyId;
 
@@ -122,7 +123,7 @@ internal static class Mqtt5PropertyReader
                     }
 
                     userProperties ??= [];
-                    userProperties.Add(userProperty!);
+                    userProperties.Add(userProperty);
                     break;
                 default:
                     if (!Mqtt5PropertySchema.IsAllowed(MqttPacketType.Connect, identifier) ||
@@ -393,7 +394,7 @@ internal static class Mqtt5PropertyReader
                     }
 
                     userProperties ??= [];
-                    userProperties.Add(userProperty!);
+                    userProperties.Add(userProperty);
                     break;
                 default:
                     if (!Mqtt5PropertySchema.IsAllowed(MqttPacketType.ConnAck, identifier) ||
@@ -450,7 +451,7 @@ internal static class Mqtt5PropertyReader
                 }
 
                 userProperties ??= [];
-                userProperties.Add(userProperty!);
+                userProperties.Add(userProperty);
             }
             else if (!Mqtt5PropertySchema.IsAllowed(MqttPacketType.Subscribe, identifier) ||
                 !Mqtt5PropertyLayout.TrySkip(identifier, ref reader))
@@ -485,7 +486,7 @@ internal static class Mqtt5PropertyReader
                 }
 
                 userProperties ??= [];
-                userProperties.Add(userProperty!);
+                userProperties.Add(userProperty);
             }
             else
             {
@@ -534,7 +535,7 @@ internal static class Mqtt5PropertyReader
                 }
 
                 values ??= [];
-                values.Add(userProperty!);
+                values.Add(userProperty);
             }
             else
             {
@@ -643,7 +644,7 @@ internal static class Mqtt5PropertyReader
                 }
 
                 userProperties ??= [];
-                userProperties.Add(userProperty!);
+                userProperties.Add(userProperty);
             }
             else if (!Mqtt5PropertySchema.IsAllowed(MqttPacketType.Disconnect, identifier) ||
                 !Mqtt5PropertyLayout.TrySkip(identifier, ref reader))
@@ -794,7 +795,7 @@ internal static class Mqtt5PropertyReader
                     }
 
                     userProperties ??= [];
-                    userProperties.Add(userProperty!);
+                    userProperties.Add(userProperty);
                     break;
                 default:
                     bool allowed = isWill
@@ -828,7 +829,7 @@ internal static class Mqtt5PropertyReader
 
     private static bool TryReadUserProperty(
         ref SequenceReader<byte> reader,
-        out MqttUserProperty? userProperty)
+        [NotNullWhen(true)] out MqttUserProperty? userProperty)
     {
         userProperty = null;
         if (!TryReadUtf8String(ref reader, out string? name) ||

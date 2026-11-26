@@ -182,11 +182,11 @@ public sealed partial class MqttZeroBroker
                     session != null && incompleteSince.HasValue
                         ? CancellationTokenSource.CreateLinkedTokenSource(readToken)
                         : null;
-                if (incompleteTimeout != null)
+                if (incompleteTimeout != null && incompleteSince is { } incompleteStart)
                 {
                     TimeSpan remaining =
                         _options.IncompletePacketTimeout -
-                        (_timeProvider.GetUtcNow() - incompleteSince!.Value);
+                        (_timeProvider.GetUtcNow() - incompleteStart);
                     if (remaining <= TimeSpan.Zero)
                     {
                         throw new OperationCanceledException(
@@ -210,22 +210,24 @@ public sealed partial class MqttZeroBroker
                 while (true)
                 {
                     if (session != null &&
+                        connection != null &&
                         !buffer.IsEmpty &&
                         (buffer.Slice(0, 1).FirstSpan[0] >> 4) == 0x0F)
                     {
-                        await connection!.CloseAsync(
+                        await connection.CloseAsync(
                             MqttReasonCode.ProtocolError,
                             connectionLifetime.Token).ConfigureAwait(false);
                         return;
                     }
 
                     if (session != null &&
+                        connection != null &&
                         MqttPublishPacketCodec.TryDecode(
                             buffer,
                             out MqttZeroPublishView publishView,
                             out long publishConsumed))
                     {
-                        connection!.MarkPacketReceived(
+                        connection.MarkPacketReceived(
                             _timeProvider,
                             publishConsumed,
                             true);
@@ -268,7 +270,7 @@ public sealed partial class MqttZeroBroker
                                 continue;
                             }
 
-                            lease = candidate!;
+                            lease = candidate;
                             ushort inboundPacketIdentifier =
                                 publishView.PacketIdentifier;
                             await OwnInboundLeaseAsync(
@@ -394,7 +396,7 @@ public sealed partial class MqttZeroBroker
                         }
                         catch (MqttZeroBufferPoolExhaustedException)
                         {
-                            await connection!.CloseAsync(
+                            await connection.CloseAsync(
                                 MqttReasonCode.QuotaExceeded,
                                 connectionLifetime.Token).ConfigureAwait(false);
                             return;
@@ -404,7 +406,7 @@ public sealed partial class MqttZeroBroker
                         continue;
                     }
 
-                    if (session != null && !buffer.IsEmpty)
+                    if (session != null && connection != null && !buffer.IsEmpty)
                     {
                         MqttPacketType inboundPacketType =
                             (MqttPacketType)(buffer.Slice(0, 1).FirstSpan[0] >> 4);
@@ -416,7 +418,7 @@ public sealed partial class MqttZeroBroker
                                     out MqttZeroAcknowledgementView acknowledgement,
                                     out long acknowledgementConsumed))
                             {
-                                connection!.MarkPacketReceived(
+                                connection.MarkPacketReceived(
                                     _timeProvider,
                                     acknowledgementConsumed,
                                     false);
@@ -425,14 +427,14 @@ public sealed partial class MqttZeroBroker
                                     case MqttPacketType.PubAck:
                                         await ProcessOutboundPubAckAsync(
                                             session,
-                                            connection!,
+                                            connection,
                                             acknowledgement.PacketIdentifier,
                                             connectionLifetime.Token).ConfigureAwait(false);
                                         break;
                                     case MqttPacketType.PubRec:
                                         await ProcessOutboundPubRecAsync(
                                             session,
-                                            connection!,
+                                            connection,
                                             acknowledgement.PacketIdentifier,
                                             acknowledgement.ReasonCode,
                                             connectionLifetime.Token).ConfigureAwait(false);
@@ -440,14 +442,14 @@ public sealed partial class MqttZeroBroker
                                     case MqttPacketType.PubRel:
                                         await ProcessInboundPubRelAsync(
                                             session,
-                                            connection!,
+                                            connection,
                                             acknowledgement.PacketIdentifier,
                                             connectionLifetime.Token).ConfigureAwait(false);
                                         break;
                                     case MqttPacketType.PubComp:
                                         await ProcessOutboundPubCompAsync(
                                             session,
-                                            connection!,
+                                            connection,
                                             acknowledgement.PacketIdentifier,
                                             connectionLifetime.Token).ConfigureAwait(false);
                                         break;
@@ -463,7 +465,7 @@ public sealed partial class MqttZeroBroker
                                     out bool acknowledgementComplete) &&
                                 acknowledgementComplete)
                             {
-                                await connection!.CloseAsync(
+                                await connection.CloseAsync(
                                     MqttReasonCode.ProtocolError,
                                     connectionLifetime.Token).ConfigureAwait(false);
                                 return;
@@ -497,10 +499,10 @@ public sealed partial class MqttZeroBroker
                                 : Encoding.UTF8.GetString(
                                     connectPacket.ClientId.ToArray());
                         int sessionShardId =
-                            _sessionShardMap!.GetShardId(
+                            SessionShardMap.GetShardId(
                                 connectClientId);
                         ConnectionAttachment attachment = await
-                            _shardSet![sessionShardId]
+                            ShardSet[sessionShardId]
                                 .InvokeAsync(
                                     token => ConnectAsync(
                                         connectPacket,
@@ -523,7 +525,7 @@ public sealed partial class MqttZeroBroker
                         session = attachment.Session;
                         connection = attachment.Connection;
                         closeRegistration = connection.ClosedToken.Register(
-                            static state => ((CancellationTokenSource)state!).Cancel(),
+                            CancelAcceptedConnection,
                             connectionLifetime);
                         StartEgress(
                             session,
@@ -533,9 +535,14 @@ public sealed partial class MqttZeroBroker
                         continue;
                     }
 
-                    MqttZeroClientConnection currentConnection = connection!;
-                    MqttZeroSessionState currentSession = session!;
-                    await _shardSet![currentConnection.ShardId]
+                    if (connection == null || session == null)
+                    {
+                        break;
+                    }
+
+                    MqttZeroClientConnection currentConnection = connection;
+                    MqttZeroSessionState currentSession = session;
+                    await ShardSet[currentConnection.ShardId]
                         .InvokeAsync(
                             async token =>
                             {
@@ -834,7 +841,7 @@ public sealed partial class MqttZeroBroker
                 {
                     _sessions.TryGetValue(clientId, out MqttZeroSessionState? existing);
                     int expectedShardId =
-                        _sessionShardMap!.GetShardId(clientId);
+                        SessionShardMap.GetShardId(clientId);
                     if (existing != null &&
                         existing.ShardId != expectedShardId)
                     {
@@ -937,18 +944,18 @@ public sealed partial class MqttZeroBroker
                 newSessionPersisted = true;
                 lock (_sessionGate)
                 {
-                    if (replacingSession)
+                    if (replacedSession is { } previous)
                     {
                         if (!_sessions.TryGetValue(clientId, out MqttZeroSessionState? current) ||
-                            !ReferenceEquals(current, replacedSession))
+                            !ReferenceEquals(current, previous))
                         {
                             throw new InvalidOperationException(
                                 "The MQTT session changed while the connection was being established.");
                         }
 
-                        lock (replacedSession!.SyncRoot)
+                        lock (previous.SyncRoot)
                         {
-                            replacedSession.Connection = null;
+                            previous.Connection = null;
                         }
 
                         _sessions[clientId] = session;
@@ -1098,6 +1105,14 @@ public sealed partial class MqttZeroBroker
                 await newConnection.DisposeAsync().ConfigureAwait(false);
                 throw;
             }
+        }
+    }
+
+    private static void CancelAcceptedConnection(object? state)
+    {
+        if (state is CancellationTokenSource source)
+        {
+            source.Cancel();
         }
     }
 
@@ -1353,10 +1368,16 @@ public sealed partial class MqttZeroBroker
         SessionMutationLock mutationLock;
         lock (_sessionGate)
         {
-            if (!_sessionMutationLocks.TryGetValue(clientId, out mutationLock!))
+            if (!_sessionMutationLocks.TryGetValue(
+                    clientId,
+                    out SessionMutationLock? existingLock))
             {
                 mutationLock = new SessionMutationLock();
                 _sessionMutationLocks.Add(clientId, mutationLock);
+            }
+            else
+            {
+                mutationLock = existingLock;
             }
 
             mutationLock.ReferenceCount++;

@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 namespace MqttZero.Server.Routing;
 
 internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
+    where TKey : notnull
 {
     private const int FrameCapacity = 16;
 
@@ -55,7 +56,7 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
 
         return _root.TryGetValue(
             key,
-            _comparer.GetHashCode(key!),
+            _comparer.GetHashCode(key),
             0,
             _comparer,
             out value);
@@ -72,11 +73,11 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
                 ? new MqttZeroPersistentHashMapLeafNode<TKey, TValue>(
                     key,
                     value,
-                    _comparer.GetHashCode(key!))
+                    _comparer.GetHashCode(key))
                 : _root.Set(
                     key,
                     value,
-                    _comparer.GetHashCode(key!),
+                    _comparer.GetHashCode(key),
                     0,
                     _comparer,
                     ref changed);
@@ -101,7 +102,7 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
         bool changed = false;
         MqttZeroPersistentHashMapNode<TKey, TValue>? root = _root.Remove(
             key,
-            _comparer.GetHashCode(key!),
+            _comparer.GetHashCode(key),
             0,
             _comparer,
             ref changed);

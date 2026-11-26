@@ -205,10 +205,15 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
+        if (connection == null)
+        {
+            return;
+        }
+
         try
         {
             await StopEgressAsync(pump).ConfigureAwait(false);
-            await connection!.CloseAsync(
+            await connection.CloseAsync(
                 MqttReasonCode.KeepAliveTimeout,
                 cancellationToken).ConfigureAwait(false);
             _deadlines.Remove(deadline.Key);

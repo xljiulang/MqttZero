@@ -131,7 +131,7 @@ internal sealed class MqttZeroRetainedTopicTrie
             out MqttZeroRetainedTopicNode? child))
         {
             MatchNode(
-                child!,
+                child,
                 filter,
                 nextOffset,
                 hasMoreLevels,
@@ -171,7 +171,7 @@ internal sealed class MqttZeroRetainedTopicTrie
         }
 
         MqttZeroRetainedTopicNode? replacement = RemoveNode(
-            child!,
+            child,
             topic,
             nextOffset,
             hasMoreLevels);

@@ -7,6 +7,7 @@ using MqttZero.Server.Sessions;
 using MqttZero.Server.Storage;
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
 
 namespace MqttZero.Server.Broker;
@@ -268,23 +269,23 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection connection,
         MqttZeroPublishView view)
     {
-        if (!TryCreateMessageLease(
+        if (TryCreateMessageLease(
                 connection,
                 view,
                 out MqttZeroMessageLease? lease,
                 out MqttReasonCode reasonCode))
         {
-            throw new InvalidOperationException(
-                $"The inbound MQTT PUBLISH is invalid: {reasonCode}.");
+            return lease;
         }
 
-        return lease!;
+        throw new InvalidOperationException(
+            $"The inbound MQTT PUBLISH is invalid: {reasonCode}.");
     }
 
     internal bool TryCreateMessageLease(
         MqttZeroClientConnection connection,
         MqttZeroPublishView view,
-        out MqttZeroMessageLease? lease,
+        [NotNullWhen(true)] out MqttZeroMessageLease? lease,
         out MqttReasonCode reasonCode)
     {
         lease = null;
