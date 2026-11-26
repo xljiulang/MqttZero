@@ -977,6 +977,10 @@ public sealed partial class MqttZeroBroker
         MqttZeroSessionEgress egress,
         CancellationToken cancellationToken)
     {
+        MqttZeroShardOwnership.EnsureCurrent(
+            session.ShardId,
+            nameof(DrainQueuedMessagesOnceAsync),
+            _fanoutDiagnostics);
         while (true)
         {
             long batchStartedTimestamp = _timeProvider.GetTimestamp();
