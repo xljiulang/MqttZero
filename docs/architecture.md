@@ -16,8 +16,8 @@ Kestrel 监听（TCP / TLS / WebSocket）
                                  └─ PipeWriter → Kestrel 传输
 ```
 
-- 分片数量由 `MqttZeroOptions.EventLoopShardCount` 决定，`0` 表示逻辑处理器数；
-  `AddMqttZero` 默认把 Kestrel `IOQueueCount` 对齐到同一数值。
+- 分片数量由 `MqttZeroOptions.EventLoopShardCount` 决定，`0` 表示逻辑处理器数（上限 256）；
+  Kestrel 的 `IOQueueCount` 由宿主自行配置，与分片数无自动联动。
 - 读循环只在所属分片上解码、路由和入队；跨分片投递通过分片调度器执行，不在读线程上同步等待。
 - 每个连接只有一个写者：控制报文与批量数据都经过该连接的写门，或在分片上串行执行。
 
