@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace MqttZero.Server.Scheduling;
 
@@ -116,6 +117,35 @@ internal sealed class MqttZeroEventLoop :
         return await invocation.Task
             .WaitAsync(cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder<>))]
+    public async ValueTask<T> InvokeAsync<T>(
+        MqttZeroShardCommand<T> command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (IsCurrent)
+        {
+            return await command
+                .ExecuteInlineAsync()
+                .ConfigureAwait(false);
+        }
+
+        try
+        {
+            if (!TryEnqueue(command))
+            {
+                await EnqueueAsync(command, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception)
+        {
+            command.Fail(exception);
+        }
+
+        return await command.Completion.ConfigureAwait(false);
     }
 
     public MqttZeroShardDiagnostics GetSnapshot()
