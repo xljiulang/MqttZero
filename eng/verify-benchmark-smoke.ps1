@@ -42,7 +42,7 @@ function Invoke-BenchmarkSmoke {
         --warmup 1 `
         --seconds 2 `
         --repetitions 1 `
-        --max-pending 1024 `
+        --max-pending 64 `
         --comparison-gate false `
         --start-port $Port `
         --output $OutputPath
