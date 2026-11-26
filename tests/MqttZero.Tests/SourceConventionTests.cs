@@ -232,6 +232,100 @@ namespace MqttZero.Tests
                 string.Join(", ", unexpected));
         }
 
+        [Fact]
+        public void NoMethodForwardsToSharedWireHelpers()
+        {
+            string repositoryRoot = FindRepositoryRoot();
+            string[] sourceFiles = Directory
+                .EnumerateFiles(
+                    Path.Combine(repositoryRoot, "src"),
+                    "*.cs",
+                    SearchOption.AllDirectories)
+                .Where(static path => !IsGeneratedPath(path))
+                .ToArray();
+            List<string> violations = [];
+            foreach (string path in sourceFiles)
+            {
+                CompilationUnitSyntax root = CSharpSyntaxTree.ParseText(
+                    File.ReadAllText(path),
+                    path: path,
+                    cancellationToken: TestContext.Current.CancellationToken)
+                    .GetCompilationUnitRoot(TestContext.Current.CancellationToken);
+                violations.AddRange(FindWireHelperForwards(path, root));
+            }
+
+            Assert.True(
+                violations.Count == 0,
+                "Call the shared wire helpers directly instead of wrapping them: " +
+                Environment.NewLine +
+                string.Join(Environment.NewLine, violations));
+        }
+
+        [Fact]
+        public void WireHelperForwardRuleDetectsInlineForwards()
+        {
+            const string source = """
+                internal static class Sample
+                {
+                    public static bool Forward(ref int reader, out int value)
+                    {
+                        return MqttZeroWireFormat.TryReadUInt16(ref reader, out value);
+                    }
+                }
+                """;
+            CompilationUnitSyntax root = CSharpSyntaxTree.ParseText(
+                source,
+                cancellationToken: TestContext.Current.CancellationToken)
+                .GetCompilationUnitRoot(TestContext.Current.CancellationToken);
+
+            List<string> violations = FindWireHelperForwards("inline.cs", root);
+
+            Assert.Single(violations);
+            Assert.Contains("Forward", violations[0], StringComparison.Ordinal);
+        }
+
+        private static List<string> FindWireHelperForwards(
+            string path,
+            CompilationUnitSyntax root)
+        {
+            List<string> violations = [];
+            foreach (MethodDeclarationSyntax method in root
+                .DescendantNodes()
+                .OfType<MethodDeclarationSyntax>())
+            {
+                if (method.Body == null || method.Body.Statements.Count != 1)
+                {
+                    continue;
+                }
+
+                if (method.Body.Statements[0] is not ReturnStatementSyntax
+                    {
+                        Expression: InvocationExpressionSyntax
+                        {
+                            Expression: MemberAccessExpressionSyntax memberAccess
+                        }
+                    })
+                {
+                    continue;
+                }
+
+                string target = memberAccess.Expression switch
+                {
+                    IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+                    GenericNameSyntax generic => generic.Identifier.ValueText,
+                    _ => string.Empty
+                };
+                if (target is "MqttZeroWireFormat" or "Mqtt5PropertyLayout")
+                {
+                    violations.Add(
+                        $"{path}: method '{method.Identifier.ValueText}' only " +
+                        $"forwards to {target}.");
+                }
+            }
+
+            return violations;
+        }
+
         private static void CheckLineEndings(string path, string text, List<string> violations)
         {
             for (int index = 0; index < text.Length; index++)

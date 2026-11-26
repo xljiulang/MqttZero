@@ -874,11 +874,6 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
-    private static bool TrySkipUtf8(ref SequenceReader<byte> reader)
-    {
-        return MqttZeroWireFormat.TrySkipBinary(ref reader);
-    }
-
     private static bool TrySkipValidatedUtf8(ref SequenceReader<byte> reader)
     {
         if (!MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort length) ||
