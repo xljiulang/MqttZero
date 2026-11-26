@@ -14,7 +14,7 @@ public sealed class MqttZeroEgressFlushAllocationTests
         await using MqttZeroEgressScheduler scheduler = new(
             shard,
             diagnostics: null);
-        await using MqttZeroEgressActor actor = new(
+        await using MqttZeroSessionEgress actor = new(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ => ValueTask.FromResult(false),

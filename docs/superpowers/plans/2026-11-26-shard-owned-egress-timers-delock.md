@@ -3,10 +3,10 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 > **Status:** In progress on `refactor/shard-owned-egress-timers`.
-> Task 1 is complete. Task 2 has the Session owner, owner-bound drain,
-> Egress batch ownership, QoS 0 release ownership and Drain Shard assertion
-> implemented. The remaining Task 2 work is to move the async Drain
-> orchestration out of the Broker file and delete the old Actor adapter.
+> Task 1 is complete. Task 2 is complete: the Session Egress owner now owns
+> control, Flush, Drain orchestration, Pending/Inflight selection and QoS 0
+> release. The Broker is reduced to a narrow Egress services adapter, and the
+> obsolete Actor adapter has been removed. Next is Task 3.
 
 **Goal:** Make one Session Shard the sole owner of all mutable Session and outbound state, replace the global deadline scanner with per-Shard hierarchical timer wheels, and remove `session.SyncRoot` completely without changing public APIs or MQTT behavior.
 

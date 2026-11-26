@@ -5,7 +5,7 @@ using System.IO.Pipelines;
 
 namespace MqttZero.Tests.Egress;
 
-public sealed class MqttZeroEgressActorTests
+public sealed class MqttZeroSessionEgressTests
 {
     [Fact(Timeout = 5_000)]
     public async Task SignalYieldsBeforeFirstDataDrain()
@@ -22,7 +22,7 @@ public sealed class MqttZeroEgressActorTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         int drainCount = 0;
         List<string> order = [];
-        await using MqttZeroEgressActor actor = CreateActor(
+        await using MqttZeroSessionEgress actor = CreateActor(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
@@ -79,7 +79,7 @@ public sealed class MqttZeroEgressActorTests
         TaskCompletionSource releaseFirstDrain = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         int drainCount = 0;
-        await using MqttZeroEgressActor actor = CreateActor(
+        await using MqttZeroSessionEgress actor = CreateActor(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             async cancellationToken =>
@@ -126,8 +126,8 @@ public sealed class MqttZeroEgressActorTests
         TaskCompletionSource flushStarted = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         int drainCount = 0;
-        MqttZeroEgressActor? actorReference = null;
-        await using MqttZeroEgressActor actor = CreateActor(
+        MqttZeroSessionEgress? actorReference = null;
+        await using MqttZeroSessionEgress actor = CreateActor(
             scheduler,
             (frames, _) =>
             {
@@ -196,7 +196,7 @@ public sealed class MqttZeroEgressActorTests
         using MqttZeroBufferPool bufferPool = new(1024 * 1024);
         using MqttZeroEgressControlFramePool framePool =
             new(bufferPool);
-        await using MqttZeroEgressActor actor = CreateActor(
+        await using MqttZeroSessionEgress actor = CreateActor(
             scheduler,
             async (_, cancellationToken) =>
             {
@@ -241,7 +241,7 @@ public sealed class MqttZeroEgressActorTests
         }
     }
 
-    private static MqttZeroEgressActor CreateActor(
+    private static MqttZeroSessionEgress CreateActor(
         MqttZeroEgressScheduler scheduler,
         Func<
             IReadOnlyList<MqttZeroEgressControlFrame>,
@@ -250,7 +250,7 @@ public sealed class MqttZeroEgressActorTests
         Func<CancellationToken, ValueTask<bool>> drainData,
         Action<Exception> faulted)
     {
-        return new MqttZeroEgressActor(
+        return new MqttZeroSessionEgress(
             scheduler,
             writeControls,
             drainData,

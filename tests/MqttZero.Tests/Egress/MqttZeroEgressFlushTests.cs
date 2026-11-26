@@ -20,8 +20,8 @@ public sealed class MqttZeroEgressFlushTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource secondActorRan = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        MqttZeroEgressActor? firstActor = null;
-        firstActor = new MqttZeroEgressActor(
+        MqttZeroSessionEgress? firstActor = null;
+        firstActor = new MqttZeroSessionEgress(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
@@ -33,8 +33,8 @@ public sealed class MqttZeroEgressFlushTests
                 return ValueTask.FromResult(false);
             },
             _ => { });
-        MqttZeroEgressActor first = firstActor;
-        MqttZeroEgressActor second = new(
+        MqttZeroSessionEgress first = firstActor;
+        MqttZeroSessionEgress second = new(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
@@ -52,12 +52,12 @@ public sealed class MqttZeroEgressFlushTests
         await secondActorRan.Task.WaitAsync(
             TestContext.Current.CancellationToken);
         Assert.Equal(
-            MqttZeroEgressActorState.FlushPending,
+            MqttZeroSessionEgressState.FlushPending,
             first.State);
 
         flushCompletion.TrySetResult(new FlushResult(false, false));
         await WaitUntilAsync(
-            () => first.State == MqttZeroEgressActorState.Idle,
+            () => first.State == MqttZeroSessionEgressState.Idle,
             TestContext.Current.CancellationToken);
         await first.StopAsync();
         await second.StopAsync();
@@ -76,8 +76,8 @@ public sealed class MqttZeroEgressFlushTests
         TaskCompletionSource resumed = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         int drainCount = 0;
-        MqttZeroEgressActor? actorReference = null;
-        actorReference = new MqttZeroEgressActor(
+        MqttZeroSessionEgress? actorReference = null;
+        actorReference = new MqttZeroSessionEgress(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
@@ -95,15 +95,15 @@ public sealed class MqttZeroEgressFlushTests
                 return ValueTask.FromResult(false);
             },
             _ => { });
-        await using MqttZeroEgressActor actor = actorReference;
+        await using MqttZeroSessionEgress actor = actorReference;
 
         actor.Signal();
         await WaitUntilAsync(
-            () => actor.State == MqttZeroEgressActorState.FlushPending,
+            () => actor.State == MqttZeroSessionEgressState.FlushPending,
             TestContext.Current.CancellationToken);
         flushCompletion.TrySetResult(new FlushResult(false, false));
         await WaitUntilAsync(
-            () => actor.State == MqttZeroEgressActorState.Idle,
+            () => actor.State == MqttZeroSessionEgressState.Idle,
             TestContext.Current.CancellationToken);
         await Task.Delay(
             TimeSpan.FromMilliseconds(100),
@@ -127,8 +127,8 @@ public sealed class MqttZeroEgressFlushTests
         TaskCompletionSource secondDrainStarted = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         int drainCount = 0;
-        MqttZeroEgressActor? actorReference = null;
-        actorReference = new MqttZeroEgressActor(
+        MqttZeroSessionEgress? actorReference = null;
+        actorReference = new MqttZeroSessionEgress(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
@@ -148,7 +148,7 @@ public sealed class MqttZeroEgressFlushTests
                 return ValueTask.FromResult(false);
             },
             _ => { });
-        await using MqttZeroEgressActor actor = actorReference;
+        await using MqttZeroSessionEgress actor = actorReference;
 
         actor.Signal();
         await flushStarted.Task.WaitAsync(
@@ -184,8 +184,8 @@ public sealed class MqttZeroEgressFlushTests
         using MqttZeroBufferPool bufferPool = new(1024 * 1024);
         using MqttZeroEgressControlFramePool framePool =
             new(bufferPool);
-        MqttZeroEgressActor? actorReference = null;
-        actorReference = new MqttZeroEgressActor(
+        MqttZeroSessionEgress? actorReference = null;
+        actorReference = new MqttZeroSessionEgress(
             scheduler,
             (_, _) =>
             {
@@ -195,7 +195,7 @@ public sealed class MqttZeroEgressFlushTests
             _ =>
             {
                 if (actorReference!.State !=
-                    MqttZeroEgressActorState.FlushPending)
+                    MqttZeroSessionEgressState.FlushPending)
                 {
                     Assert.False(actorReference.BeginFlush(
                         new ValueTask<FlushResult>(flushCompletion.Task)));
@@ -205,7 +205,7 @@ public sealed class MqttZeroEgressFlushTests
                 return ValueTask.FromResult(false);
             },
             _ => { });
-        await using MqttZeroEgressActor actor = actorReference;
+        await using MqttZeroSessionEgress actor = actorReference;
         MqttZeroEgressControlFrame control = CreateFrame(framePool);
 
         try
@@ -259,8 +259,8 @@ public sealed class MqttZeroEgressFlushTests
         TaskCompletionSource resumed = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         int drainCount = 0;
-        MqttZeroEgressActor? actorReference = null;
-        actorReference = new MqttZeroEgressActor(
+        MqttZeroSessionEgress? actorReference = null;
+        actorReference = new MqttZeroSessionEgress(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
@@ -279,7 +279,7 @@ public sealed class MqttZeroEgressFlushTests
                 return ValueTask.FromResult(false);
             },
             _ => { });
-        await using MqttZeroEgressActor actor = actorReference;
+        await using MqttZeroSessionEgress actor = actorReference;
 
         actor.Signal();
         await flushStarted.Task.WaitAsync(
@@ -311,8 +311,8 @@ public sealed class MqttZeroEgressFlushTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource releaseBlocker = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        MqttZeroEgressActor? actorReference = null;
-        actorReference = new MqttZeroEgressActor(
+        MqttZeroSessionEgress? actorReference = null;
+        actorReference = new MqttZeroSessionEgress(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
@@ -322,11 +322,11 @@ public sealed class MqttZeroEgressFlushTests
                 return ValueTask.FromResult(false);
             },
             _ => failureObserved.TrySetResult(shard.IsCurrent));
-        await using MqttZeroEgressActor actor = actorReference;
+        await using MqttZeroSessionEgress actor = actorReference;
 
         actor.Signal();
         await WaitUntilAsync(
-            () => actor.State == MqttZeroEgressActorState.FlushPending,
+            () => actor.State == MqttZeroSessionEgressState.FlushPending,
             TestContext.Current.CancellationToken);
         await shard.EnqueueAsync(
             new BlockingShardWork(
@@ -365,8 +365,8 @@ public sealed class MqttZeroEgressFlushTests
         using MqttZeroBufferPool bufferPool = new(1024 * 1024);
         using MqttZeroEgressControlFramePool framePool =
             new(bufferPool);
-        MqttZeroEgressActor? actorReference = null;
-        actorReference = new MqttZeroEgressActor(
+        MqttZeroSessionEgress? actorReference = null;
+        actorReference = new MqttZeroSessionEgress(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
@@ -377,7 +377,7 @@ public sealed class MqttZeroEgressFlushTests
                 return ValueTask.FromResult(false);
             },
             _ => { });
-        await using MqttZeroEgressActor actor = actorReference;
+        await using MqttZeroSessionEgress actor = actorReference;
         MqttZeroEgressControlFrame control = CreateFrame(framePool);
 
         actor.Signal();
@@ -412,7 +412,7 @@ public sealed class MqttZeroEgressFlushTests
         await using MqttZeroEgressScheduler scheduler = new(
             shard,
             diagnostics: null);
-        await using MqttZeroEgressActor actor = new(
+        await using MqttZeroSessionEgress actor = new(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ => ValueTask.FromResult(false),
@@ -441,8 +441,8 @@ public sealed class MqttZeroEgressFlushTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource flushStarted = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        MqttZeroEgressActor? actorReference = null;
-        actorReference = new MqttZeroEgressActor(
+        MqttZeroSessionEgress? actorReference = null;
+        actorReference = new MqttZeroSessionEgress(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             _ =>
@@ -453,7 +453,7 @@ public sealed class MqttZeroEgressFlushTests
                 return ValueTask.FromResult(false);
             },
             _ => { });
-        await using MqttZeroEgressActor actor = actorReference;
+        await using MqttZeroSessionEgress actor = actorReference;
 
         actor.Signal();
         await flushStarted.Task.WaitAsync(

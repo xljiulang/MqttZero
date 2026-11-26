@@ -12,7 +12,7 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
         Math.Max(1, Stopwatch.Frequency / 4000);
 
     private readonly MqttZeroFanoutDiagnostics? _diagnostics;
-    private readonly ConcurrentQueue<MqttZeroEgressActor> _ready = new();
+    private readonly ConcurrentQueue<MqttZeroSessionEgress> _ready = new();
     private readonly TaskCompletionSource _stopped = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _signalsDrained = new(
@@ -33,20 +33,20 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
 
     public MqttZeroEventLoop Shard { get; }
 
-    public void Signal(MqttZeroEgressActor actor)
+    public void Signal(MqttZeroSessionEgress egress)
     {
-        ArgumentNullException.ThrowIfNull(actor);
+        ArgumentNullException.ThrowIfNull(egress);
         Interlocked.Increment(ref _activeSignals);
         try
         {
             if (Volatile.Read(ref _stopping) != 0 ||
-                !actor.TryMarkReady())
+                !egress.TryMarkReady())
             {
                 return;
             }
 
             _diagnostics?.RecordEgressScheduledActor();
-            _ready.Enqueue(actor);
+            _ready.Enqueue(egress);
             Schedule();
         }
         finally
@@ -60,16 +60,16 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
     }
 
     internal ValueTask SignalAndDrainCurrentShardAsync(
-        MqttZeroEgressActor actor)
+        MqttZeroSessionEgress egress)
     {
-        ArgumentNullException.ThrowIfNull(actor);
+        ArgumentNullException.ThrowIfNull(egress);
         if (!Shard.IsCurrent)
         {
             throw new InvalidOperationException(
                 "The egress scheduler must run on its owning shard.");
         }
 
-        Signal(actor);
+        Signal(egress);
         return ExecuteAsync(CancellationToken.None);
     }
 
@@ -112,18 +112,18 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
             while (actorCount < MaximumActorExecutionsPerPass &&
                 Stopwatch.GetElapsedTime(started) <
                     TimeSpan.FromTicks(PassBudgetTimestampTicks) &&
-                _ready.TryDequeue(out MqttZeroEgressActor? actor))
+                _ready.TryDequeue(out MqttZeroSessionEgress? egress))
             {
-                actor.MarkExecuting();
+                egress.MarkExecuting();
                 _diagnostics?.RecordEgressDrain();
                 try
                 {
-                    await actor.ExecuteAsync(cancellationToken)
+                    await egress.ExecuteAsync(cancellationToken)
                         .ConfigureAwait(false);
                 }
                 finally
                 {
-                    actor.OnExecutionReleased();
+                    egress.OnExecutionReleased();
                 }
 
                 actorCount++;

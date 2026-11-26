@@ -19,7 +19,7 @@ public sealed class MqttZeroEgressSchedulerTests
         TaskCompletionSource releaseBlocker = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         int drainCount = 0;
-        await using MqttZeroEgressActor actor = CreateActor(
+        await using MqttZeroSessionEgress actor = CreateActor(
             scheduler,
             _ =>
             {
@@ -63,21 +63,21 @@ public sealed class MqttZeroEgressSchedulerTests
         TaskCompletionSource releaseBlocker = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         int drainCount = 0;
-        MqttZeroEgressActor first = CreateActor(
+        MqttZeroSessionEgress first = CreateActor(
             scheduler,
             _ =>
             {
                 Interlocked.Increment(ref drainCount);
                 return ValueTask.FromResult(false);
             });
-        MqttZeroEgressActor second = CreateActor(
+        MqttZeroSessionEgress second = CreateActor(
             scheduler,
             _ =>
             {
                 Interlocked.Increment(ref drainCount);
                 return ValueTask.FromResult(false);
             });
-        MqttZeroEgressActor third = CreateActor(
+        MqttZeroSessionEgress third = CreateActor(
             scheduler,
             _ =>
             {
@@ -125,7 +125,7 @@ public sealed class MqttZeroEgressSchedulerTests
             shard,
             diagnostics: null);
         int drainCount = 0;
-        MqttZeroEgressActor? actor = null;
+        MqttZeroSessionEgress? actor = null;
         actor = CreateActor(
             scheduler,
             _ =>
@@ -157,11 +157,11 @@ public sealed class MqttZeroEgressSchedulerTests
         }
     }
 
-    private static MqttZeroEgressActor CreateActor(
+    private static MqttZeroSessionEgress CreateActor(
         MqttZeroEgressScheduler scheduler,
         Func<CancellationToken, ValueTask<bool>> drainData)
     {
-        return new MqttZeroEgressActor(
+        return new MqttZeroSessionEgress(
             scheduler,
             (_, _) => ValueTask.CompletedTask,
             drainData,

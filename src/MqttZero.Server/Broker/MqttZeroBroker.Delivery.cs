@@ -898,12 +898,24 @@ public sealed partial class MqttZeroBroker
         CancellationToken cancellationToken)
     {
         MqttZeroSessionEgress? egress = null;
-
+        MqttZeroSessionEgressServices services = new(
+            _options,
+            _timeProvider,
+            _fanoutDiagnostics,
+            DeleteMessageAsync,
+            (targetSession, lease, reason, token) =>
+                NotifyDroppedAsync(
+                    null,
+                    targetSession,
+                    lease,
+                    reason,
+                    token),
+            TransitionQueuedToOutboundAsync);
         egress = new MqttZeroSessionEgress(
-            this,
             session,
             connection,
             ShardSet.GetEgressScheduler(session.ShardId),
+            services,
             OnEgressFailure);
         lock (session.SyncRoot)
         {
@@ -935,263 +947,6 @@ public sealed partial class MqttZeroBroker
             }
 
             connection.Abort();
-        }
-    }
-
-    internal void RecordEgressDrainTiming(long elapsedTicks)
-    {
-        _fanoutDiagnostics.RecordEgressDrainTiming(elapsedTicks);
-    }
-
-    internal static async ValueTask ResumeInflightMessagesAsync(
-        MqttZeroSessionState session,
-        MqttZeroClientConnection connection,
-        CancellationToken cancellationToken)
-    {
-        List<MqttZeroQueuedMessage> inflight;
-        lock (session.SyncRoot)
-        {
-            inflight = [.. session.InflightMessages.Values];
-        }
-
-        foreach (MqttZeroQueuedMessage message in inflight)
-        {
-            if (message.State == MqttZeroOutboundState.AwaitPubComp)
-            {
-                await connection.SendPubRelAsync(
-                    message.PacketIdentifier,
-                    MqttReasonCode.Success,
-                    cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await connection.SendPublishAsync(message, true, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-        }
-    }
-
-    internal async ValueTask<bool> DrainQueuedMessagesOnceAsync(
-        MqttZeroSessionState session,
-        MqttZeroClientConnection connection,
-        MqttZeroSessionEgress egress,
-        CancellationToken cancellationToken)
-    {
-        MqttZeroShardOwnership.EnsureCurrent(
-            session.ShardId,
-            nameof(DrainQueuedMessagesOnceAsync),
-            _fanoutDiagnostics);
-        while (true)
-        {
-            long batchStartedTimestamp = _timeProvider.GetTimestamp();
-            long batchDurationTicks = Math.Max(
-                1,
-                (long)(
-                    _options.OutboundBatchDuration.TotalSeconds *
-                    _timeProvider.TimestampFrequency));
-            MqttZeroEgressBatchBudget budget = new(
-                _options.OutboundBatchBytes,
-                _options.OutboundBatchMessages,
-                batchStartedTimestamp + batchDurationTicks);
-            List<MqttZeroQueuedMessage> expired =
-                egress.StateData.ExpiredMessages;
-            List<MqttZeroQueuedMessage> batch =
-                egress.StateData.OutboundBatch;
-            bool diagnosticsEnabled = _fanoutDiagnostics.Enabled;
-            egress.StateData.SelectBatch(
-                session,
-                connection,
-                _options,
-                _timeProvider,
-                _fanoutDiagnostics,
-                ref budget,
-                out MqttZeroQueuedMessage? next,
-                out bool hasNext,
-                out bool nextTooLarge,
-                out _);
-
-            for (int index = 0; index < expired.Count; index++)
-            {
-                MqttZeroQueuedMessage expiredMessage = expired[index];
-                try
-                {
-                    await DeleteMessageAsync(
-                        session.ClientId,
-                        expiredMessage.MessageId,
-                        cancellationToken).ConfigureAwait(false);
-                }
-                catch
-                {
-                    lock (session.SyncRoot)
-                    {
-                        for (int restore = expired.Count - 1; restore >= index; restore--)
-                        {
-                            session.PendingMessages.Prepend(expired[restore]);
-                        }
-                    }
-
-                    throw;
-                }
-
-                await NotifyDroppedAsync(
-                    null,
-                    session,
-                    expiredMessage.Lease,
-                    MqttZeroMessageDropReason.Expired,
-                    cancellationToken).ConfigureAwait(false);
-                expiredMessage.Release();
-            }
-
-            expired.Clear();
-            if (nextTooLarge && next is { } tooLarge)
-            {
-                try
-                {
-                    await DeleteMessageAsync(
-                        session.ClientId,
-                        tooLarge.MessageId,
-                        cancellationToken).ConfigureAwait(false);
-                }
-                catch
-                {
-                    lock (session.SyncRoot)
-                    {
-                        session.PendingMessages.Prepend(tooLarge);
-                    }
-
-                    throw;
-                }
-
-                await NotifyDroppedAsync(
-                    null,
-                    session,
-                    tooLarge.Lease,
-                    MqttZeroMessageDropReason.PacketTooLarge,
-                    cancellationToken).ConfigureAwait(false);
-                tooLarge.Release();
-                continue;
-            }
-
-            if (!hasNext)
-            {
-                return false;
-            }
-
-            if (batch.Count > 0)
-            {
-                for (int index = 0; index < batch.Count; index++)
-                {
-                    MqttZeroQueuedMessage message = batch[index];
-                    if (message.QualityOfServiceLevel ==
-                        MqttQualityOfServiceLevel.AtMostOnce)
-                    {
-                        continue;
-                    }
-
-                    try
-                    {
-                        await TransitionQueuedToOutboundAsync(
-                            message,
-                            session.ClientId,
-                            cancellationToken).ConfigureAwait(false);
-                    }
-                    catch
-                    {
-                        lock (session.SyncRoot)
-                        {
-                            for (int restore = batch.Count - 1;
-                                restore >= index;
-                                restore--)
-                            {
-                                MqttZeroQueuedMessage restoreMessage =
-                                    batch[restore];
-                                if (restoreMessage.QualityOfServiceLevel !=
-                                    MqttQualityOfServiceLevel.AtMostOnce)
-                                {
-                                    session.InflightMessages.Remove(
-                                        restoreMessage.PacketIdentifier);
-                                }
-
-                                session.PendingMessages.Prepend(restoreMessage);
-                            }
-                        }
-
-                        batch.Clear();
-                        throw;
-                    }
-                }
-
-                bool qosZeroMessagesReleased = false;
-                try
-                {
-                    _fanoutDiagnostics.RecordEgressDataBatch(
-                        batch.Count,
-                        budget.EncodedBytes);
-                    _fanoutDiagnostics.RecordEgressFlushStart();
-                    long encodeStarted = diagnosticsEnabled
-                        ? Stopwatch.GetTimestamp()
-                        : 0;
-                    int encodedBytes =
-                        await connection.EncodePublishBatchAsync(
-                            batch,
-                            cancellationToken).ConfigureAwait(false);
-                    bool encoded = encodedBytes > 0;
-                    if (diagnosticsEnabled)
-                    {
-                        _fanoutDiagnostics.RecordPublishEncode(
-                            Stopwatch.GetTimestamp() - encodeStarted);
-                    }
-
-                    if (!encoded)
-                    {
-                        long writeStarted = diagnosticsEnabled
-                            ? Stopwatch.GetTimestamp()
-                            : 0;
-                        await connection.SendPublishBatchAsync(
-                            batch,
-                            cancellationToken).ConfigureAwait(false);
-                        if (diagnosticsEnabled)
-                        {
-                            _fanoutDiagnostics.RecordPublishWrite(
-                                Stopwatch.GetTimestamp() - writeStarted);
-                        }
-                    }
-
-                    _fanoutDiagnostics.RecordEncodedPublishes(
-                        batch.Count);
-                    bool flushPending = false;
-                    if (connection.AllowPacketFragmentation)
-                    {
-                        flushPending = !egress.BeginFlush(
-                            connection.FlushOutputAsync(
-                                cancellationToken));
-                    }
-
-                    MqttZeroSessionEgressBufferState.ReleaseQosZeroMessages(
-                        batch);
-                    qosZeroMessagesReleased = true;
-                    if (flushPending)
-                    {
-                        _fanoutDiagnostics.RecordFlushWait();
-                        batch.Clear();
-                        return session.PendingMessages.Count > 0;
-                    }
-                }
-                catch
-                {
-                    if (!qosZeroMessagesReleased)
-                    {
-                        MqttZeroSessionEgressBufferState.ReleaseQosZeroMessages(
-                            batch);
-                    }
-
-                    batch.Clear();
-                    throw;
-                }
-
-                batch.Clear();
-                return session.PendingMessages.Count > 0;
-            }
         }
     }
 
