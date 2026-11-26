@@ -158,7 +158,8 @@ public sealed partial class MqttZeroBroker
     private async ValueTask RoutePublishAsync(
         MqttZeroSessionState? sender,
         MqttPublishPacket packet,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int publisherShardId = 0)
     {
         if (sender != null && packet.SubscriptionIdentifiers.Count > 0)
         {
@@ -235,7 +236,8 @@ public sealed partial class MqttZeroBroker
                     lease.QualityOfServiceLevel ==
                         MqttQualityOfServiceLevel.AtLeastOnce &&
                     !_messageStore.IsEnabled,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                publisherShardId).ConfigureAwait(false);
             if (deliveryCount == 0 && _deliveryObservers.Length > 0)
             {
                 await NotifyNotConsumedAsync(null, lease, cancellationToken).ConfigureAwait(false);

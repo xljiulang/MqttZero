@@ -438,6 +438,7 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
                 out bool hasNext,
                 out bool nextTooLarge,
                 out _);
+            services.RescheduleMessageExpiry(session);
 
             for (int index = 0; index < expired.Count; index++)
             {
@@ -504,6 +505,7 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
 
             if (!hasNext)
             {
+                services.RescheduleMessageExpiry(session);
                 return false;
             }
 
@@ -605,6 +607,7 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
                     {
                         services.Diagnostics.RecordFlushWait();
                         batch.Clear();
+                        services.RescheduleMessageExpiry(session);
                         return session.PendingMessages.Count > 0;
                     }
                 }
@@ -621,6 +624,7 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
                 }
 
                 batch.Clear();
+                services.RescheduleMessageExpiry(session);
                 return session.PendingMessages.Count > 0;
             }
         }

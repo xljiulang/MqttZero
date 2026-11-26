@@ -23,6 +23,8 @@ internal sealed class MqttZeroSessionEgressServices
         string,
         CancellationToken,
         ValueTask> _transitionQueuedToOutboundAsync;
+    private readonly Action<MqttZeroSessionState>
+        _rescheduleMessageExpiry;
 
     internal MqttZeroSessionEgressServices(
         MqttZeroOptions options,
@@ -43,7 +45,8 @@ internal sealed class MqttZeroSessionEgressServices
             MqttZeroQueuedMessage,
             string,
             CancellationToken,
-            ValueTask> transitionQueuedToOutboundAsync)
+            ValueTask> transitionQueuedToOutboundAsync,
+        Action<MqttZeroSessionState> rescheduleMessageExpiry)
     {
         Options = options ??
             throw new ArgumentNullException(nameof(options));
@@ -59,6 +62,9 @@ internal sealed class MqttZeroSessionEgressServices
             transitionQueuedToOutboundAsync ??
             throw new ArgumentNullException(
                 nameof(transitionQueuedToOutboundAsync));
+        _rescheduleMessageExpiry = rescheduleMessageExpiry ??
+            throw new ArgumentNullException(
+                nameof(rescheduleMessageExpiry));
     }
 
     internal MqttZeroOptions Options { get; }
@@ -100,5 +106,11 @@ internal sealed class MqttZeroSessionEgressServices
             message,
             clientId,
             cancellationToken);
+    }
+
+    internal void RescheduleMessageExpiry(
+        MqttZeroSessionState session)
+    {
+        _rescheduleMessageExpiry(session);
     }
 }

@@ -2,6 +2,7 @@ using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Clients;
 using MqttZero.Server.Egress;
+using MqttZero.Server.Scheduling;
 using System.Collections.Concurrent;
 using System.Text;
 
@@ -9,7 +10,11 @@ namespace MqttZero.Server.Sessions;
 
 internal sealed class MqttZeroSessionState
 {
+    private MqttZeroTimerNode? _keepAliveTimer;
+    private MqttZeroTimerNode? _messageExpiryTimer;
     private int _nextPacketIdentifier;
+    private MqttZeroTimerNode? _sessionExpiryTimer;
+    private MqttZeroTimerNode? _willTimer;
 
     public MqttZeroSessionState(string clientId)
         : this(clientId, 1000, 0)
@@ -76,6 +81,62 @@ internal sealed class MqttZeroSessionState
         }
 
         throw new InvalidOperationException("No MQTT packet identifier is available.");
+    }
+
+    internal MqttZeroTimerNode GetTimerNode(MqttZeroDeadlineKind kind)
+    {
+        ref MqttZeroTimerNode? node = ref _keepAliveTimer;
+        switch (kind)
+        {
+            case MqttZeroDeadlineKind.KeepAlive:
+                break;
+            case MqttZeroDeadlineKind.Will:
+                node = ref _willTimer;
+                break;
+            case MqttZeroDeadlineKind.SessionExpiry:
+                node = ref _sessionExpiryTimer;
+                break;
+            case MqttZeroDeadlineKind.MessageExpiry:
+                node = ref _messageExpiryTimer;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(kind),
+                    kind,
+                    "The timer kind is not owned by an MQTT session.");
+        }
+
+        MqttZeroTimerNode? current = Volatile.Read(ref node);
+        if (current != null)
+        {
+            return current;
+        }
+
+        MqttZeroTimerNode candidate = new(kind, ClientId, this);
+        return Interlocked.CompareExchange(
+            ref node,
+            candidate,
+            null) ?? candidate;
+    }
+
+    internal MqttZeroTimerNode? GetExistingTimerNode(
+        MqttZeroDeadlineKind kind)
+    {
+        return kind switch
+        {
+            MqttZeroDeadlineKind.KeepAlive =>
+                Volatile.Read(ref _keepAliveTimer),
+            MqttZeroDeadlineKind.Will =>
+                Volatile.Read(ref _willTimer),
+            MqttZeroDeadlineKind.SessionExpiry =>
+                Volatile.Read(ref _sessionExpiryTimer),
+            MqttZeroDeadlineKind.MessageExpiry =>
+                Volatile.Read(ref _messageExpiryTimer),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(kind),
+                kind,
+                "The timer kind is not owned by an MQTT session.")
+        };
     }
 
     public MqttZeroSessionSnapshot CreateSnapshot(DateTimeOffset now)

@@ -3,10 +3,10 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 > **Status:** In progress on `refactor/shard-owned-egress-timers`.
-> Task 1 is complete. Task 2 is complete: the Session Egress owner now owns
-> control, Flush, Drain orchestration, Pending/Inflight selection and QoS 0
-> release. The Broker is reduced to a narrow Egress services adapter, and the
-> obsolete Actor adapter has been removed. Next is Task 3.
+> Tasks 1 through 3 are complete. Session Egress is the sole outbound owner,
+> and every Shard now owns a four-level intrusive timer wheel for KeepAlive,
+> Will, Session Expiry, Message Expiry and Retained Expiry. The global deadline
+> queue and maintenance loop are removed. Next is Task 4.
 
 **Goal:** Make one Session Shard the sole owner of all mutable Session and outbound state, replace the global deadline scanner with per-Shard hierarchical timer wheels, and remove `session.SyncRoot` completely without changing public APIs or MQTT behavior.
 
@@ -278,14 +278,14 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
 
 ### Step 1: Write failing wheel tests
 
-- [ ] Cover deadlines before, equal to and after the current base tick.
-- [ ] Cover all four level boundaries and cascading into lower levels.
-- [ ] Cover reschedule, cancel, stale version, reused node and clear during shutdown.
-- [ ] Cover deterministic delivery of distinct due ticks in ascending order.
-- [ ] Cover `uint`-maximum expiry duration without overflow.
-- [ ] Cover FakeTimeProvider-driven KeepAlive, Will, Session Expiry, Message Expiry and Retained Expiry.
-- [ ] Assert ticks execute only on the owning Shard.
-- [ ] Assert no full Session or Retained collection is enumerated during a tick.
+- [x] Cover deadlines before, equal to and after the current base tick.
+- [x] Cover all four level boundaries and cascading into lower levels.
+- [x] Cover reschedule, cancel, stale version, reused node and clear during shutdown.
+- [x] Cover deterministic delivery of distinct due ticks in ascending order.
+- [x] Cover `uint`-maximum expiry duration without overflow.
+- [x] Cover FakeTimeProvider-driven KeepAlive, Will, Session Expiry, Message Expiry and Retained Expiry.
+- [x] Assert ticks execute only on the owning Shard.
+- [x] Assert no full Session or Retained collection is enumerated during a tick.
 
 ### Step 2: Verify RED
 
@@ -298,17 +298,17 @@ Expected: FAIL because timer-wheel types do not exist.
 
 ### Step 3: Implement the wheel
 
-- [ ] Use four levels with `512` slots per level.
-- [ ] Set level-0 duration to `KeepAliveCheckInterval`; spans are approximately `256 s`, `36 h`, `2.6 years`, and `1300 years`.
-- [ ] Use intrusive linked nodes, no per-message `Task`, timer or closure.
-- [ ] Use a reusable Tick Work posted by the Shard time source.
-- [ ] Stop the Shard ticker before stopping Event Loop work.
-- [ ] Replace all global `_deadlines.Schedule/Remove/Clear` calls with owning-Shard wheel operations.
-- [ ] Replace `RegisterSessionDeadlines` locking with Shard-current mutation.
-- [ ] Keep Message Expiry indexed only by the current Pending head; queue changes update that one node.
-- [ ] Route Retained Expiry for a Topic to the stable hash of the Topic across Shards.
-- [ ] Preserve `PendingDeadlineCount` as the sum of all wheel node counts.
-- [ ] Delete `RunMaintenanceAsync`, `PeriodicTimer`, global `_deadlines` and `MqttZeroDeadlineQueue`.
+- [x] Use four levels with `512` slots per level.
+- [x] Set level-0 duration to `KeepAliveCheckInterval`; spans are approximately `256 s`, `36 h`, `2.6 years`, and `1300 years`.
+- [x] Use intrusive linked nodes, no per-message `Task`, timer or closure.
+- [x] Use a reusable Tick Work posted by the Shard time source.
+- [x] Stop the Shard ticker before stopping Event Loop work.
+- [x] Replace all global `_deadlines.Schedule/Remove/Clear` calls with owning-Shard wheel operations.
+- [x] Replace `RegisterSessionDeadlines` locking with Shard-current mutation.
+- [x] Keep Message Expiry indexed only by the current Pending head; queue changes update that one node.
+- [x] Route Retained Expiry for a Topic to the stable hash of the Topic across Shards.
+- [x] Preserve `PendingDeadlineCount` as the sum of all wheel node counts.
+- [x] Delete `RunMaintenanceAsync`, `PeriodicTimer`, global `_deadlines` and `MqttZeroDeadlineQueue`.
 
 ### Step 4: Verify GREEN
 
@@ -321,9 +321,9 @@ Expected: PASS; all deadlines fire once, stale nodes are ignored and Stop leaves
 
 ### Step 5: Run timer scale and allocation tests
 
-- [ ] Add a 10,000 detached Session test proving one due tick does not iterate the Broker Session dictionary.
-- [ ] Assert Schedule/Update/Cancel are `0 B/op` after each node is created.
-- [ ] Assert repeated Tick with no due nodes performs constant work and no allocation.
+- [x] Add a 10,000 detached Session test proving one due tick does not iterate the Broker Session dictionary.
+- [x] Assert Schedule/Update/Cancel are `0 B/op` after each node is created.
+- [x] Assert repeated Tick with no due nodes performs constant work and no allocation.
 
 ### Step 6: Commit
 

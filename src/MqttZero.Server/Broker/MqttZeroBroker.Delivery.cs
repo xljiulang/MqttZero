@@ -101,7 +101,8 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection? senderConnection,
         MqttZeroMessageLease lease,
         bool scheduleWithoutWaiting,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int publisherShardId = 0)
     {
         lease.EnsureOwned();
         MqttZeroShardSet shards = Volatile.Read(ref _shardSet) ??
@@ -115,9 +116,9 @@ public sealed partial class MqttZeroBroker
             Volatile.Read(ref _routePlannerLanes) ??
             throw new InvalidOperationException(
                 "The MQTTZero route planner is not running.");
-        int publisherShardId = sender?.ShardId ??
+        publisherShardId = sender?.ShardId ??
             senderConnection?.ShardId ??
-            0;
+            publisherShardId;
         if ((uint)publisherShardId >= (uint)shards.Count)
         {
             throw new InvalidOperationException(
@@ -536,6 +537,7 @@ public sealed partial class MqttZeroBroker
         }
 
         session.PendingMessages.Add(message);
+        RescheduleSessionMessageExpiry(session);
         _fanoutDiagnostics.RecordPendingQueueDepth(
             session.PendingMessages.Count);
         return evicted;
@@ -910,7 +912,8 @@ public sealed partial class MqttZeroBroker
                     lease,
                     reason,
                     token),
-            TransitionQueuedToOutboundAsync);
+            TransitionQueuedToOutboundAsync,
+            RescheduleSessionMessageExpiry);
         egress = new MqttZeroSessionEgress(
             session,
             connection,

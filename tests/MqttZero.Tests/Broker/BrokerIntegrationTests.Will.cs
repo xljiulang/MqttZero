@@ -186,7 +186,9 @@ namespace MqttZero.Tests.Broker
 
             Assert.Equal(
                 "timeout",
-                await willReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken));
+                await willReceived.Task.WaitAsync(
+                    TimeSpan.FromSeconds(5),
+                    cancellationToken));
 
             await watcher.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);

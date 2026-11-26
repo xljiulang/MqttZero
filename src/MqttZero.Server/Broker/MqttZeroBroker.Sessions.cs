@@ -63,7 +63,9 @@ public sealed partial class MqttZeroBroker
             }
         }
 
-        RegisterSessionDeadlines(session);
+        await RegisterSessionDeadlinesOnShardAsync(
+            session,
+            CancellationToken.None).ConfigureAwait(false);
         if (pump != null)
         {
             connection.Abort();

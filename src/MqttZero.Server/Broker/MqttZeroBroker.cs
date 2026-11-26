@@ -63,7 +63,6 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly object _retainedGate = new();
     private readonly MqttZeroFanoutDiagnostics _fanoutDiagnostics = new();
     private readonly MqttZeroRouteEpochManager _routeEpochs = new();
-    private readonly MqttZeroDeadlineQueue _deadlines = new();
     private MqttZeroFanoutDispatcher? _fanoutDispatcher;
     private MqttZeroRoutePlanBufferPool? _qosZeroPlanBuffers;
     private MqttZeroRoutePlannerLanes? _routePlannerLanes;
@@ -75,8 +74,6 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private TaskCompletionSource _connectionsDrained =
         CreateCompletedDrainSignal();
     private long _nextAcceptedConnectionId;
-    private CancellationTokenSource? _maintenanceCancellation;
-    private Task? _maintenanceTask;
     private int _activeConnectionCount;
     private int _connectedClientCount;
     private int _disposed;
@@ -301,7 +298,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
             routePlans.RetainedBytes,
             _sharedGroupCursors.Count,
             objectPools,
-            _deadlines.Count);
+            Volatile.Read(ref _shardSet)?.PendingTimerCount ?? 0);
     }
 
     /// <summary>

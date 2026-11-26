@@ -402,13 +402,18 @@ public sealed partial class MqttZeroBroker
                 .ConfigureAwait(false);
             foreach (MqttZeroSessionState restoredSession in _sessions.Values)
             {
-                RegisterSessionDeadlines(restoredSession);
+                await RegisterSessionDeadlinesOnShardAsync(
+                    restoredSession,
+                    cancellationToken).ConfigureAwait(false);
             }
 
             foreach (KeyValuePair<string, MqttZeroRetainedMessage> pair in
                 _retainedMessages)
             {
-                ScheduleRetainedDeadline(pair.Key, pair.Value.ExpiresAt);
+                await ScheduleRetainedDeadlineAsync(
+                    pair.Key,
+                    pair.Value.ExpiresAt,
+                    cancellationToken).ConfigureAwait(false);
             }
 
             while (inboundDispatches.Count > 0)

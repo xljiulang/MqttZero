@@ -104,7 +104,9 @@ public sealed partial class MqttZeroBroker
             effectiveLease.EnsureOwned();
             if (effectiveLease.RetainFlag)
             {
-                StoreRetainedMessageInMemory(effectiveLease);
+                await StoreRetainedMessageInMemoryAsync(
+                    effectiveLease,
+                    cancellationToken).ConfigureAwait(false);
             }
 
             MqttZeroFanoutDispatcher dispatcher =

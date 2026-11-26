@@ -1,9 +1,12 @@
 using MqttZero.Memory;
 using MqttZero.Protocol;
+using MqttZero.Server.Scheduling;
 namespace MqttZero.Server.Retained;
 
 internal sealed class MqttZeroRetainedMessage
 {
+    private MqttZeroTimerNode? _expiryTimer;
+
     public MqttZeroRetainedMessage(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -53,5 +56,24 @@ internal sealed class MqttZeroRetainedMessage
     public void Release()
     {
         Lease.Release();
+    }
+
+    internal MqttZeroTimerNode GetExpiryTimerNode(string topic)
+    {
+        MqttZeroTimerNode? current = Volatile.Read(
+            ref _expiryTimer);
+        if (current != null)
+        {
+            return current;
+        }
+
+        MqttZeroTimerNode candidate = new(
+            MqttZeroDeadlineKind.RetainedExpiry,
+            topic,
+            this);
+        return Interlocked.CompareExchange(
+            ref _expiryTimer,
+            candidate,
+            null) ?? candidate;
     }
 }

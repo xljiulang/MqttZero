@@ -218,7 +218,7 @@ namespace MqttZero.Tests.Sessions
         }
 
         [Fact]
-        public void RemoveExpiredReturnsDueMessagesInExpiryOrder()
+        public void RemoveExpiredReturnsConsecutiveHeadsInQueueOrder()
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
             MqttZeroMessageQueue queue = new(3);
@@ -234,7 +234,7 @@ namespace MqttZero.Tests.Sessions
 
             queue.RemoveExpired(now, removed);
 
-            Assert.Equal([earlier, later], removed);
+            Assert.Equal([later, earlier], removed);
             Assert.Equal(0, queue.Count);
             later.Release();
             earlier.Release();
@@ -325,7 +325,7 @@ namespace MqttZero.Tests.Sessions
         }
 
         [Fact]
-        public void RemoveExpiredKeepsLargeLiveQueuesIntact()
+        public void RemoveExpiredDoesNotScanPastALiveHead()
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
             MqttZeroMessageQueue queue = new(10_001);
@@ -350,8 +350,8 @@ namespace MqttZero.Tests.Sessions
 
             queue.RemoveExpired(now, removed);
 
-            Assert.Equal([due], removed);
-            Assert.Equal(10_000, queue.Count);
+            Assert.Empty(removed);
+            Assert.Equal(10_001, queue.Count);
             foreach (MqttZeroQueuedMessage message in placeholders)
             {
                 message.Release();
@@ -391,7 +391,7 @@ namespace MqttZero.Tests.Sessions
         }
 
         [Fact]
-        public void ExpiryIndexIsCompactedAfterDrainingQueuedMessages()
+        public void ExpiryIndexTracksOnlyThePendingHead()
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
             MqttZeroMessageQueue queue = new(5_000);
@@ -416,7 +416,7 @@ namespace MqttZero.Tests.Sessions
             queue.RemoveExpired(now, removed);
 
             Assert.Empty(removed);
-            Assert.InRange(queue.ExpiryIndexCountForTest, 0, 1024);
+            Assert.Equal(0, queue.ExpiryIndexCountForTest);
             foreach (MqttZeroQueuedMessage message in messages)
             {
                 message.Release();

@@ -1621,7 +1621,7 @@ public sealed partial class MqttZeroBroker
 
         if (removeDeadlines)
         {
-            RemoveSessionDeadlines(session.ClientId);
+            RemoveSessionDeadlines(session);
         }
 
         ReleaseSessionMessages(session);

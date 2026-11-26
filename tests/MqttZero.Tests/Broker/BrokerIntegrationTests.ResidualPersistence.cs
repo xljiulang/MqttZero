@@ -358,7 +358,7 @@ namespace MqttZero.Tests.Broker
         }
 
         [Fact(Timeout = 30_000)]
-        public async Task ExpiredQueueDeleteFailureRestoresMessageForRetry()
+        public async Task ExpiredQueueDeleteFailureRestoresMessageAndTimerRetries()
         {
             int port = GetFreePort();
             ControllableMessageStore messageStore = new();
@@ -406,37 +406,20 @@ namespace MqttZero.Tests.Broker
                     .WithMessageExpiryInterval(1)
                     .Build(),
                 cancellationToken);
-            await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+            await WaitUntilAsync(
+                () => messageStore.Messages.Count == 1,
+                cancellationToken);
             messageStore.FailNextDeleteMessage = true;
-
-            await AssertPersistentReconnectClosesAsync(
-                port,
-                "expired-delete-client",
+            await WaitUntilAsync(
+                () => messageStore.DeleteAttempts >= 2 &&
+                    messageStore.Messages.Count == 0 &&
+                    broker.GetSessions().Any(
+                        static session =>
+                            session.ClientId == "expired-delete-client" &&
+                            session.PendingMessageCount == 0),
                 cancellationToken);
+
             MqttZeroSessionSnapshot restored = Assert.Single(
-                broker.GetSessions(),
-                item => item.ClientId == "expired-delete-client");
-            Assert.Equal(1, restored.PendingMessageCount);
-            Assert.Single(messageStore.Messages.Values);
-
-            using TcpClient retry = new();
-            await retry.ConnectAsync(IPAddress.Loopback, port, cancellationToken);
-            NetworkStream retryStream = retry.GetStream();
-            await SendPacketAsync(
-                retryStream,
-                new MqttConnectPacket
-                {
-                    ClientId = new ReadOnlySequence<byte>(
-                        "expired-delete-client"u8.ToArray()),
-                    CleanStart = false,
-                    SessionExpiryInterval = 60
-                },
-                cancellationToken);
-            _ = Assert.IsType<MqttConnAckPacket>(
-                await ReadPacketAsync(retryStream, cancellationToken));
-            await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
-
-            restored = Assert.Single(
                 broker.GetSessions(),
                 item => item.ClientId == "expired-delete-client");
             Assert.Equal(0, restored.PendingMessageCount);
@@ -450,6 +433,7 @@ namespace MqttZero.Tests.Broker
             private int _failTransition;
             private int _failDeleteInbound;
             private int _failNextDeleteMessage;
+            private int _deleteAttempts;
 
             public bool FailTransition
             {
@@ -484,6 +468,14 @@ namespace MqttZero.Tests.Broker
                 set
                 {
                     Volatile.Write(ref _failNextDeleteMessage, value ? 1 : 0);
+                }
+            }
+
+            public int DeleteAttempts
+            {
+                get
+                {
+                    return Volatile.Read(ref _deleteAttempts);
                 }
             }
 
@@ -549,6 +541,7 @@ namespace MqttZero.Tests.Broker
                 long messageId,
                 CancellationToken cancellationToken)
             {
+                Interlocked.Increment(ref _deleteAttempts);
                 if (Interlocked.Exchange(ref _failNextDeleteMessage, 0) != 0)
                 {
                     throw new InvalidOperationException("Message delete failed.");
