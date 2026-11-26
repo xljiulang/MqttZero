@@ -448,7 +448,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         bool duplicate,
         CancellationToken cancellationToken)
     {
-        await SendPublishAsyncWithIdentifiers(
+        await SendPublishWithIdentifiersAsync(
             lease,
             qualityOfServiceLevel,
             retain,
@@ -460,7 +460,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
-    public async ValueTask SendPublishAsyncWithIdentifiers(
+    public async ValueTask SendPublishWithIdentifiersAsync(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
         bool retain,

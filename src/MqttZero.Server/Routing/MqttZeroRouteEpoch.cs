@@ -147,7 +147,7 @@ internal sealed class MqttZeroRouteEpoch
         bool shared = subscription.IsShared;
         if (shared)
         {
-            sharedKey = MqttZeroSharedGroupKeys.Create(subscription);
+            sharedKey = MqttZeroSharedGroupKey.Create(subscription);
         }
 
         return UpdateNode(

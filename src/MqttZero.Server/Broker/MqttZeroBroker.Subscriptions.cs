@@ -205,7 +205,7 @@ public sealed partial class MqttZeroBroker
                     continue;
                 }
 
-                await DeliverAsync(
+                await EnqueuePacketAsync(
                     session,
                     packet,
                     packet.QualityOfServiceLevel,

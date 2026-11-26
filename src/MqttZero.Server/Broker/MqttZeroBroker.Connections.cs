@@ -504,18 +504,7 @@ public sealed partial class MqttZeroBroker
                         ConnectionAttachment attachment = await
                             ShardSet[sessionShardId]
                                 .InvokeAsync(
-                                    token => ConnectAsync(
-                                        connectPacket,
-                                        output,
-                                        remoteEndPoint,
-                                        isSecure,
-                                        isWebSocket,
-                                        clientCertificate,
-                                        allowPacketFragmentation,
-                                        connectClientId,
-                                        assignedClientIdentifier,
-                                        sessionShardId,
-                                        token),
+                                    InvokeConnectAsync,
                                     connectionLifetime.Token)
                                 .ConfigureAwait(false);
                         if (attachment == null)
@@ -533,6 +522,23 @@ public sealed partial class MqttZeroBroker
                             connectionLifetime.Token);
                         buffer = buffer.Slice(consumed);
                         continue;
+
+                        ValueTask<ConnectionAttachment> InvokeConnectAsync(
+                            CancellationToken token)
+                        {
+                            return ConnectAsync(
+                                connectPacket,
+                                output,
+                                remoteEndPoint,
+                                isSecure,
+                                isWebSocket,
+                                clientCertificate,
+                                allowPacketFragmentation,
+                                connectClientId,
+                                assignedClientIdentifier,
+                                sessionShardId,
+                                token);
+                        }
                     }
 
                     if (connection == null || session == null)
@@ -543,21 +549,7 @@ public sealed partial class MqttZeroBroker
                     MqttZeroClientConnection currentConnection = connection;
                     MqttZeroSessionState currentSession = session;
                     await ShardSet[currentConnection.ShardId]
-                        .InvokeAsync(
-                            async token =>
-                            {
-                                currentConnection.MarkPacketReceived(
-                                    _timeProvider,
-                                    consumed,
-                                    packet is MqttPublishPacket);
-                                await ProcessPacketAsync(
-                                    currentSession,
-                                    currentConnection,
-                                    packet,
-                                    token).ConfigureAwait(false);
-                                return true;
-                            },
-                            connectionLifetime.Token)
+                        .InvokeAsync(ProcessOnShardAsync, connectionLifetime.Token)
                         .ConfigureAwait(false);
                     buffer = buffer.Slice(consumed);
 
@@ -566,6 +558,21 @@ public sealed partial class MqttZeroBroker
                         cleanDisconnect = true;
                         currentConnection.DisconnectType = MqttZeroDisconnectType.ClientRequest;
                         return;
+                    }
+
+                    async ValueTask<bool> ProcessOnShardAsync(
+                        CancellationToken token)
+                    {
+                        currentConnection.MarkPacketReceived(
+                            _timeProvider,
+                            consumed,
+                            packet is MqttPublishPacket);
+                        await ProcessPacketAsync(
+                            currentSession,
+                            currentConnection,
+                            packet,
+                            token).ConfigureAwait(false);
+                        return true;
                     }
                 }
 

@@ -59,7 +59,7 @@ public sealed partial class MqttZeroBroker
                 copySubscriptionIdentifiers: true);
         }
 
-        return DeliverLeaseAsync(
+        return EnqueueLeaseAsync(
             delivery.Session,
             lease,
             deliveryQos,
@@ -201,7 +201,7 @@ public sealed partial class MqttZeroBroker
         return deliveryCount;
     }
 
-    private async ValueTask DeliverAsync(
+    private async ValueTask EnqueuePacketAsync(
         MqttZeroSessionState session,
         MqttPublishPacket source,
         MqttQualityOfServiceLevel qos,
@@ -209,7 +209,7 @@ public sealed partial class MqttZeroBroker
         uint? subscriptionIdentifier,
         CancellationToken cancellationToken)
     {
-        await DeliverAsync(
+        await EnqueuePacketAsync(
             session,
             source,
             qos,
@@ -220,7 +220,7 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask DeliverAsync(
+    private async ValueTask EnqueuePacketAsync(
         MqttZeroSessionState session,
         MqttPublishPacket source,
         MqttQualityOfServiceLevel qos,
@@ -242,7 +242,7 @@ public sealed partial class MqttZeroBroker
         lease.SetExpiresAt(CalculateMessageExpiresAt(source.Properties.MessageExpiryInterval));
         try
         {
-            await DeliverLeaseAsync(
+            await EnqueueLeaseAsync(
                 session,
                 lease,
                 qos,
@@ -257,7 +257,7 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    private async ValueTask DeliverLeaseAsync(
+    private async ValueTask EnqueueLeaseAsync(
         MqttZeroSessionState session,
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qos,
@@ -266,7 +266,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection? senderConnection,
         CancellationToken cancellationToken)
     {
-        await DeliverLeaseAsync(
+        await EnqueueLeaseAsync(
             session,
             lease,
             qos,
@@ -278,7 +278,7 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask DeliverLeaseAsync(
+    private async ValueTask EnqueueLeaseAsync(
         MqttZeroSessionState session,
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qos,
@@ -936,22 +936,7 @@ public sealed partial class MqttZeroBroker
             ShardSet.GetEgressScheduler(session.ShardId),
             connection.WriteEncodedControlBatchAsync,
             DrainAsync,
-            exception =>
-            {
-                MqttZeroBrokerLogging.LogEgressFailure(
-                    _logger,
-                    session.ClientId,
-                    exception);
-                lock (session.SyncRoot)
-                {
-                    if (ReferenceEquals(session.Egress, egress))
-                    {
-                        session.Egress = null;
-                    }
-                }
-
-                connection.Abort();
-            });
+            OnEgressFailure);
         lock (session.SyncRoot)
         {
             if (session.Egress != null)
@@ -966,6 +951,23 @@ public sealed partial class MqttZeroBroker
         connection.AttachEgress(egress);
         egress.Signal();
         return egress;
+
+        void OnEgressFailure(Exception exception)
+        {
+            MqttZeroBrokerLogging.LogEgressFailure(
+                _logger,
+                session.ClientId,
+                exception);
+            lock (session.SyncRoot)
+            {
+                if (ReferenceEquals(session.Egress, egress))
+                {
+                    session.Egress = null;
+                }
+            }
+
+            connection.Abort();
+        }
     }
 
     private static async ValueTask ResumeInflightMessagesAsync(

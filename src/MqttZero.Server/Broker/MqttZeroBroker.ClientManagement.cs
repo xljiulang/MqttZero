@@ -86,13 +86,19 @@ public sealed partial class MqttZeroBroker
     {
         return InvokeOnSessionShardAsync(
             session,
-            token => SubscribeConnectedClientCoreAsync(
+            InvokeAsync,
+            cancellationToken);
+
+        ValueTask<IReadOnlyList<MqttZeroSubscribeResult>> InvokeAsync(
+            CancellationToken token)
+        {
+            return SubscribeConnectedClientCoreAsync(
                 session,
                 connection,
                 subscriptions,
                 subscriptionIdentifier,
-                token),
-            cancellationToken);
+                token);
+        }
     }
 
     private async ValueTask<IReadOnlyList<MqttZeroSubscribeResult>>
@@ -196,12 +202,18 @@ public sealed partial class MqttZeroBroker
     {
         return InvokeOnSessionShardAsync(
             session,
-            token => UnsubscribeConnectedClientCoreAsync(
+            InvokeAsync,
+            cancellationToken);
+
+        ValueTask<IReadOnlyList<MqttZeroUnsubscribeResult>> InvokeAsync(
+            CancellationToken token)
+        {
+            return UnsubscribeConnectedClientCoreAsync(
                 session,
                 connection,
                 topicFilters,
-                token),
-            cancellationToken);
+                token);
+        }
     }
 
     private async ValueTask<IReadOnlyList<MqttZeroUnsubscribeResult>>
@@ -278,12 +290,17 @@ public sealed partial class MqttZeroBroker
     {
         return InvokeOnSessionShardAsync(
             session,
-            token => SendPublishToClientCoreAsync(
+            InvokeAsync,
+            cancellationToken);
+
+        ValueTask<bool> InvokeAsync(CancellationToken token)
+        {
+            return SendPublishToClientCoreAsync(
                 session,
                 connection,
                 message,
-                token),
-            cancellationToken);
+                token);
+        }
     }
 
     private async ValueTask<bool> SendPublishToClientCoreAsync(
@@ -343,7 +360,7 @@ public sealed partial class MqttZeroBroker
                     "The outbound MQTT packet exceeds the broker maximum packet size.");
             }
 
-            await DeliverLeaseAsync(
+            await EnqueueLeaseAsync(
                 session,
                 lease,
                 message.QualityOfServiceLevel,
@@ -367,12 +384,17 @@ public sealed partial class MqttZeroBroker
     {
         return InvokeOnSessionShardAsync(
             session,
-            token => DisconnectConnectedClientCoreAsync(
+            InvokeAsync,
+            cancellationToken);
+
+        ValueTask<bool> InvokeAsync(CancellationToken token)
+        {
+            return DisconnectConnectedClientCoreAsync(
                 session,
                 connection,
                 reasonCode,
-                token),
-            cancellationToken);
+                token);
+        }
     }
 
     private static async ValueTask<bool> DisconnectConnectedClientCoreAsync(
