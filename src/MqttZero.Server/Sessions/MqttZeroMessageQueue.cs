@@ -23,7 +23,7 @@ internal sealed class MqttZeroMessageQueue
     {
         get
         {
-            return _count;
+            return Volatile.Read(ref _count);
         }
     }
 

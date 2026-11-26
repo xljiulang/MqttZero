@@ -75,16 +75,15 @@ internal sealed class MqttZeroRouteEpochManager
         MqttZeroRouteEpoch epoch = MqttZeroRouteEpoch.Empty;
         foreach (MqttZeroSessionState session in sessions)
         {
-            lock (session.SyncRoot)
+            MqttZeroSubscription[] subscriptions =
+                session.Subscriptions.Snapshot();
+            for (int index = 0;
+                index < subscriptions.Length;
+                index++)
             {
-                for (int index = 0;
-                    index < session.Subscriptions.Count;
-                    index++)
-                {
-                    epoch = epoch.Add(
-                        session,
-                        session.Subscriptions[index]);
-                }
+                epoch = epoch.Add(
+                    session,
+                    subscriptions[index]);
             }
         }
 

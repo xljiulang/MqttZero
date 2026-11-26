@@ -3,10 +3,10 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 > **Status:** In progress on `refactor/shard-owned-egress-timers`.
-> Tasks 1 through 3 are complete. Session Egress is the sole outbound owner,
-> and every Shard now owns a four-level intrusive timer wheel for KeepAlive,
-> Will, Session Expiry, Message Expiry and Retained Expiry. The global deadline
-> queue and maintenance loop are removed. Next is Task 4.
+> Tasks 1 through 4 are complete. Session management reads now use atomically
+> published lifecycle and subscription snapshots, atomic connection/egress
+> references and atomic queue counters. Snapshot, client management and route
+> epoch reads no longer wait on the Session lock. Next is Task 5.
 
 **Goal:** Make one Session Shard the sole owner of all mutable Session and outbound state, replace the global deadline scanner with per-Shard hierarchical timer wheels, and remove `session.SyncRoot` completely without changing public APIs or MQTT behavior.
 
@@ -355,10 +355,10 @@ git commit -m "perf: add per-shard hierarchical timer wheel"
 
 ### Step 1: Write failing snapshot and management tests
 
-- [ ] Concurrently mutate subscriptions and read `GetSessions`; every returned field set must come from one published lifecycle version.
-- [ ] Concurrently connect, disconnect and call `GetClients`; no disposed connection is dereferenced.
-- [ ] Run 1000 client ID takeovers while management polling; no deadlock, corrupted count or leaked Lease.
-- [ ] Call management APIs from inside an owning Shard and prove no self-wait.
+- [x] Concurrently mutate subscriptions and read `GetSessions`; every returned field set must come from one published lifecycle version.
+- [x] Concurrently connect, disconnect and call `GetClients`; no disposed connection is dereferenced.
+- [x] Run 1000 client ID takeovers while management polling; no deadlock, corrupted count or leaked Lease.
+- [x] Call management APIs from inside an owning Shard and prove no self-wait.
 
 ### Step 2: Verify RED
 
@@ -371,13 +371,13 @@ Expected: current locking or inconsistent snapshot behavior fails at least one n
 
 ### Step 3: Implement immutable publication
 
-- [ ] Replace mutable subscription list with an atomically swapped immutable array.
-- [ ] Publish a new lifecycle snapshot on every connected-state, expiry, clean-start and Will change.
-- [ ] Use volatile references for Connection and Session Egress.
-- [ ] Update queue/Inbound counters atomically at the owning mutation site.
-- [ ] Make `CreateSnapshot`, `CreateClientSnapshot` and `TryGetClient` lock-free.
-- [ ] Build persistence snapshots while on the owning Shard, then await Store calls after the snapshot is copied.
-- [ ] Keep management reads weakly consistent but internally coherent.
+- [x] Replace mutable subscription list with an atomically swapped immutable array.
+- [x] Publish a new lifecycle snapshot on every connected-state, expiry, clean-start and Will change.
+- [x] Use volatile references for Connection and Session Egress.
+- [x] Update queue/Inbound counters atomically at the owning mutation site.
+- [x] Make `CreateSnapshot`, `CreateClientSnapshot` and `TryGetClient` lock-free.
+- [x] Build persistence snapshots while on the owning Shard, then await Store calls after the snapshot is copied.
+- [x] Keep management reads weakly consistent but internally coherent.
 
 ### Step 4: Verify GREEN and allocation
 

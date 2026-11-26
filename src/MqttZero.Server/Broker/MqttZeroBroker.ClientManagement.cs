@@ -27,13 +27,9 @@ public sealed partial class MqttZeroBroker
             return false;
         }
 
-        MqttZeroClientConnection? connection;
-        lock (session.SyncRoot)
-        {
-            connection = session.Connection;
-        }
+        MqttZeroClientConnection? connection = session.Connection;
 
-        if (connection == null)
+        if (connection == null || connection.IsClosed)
         {
             client = null;
             return false;
@@ -47,10 +43,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroSessionState session,
         MqttZeroClientConnection connection)
     {
-        lock (session.SyncRoot)
-        {
-            return ReferenceEquals(session.Connection, connection);
-        }
+        return ReferenceEquals(session.Connection, connection);
     }
 
     internal static MqttZeroClientSnapshot CreateClientSnapshot(
@@ -58,11 +51,6 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection connection)
     {
         EnsureAttached(session, connection);
-        int subscriptionCount;
-        lock (session.SyncRoot)
-        {
-            subscriptionCount = session.Subscriptions.Count;
-        }
 
         return new MqttZeroClientSnapshot
         {
@@ -72,7 +60,7 @@ public sealed partial class MqttZeroBroker
             IsSecure = connection.IsSecure,
             IsWebSocket = connection.IsWebSocket,
             ProtocolVersion = connection.ClientInfo.ProtocolVersion,
-            SubscriptionCount = subscriptionCount,
+            SubscriptionCount = session.Subscriptions.Count,
             Statistics = connection.GetStatistics()
         };
     }
@@ -113,11 +101,8 @@ public sealed partial class MqttZeroBroker
         ArgumentNullException.ThrowIfNull(subscriptions);
         List<MqttZeroSubscribeResult> results = new(subscriptions.Count);
         bool changed = false;
-        List<MqttZeroSubscription> original;
-        lock (session.SyncRoot)
-        {
-            original = [.. session.Subscriptions];
-        }
+        List<MqttZeroSubscription> original =
+            [.. session.Subscriptions.Snapshot()];
 
         List<MqttZeroSubscription> candidate = new(original);
         List<MqttSubscriptionRequest> retainedRequests = [];
@@ -227,11 +212,8 @@ public sealed partial class MqttZeroBroker
         ArgumentNullException.ThrowIfNull(topicFilters);
         List<MqttZeroUnsubscribeResult> results = new(topicFilters.Count);
         bool changed = false;
-        List<MqttZeroSubscription> original;
-        lock (session.SyncRoot)
-        {
-            original = [.. session.Subscriptions];
-        }
+        List<MqttZeroSubscription> original =
+            [.. session.Subscriptions.Snapshot()];
 
         List<MqttZeroSubscription> candidate = new(original);
         foreach (string topicFilter in topicFilters)
@@ -403,18 +385,12 @@ public sealed partial class MqttZeroBroker
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken)
     {
-        MqttZeroSessionEgress? pump;
-        lock (session.SyncRoot)
+        if (!ReferenceEquals(session.Connection, connection))
         {
-            if (!ReferenceEquals(session.Connection, connection))
-            {
-                return false;
-            }
-
-            pump = session.Egress;
-            session.Egress = null;
+            return false;
         }
 
+        MqttZeroSessionEgress? pump = session.TakeEgress();
         await StopEgressAsync(pump).ConfigureAwait(false);
         await connection.CloseAsync(reasonCode, cancellationToken).ConfigureAwait(false);
         return true;
@@ -446,12 +422,10 @@ public sealed partial class MqttZeroBroker
         MqttZeroSessionState session,
         MqttZeroClientConnection connection)
     {
-        lock (session.SyncRoot)
+        if (!ReferenceEquals(session.Connection, connection))
         {
-            if (!ReferenceEquals(session.Connection, connection))
-            {
-                throw new InvalidOperationException("The connected client handle is stale.");
-            }
+            throw new InvalidOperationException(
+                "The connected client handle is stale.");
         }
     }
 }

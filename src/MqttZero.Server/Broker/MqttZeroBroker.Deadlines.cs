@@ -388,8 +388,7 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
-        MqttZeroSessionEgress? pump = session.Egress;
-        session.Egress = null;
+        MqttZeroSessionEgress? pump = session.TakeEgress();
         await StopEgressAsync(pump).ConfigureAwait(false);
         _ = CloseKeepAliveTimeoutConnectionAsync(
             connection,
@@ -433,8 +432,12 @@ public sealed partial class MqttZeroBroker
             session.ShardId).ConfigureAwait(false);
         if (ReferenceEquals(session.WillMessage, will))
         {
-            session.WillMessage = null;
-            session.WillDueAt = null;
+            session.UpdateLifecycle(
+                current => current with
+                {
+                    WillMessage = null,
+                    WillDueAt = null
+                });
         }
 
         Interlocked.Increment(ref _publishedWillCount);
@@ -620,8 +623,7 @@ public sealed partial class MqttZeroBroker
         RemoveSessionDeadlines(session);
         await RemoveSessionSubscriptionsFromRouteAsync(session)
             .ConfigureAwait(false);
-        MqttZeroSessionEgress? pump = session.Egress;
-        session.Egress = null;
+        MqttZeroSessionEgress? pump = session.TakeEgress();
         await StopEgressAsync(pump).ConfigureAwait(false);
         try
         {

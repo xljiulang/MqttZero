@@ -28,15 +28,10 @@ public sealed partial class MqttZeroBroker
         List<MqttZeroClientSnapshot> clients = [];
         foreach (MqttZeroSessionState session in _sessions.Values)
         {
-            MqttZeroClientConnection? connection;
-            int subscriptionCount;
-            lock (session.SyncRoot)
-            {
-                connection = session.Connection;
-                subscriptionCount = session.Subscriptions.Count;
-            }
+            MqttZeroClientConnection? connection =
+                session.Connection;
 
-            if (connection == null)
+            if (connection == null || connection.IsClosed)
             {
                 continue;
             }
@@ -49,7 +44,7 @@ public sealed partial class MqttZeroBroker
                 IsSecure = connection.IsSecure,
                 IsWebSocket = connection.IsWebSocket,
                 ProtocolVersion = connection.ClientInfo.ProtocolVersion,
-                SubscriptionCount = subscriptionCount,
+                SubscriptionCount = session.Subscriptions.Count,
                 Statistics = connection.GetStatistics()
             });
         }
@@ -189,20 +184,15 @@ public sealed partial class MqttZeroBroker
             return false;
         }
 
-        MqttZeroClientConnection? connection;
-        MqttZeroSessionEgress? pump;
-        lock (session.SyncRoot)
-        {
-            connection = session.Connection;
-            pump = session.Egress;
-            session.Egress = null;
-        }
+        MqttZeroClientConnection? connection =
+            session.Connection;
 
-        if (connection == null)
+        if (connection == null || connection.IsClosed)
         {
             return false;
         }
 
+        MqttZeroSessionEgress? pump = session.TakeEgress();
         await StopEgressAsync(pump).ConfigureAwait(false);
         await connection.CloseAsync(reasonCode, cancellationToken).ConfigureAwait(false);
         return true;

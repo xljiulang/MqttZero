@@ -27,40 +27,46 @@ public sealed partial class MqttZeroBroker
             CancellationToken.None).ConfigureAwait(false);
         DateTimeOffset now = _timeProvider.GetUtcNow();
         bool removeSession = false;
-        MqttZeroSessionEgress? pump;
-
-        lock (session.SyncRoot)
+        MqttZeroSessionLifecycleSnapshot lifecycle =
+            session.Lifecycle;
+        if (!ReferenceEquals(
+                lifecycle.Connection,
+                connection))
         {
-            if (!ReferenceEquals(session.Connection, connection))
+            return;
+        }
+
+        MqttZeroSessionEgress? pump = session.TakeEgress();
+        uint expiryInterval = lifecycle.ExpiryInterval;
+        DateTimeOffset? willDueAt = null;
+        MqttZeroWillMessage? willMessage =
+            lifecycle.WillMessage;
+        if (cleanDisconnect || Volatile.Read(ref _stopping) != 0)
+        {
+            willMessage = null;
+        }
+        else if (willMessage != null)
+        {
+            uint delay = willMessage.DelayInterval;
+            if (expiryInterval > 0)
             {
-                return;
+                delay = Math.Min(delay, expiryInterval);
             }
 
-            pump = session.Egress;
-            session.Egress = null;
-            session.Connection = null;
-            session.DisconnectedAt = now;
-            uint expiryInterval = session.ExpiryInterval;
-            if (cleanDisconnect || Volatile.Read(ref _stopping) != 0)
-            {
-                session.WillDueAt = null;
-                session.WillMessage = null;
-            }
-            else if (session.WillMessage != null)
-            {
-                uint delay = session.WillMessage.DelayInterval;
-                if (expiryInterval > 0)
-                {
-                    delay = Math.Min(delay, expiryInterval);
-                }
+            willDueAt = now.AddSeconds(delay);
+        }
 
-                session.WillDueAt = now.AddSeconds(delay);
-            }
-
-            if (expiryInterval == 0 && session.WillDueAt == null)
+        session.UpdateLifecycle(
+            _ => lifecycle with
             {
-                removeSession = true;
-            }
+                Connection = null,
+                DisconnectedAt = now,
+                WillDueAt = willDueAt,
+                WillMessage = willMessage
+            });
+        if (expiryInterval == 0 && willDueAt == null)
+        {
+            removeSession = true;
         }
 
         await RegisterSessionDeadlinesOnShardAsync(
@@ -168,13 +174,17 @@ public sealed partial class MqttZeroBroker
 
     private static bool IsSessionExpired(MqttZeroSessionState session, DateTimeOffset now)
     {
-        if (session.Connection != null || !session.DisconnectedAt.HasValue)
+        MqttZeroSessionLifecycleSnapshot lifecycle =
+            session.Lifecycle;
+        if (lifecycle.Connection != null ||
+            !lifecycle.DisconnectedAt.HasValue)
         {
             return false;
         }
 
-        return session.ExpiryInterval == 0 ||
-            now >= session.DisconnectedAt.Value.AddSeconds(session.ExpiryInterval);
+        return lifecycle.ExpiryInterval == 0 ||
+            now >= lifecycle.DisconnectedAt.Value.AddSeconds(
+                lifecycle.ExpiryInterval);
     }
 
     private uint ClampSessionExpiry(uint requestedExpiry)

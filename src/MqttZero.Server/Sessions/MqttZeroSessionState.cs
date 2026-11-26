@@ -15,6 +15,14 @@ internal sealed class MqttZeroSessionState
     private int _nextPacketIdentifier;
     private MqttZeroTimerNode? _sessionExpiryTimer;
     private MqttZeroTimerNode? _willTimer;
+    private MqttZeroSessionLifecycleSnapshot _lifecycle = new(
+        null,
+        false,
+        0,
+        null,
+        null,
+        null);
+    private MqttZeroSessionEgress? _egress;
 
     public MqttZeroSessionState(string clientId)
         : this(clientId, 1000, 0)
@@ -43,31 +51,171 @@ internal sealed class MqttZeroSessionState
 
     public object SyncRoot { get; } = new();
 
-    public List<MqttZeroSubscription> Subscriptions { get; } = [];
+    public MqttZeroSubscriptionCollection Subscriptions { get; } = new();
 
     public ConcurrentDictionary<object, object?> Items { get; } = new();
 
     public MqttZeroMessageQueue PendingMessages { get; }
 
-    public Dictionary<ushort, MqttZeroQueuedMessage> InflightMessages { get; } = [];
+    public MqttZeroSessionMessageMap<MqttZeroQueuedMessage>
+        InflightMessages
+    { get; } = new();
 
-    public Dictionary<ushort, MqttZeroMessageLease> InboundQos2Messages { get; } = [];
+    public MqttZeroSessionMessageMap<MqttZeroMessageLease>
+        InboundQos2Messages
+    { get; } = new();
 
-    public Dictionary<ushort, MqttReasonCode> RoutedInboundQos2Messages { get; } = [];
+    public MqttZeroSessionMessageMap<MqttReasonCode>
+        RoutedInboundQos2Messages
+    { get; } = new();
 
-    public MqttZeroClientConnection? Connection { get; set; }
+    public MqttZeroClientConnection? Connection
+    {
+        get
+        {
+            return Lifecycle.Connection;
+        }
+        set
+        {
+            UpdateLifecycle(
+                static (current, connection) =>
+                    current with
+                    {
+                        Connection = connection
+                    },
+                value);
+        }
+    }
 
-    public MqttZeroSessionEgress? Egress { get; set; }
+    public MqttZeroSessionEgress? Egress
+    {
+        get
+        {
+            return Volatile.Read(ref _egress);
+        }
+        set
+        {
+            Volatile.Write(ref _egress, value);
+        }
+    }
 
-    public bool CleanStart { get; set; }
+    public bool CleanStart
+    {
+        get
+        {
+            return Lifecycle.CleanStart;
+        }
+        set
+        {
+            UpdateLifecycle(
+                static (current, cleanStart) =>
+                    current with
+                    {
+                        CleanStart = cleanStart
+                    },
+                value);
+        }
+    }
 
-    public uint ExpiryInterval { get; set; }
+    public uint ExpiryInterval
+    {
+        get
+        {
+            return Lifecycle.ExpiryInterval;
+        }
+        set
+        {
+            UpdateLifecycle(
+                static (current, expiryInterval) =>
+                    current with
+                    {
+                        ExpiryInterval = expiryInterval
+                    },
+                value);
+        }
+    }
 
-    public DateTimeOffset? DisconnectedAt { get; set; }
+    public DateTimeOffset? DisconnectedAt
+    {
+        get
+        {
+            return Lifecycle.DisconnectedAt;
+        }
+        set
+        {
+            UpdateLifecycle(
+                static (current, disconnectedAt) =>
+                    current with
+                    {
+                        DisconnectedAt = disconnectedAt
+                    },
+                value);
+        }
+    }
 
-    public MqttZeroWillMessage? WillMessage { get; set; }
+    public MqttZeroWillMessage? WillMessage
+    {
+        get
+        {
+            return Lifecycle.WillMessage;
+        }
+        set
+        {
+            UpdateLifecycle(
+                static (current, willMessage) =>
+                    current with
+                    {
+                        WillMessage = willMessage
+                    },
+                value);
+        }
+    }
 
-    public DateTimeOffset? WillDueAt { get; set; }
+    public DateTimeOffset? WillDueAt
+    {
+        get
+        {
+            return Lifecycle.WillDueAt;
+        }
+        set
+        {
+            UpdateLifecycle(
+                static (current, willDueAt) =>
+                    current with
+                    {
+                        WillDueAt = willDueAt
+                    },
+                value);
+        }
+    }
+
+    internal MqttZeroSessionLifecycleSnapshot Lifecycle
+    {
+        get
+        {
+            return Volatile.Read(ref _lifecycle);
+        }
+    }
+
+    internal MqttZeroSessionEgress? TakeEgress()
+    {
+        return Interlocked.Exchange(ref _egress, null);
+    }
+
+    internal bool TryAttachEgress(
+        MqttZeroClientConnection connection,
+        MqttZeroSessionEgress egress)
+    {
+        if (!ReferenceEquals(Connection, connection))
+        {
+            return false;
+        }
+
+        return Interlocked.CompareExchange(
+            ref _egress,
+            egress,
+            null) == null;
+    }
 
     public ushort GetNextPacketIdentifier()
     {
@@ -141,45 +289,79 @@ internal sealed class MqttZeroSessionState
 
     public MqttZeroSessionSnapshot CreateSnapshot(DateTimeOffset now)
     {
-        int subscriptionCount;
-        int pendingCount;
-        int inflightCount;
-        int inboundQos2Count;
-        bool isConnected;
-        bool cleanStart;
-        uint expiryInterval;
-        DateTimeOffset? expiresAt;
-        MqttZeroWillMessage? willMessage;
-        lock (SyncRoot)
-        {
-            subscriptionCount = Subscriptions.Count;
-            pendingCount = PendingMessages.Count;
-            inflightCount = InflightMessages.Count;
-            inboundQos2Count = InboundQos2Messages.Count;
-            isConnected = Connection != null;
-            cleanStart = CleanStart;
-            expiryInterval = ExpiryInterval;
-            expiresAt = DisconnectedAt.HasValue && ExpiryInterval > 0
-                ? DisconnectedAt.Value.AddSeconds(ExpiryInterval)
+        MqttZeroSessionLifecycleSnapshot lifecycle = Lifecycle;
+        DateTimeOffset? expiresAt =
+            lifecycle.DisconnectedAt.HasValue &&
+            lifecycle.ExpiryInterval > 0
+                ? lifecycle.DisconnectedAt.Value.AddSeconds(
+                    lifecycle.ExpiryInterval)
                 : null;
-            willMessage = WillMessage;
-        }
 
         return new MqttZeroSessionSnapshot
         {
             ClientId = ClientId,
-            IsConnected = isConnected,
-            CleanStart = cleanStart,
+            IsConnected = lifecycle.IsConnected,
+            CleanStart = lifecycle.CleanStart,
             SessionPresent = true,
-            ExpiryIntervalSeconds = expiryInterval,
+            ExpiryIntervalSeconds = lifecycle.ExpiryInterval,
             ExpiresAt = expiresAt,
-            SubscriptionCount = subscriptionCount,
-            PendingMessageCount = pendingCount,
-            InflightMessageCount = inflightCount,
-            InboundQos2MessageCount = inboundQos2Count,
-            HasWill = willMessage != null,
-            WillTopic = willMessage == null ? null : Encoding.UTF8.GetString(willMessage.Topic),
+            SubscriptionCount = Subscriptions.Count,
+            PendingMessageCount = PendingMessages.Count,
+            InflightMessageCount = InflightMessages.Count,
+            InboundQos2MessageCount = InboundQos2Messages.Count,
+            HasWill = lifecycle.WillMessage != null,
+            WillTopic = lifecycle.WillMessage == null
+                ? null
+                : Encoding.UTF8.GetString(
+                    lifecycle.WillMessage.Topic),
             SampledAt = now
         };
+    }
+
+    internal void UpdateLifecycle(
+        Func<
+            MqttZeroSessionLifecycleSnapshot,
+            MqttZeroSessionLifecycleSnapshot> update)
+    {
+        ArgumentNullException.ThrowIfNull(update);
+        while (true)
+        {
+            MqttZeroSessionLifecycleSnapshot current =
+                Volatile.Read(ref _lifecycle);
+            MqttZeroSessionLifecycleSnapshot replacement =
+                update(current);
+            if (ReferenceEquals(
+                    Interlocked.CompareExchange(
+                        ref _lifecycle,
+                        replacement,
+                        current),
+                    current))
+            {
+                return;
+            }
+        }
+    }
+
+    private void UpdateLifecycle<T>(
+        Func<MqttZeroSessionLifecycleSnapshot, T,
+            MqttZeroSessionLifecycleSnapshot> update,
+        T value)
+    {
+        while (true)
+        {
+            MqttZeroSessionLifecycleSnapshot current =
+                Volatile.Read(ref _lifecycle);
+            MqttZeroSessionLifecycleSnapshot replacement =
+                update(current, value);
+            if (ReferenceEquals(
+                    Interlocked.CompareExchange(
+                        ref _lifecycle,
+                        replacement,
+                        current),
+                    current))
+            {
+                return;
+            }
+        }
     }
 }

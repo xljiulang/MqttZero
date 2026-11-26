@@ -920,15 +920,10 @@ public sealed partial class MqttZeroBroker
             ShardSet.GetEgressScheduler(session.ShardId),
             services,
             OnEgressFailure);
-        lock (session.SyncRoot)
+        if (!session.TryAttachEgress(connection, egress))
         {
-            if (session.Egress != null)
-            {
-                throw new InvalidOperationException(
-                    "The MQTT session already has an outbound pump.");
-            }
-
-            session.Egress = egress;
+            throw new InvalidOperationException(
+                "The MQTT session already has an outbound pump.");
         }
 
         connection.AttachEgress(egress);
@@ -941,12 +936,9 @@ public sealed partial class MqttZeroBroker
                 _logger,
                 session.ClientId,
                 exception);
-            lock (session.SyncRoot)
+            if (ReferenceEquals(session.Egress, egress))
             {
-                if (ReferenceEquals(session.Egress, egress))
-                {
-                    session.Egress = null;
-                }
+                session.TakeEgress();
             }
 
             connection.Abort();

@@ -141,14 +141,10 @@ public sealed partial class MqttZeroBroker
 
             foreach (MqttZeroSessionState session in _sessions.Values)
             {
-                MqttZeroClientConnection? connection;
-                MqttZeroSessionEgress? pump;
-                lock (session.SyncRoot)
-                {
-                    connection = session.Connection;
-                    pump = session.Egress;
-                    session.Egress = null;
-                }
+                MqttZeroClientConnection? connection =
+                    session.Connection;
+                MqttZeroSessionEgress? pump =
+                    session.TakeEgress();
 
                 if (pump != null)
                 {
@@ -205,12 +201,8 @@ public sealed partial class MqttZeroBroker
 
             foreach (MqttZeroSessionState session in _sessions.Values)
             {
-                MqttZeroSessionEgress? pump;
-                lock (session.SyncRoot)
-                {
-                    pump = session.Egress;
-                    session.Egress = null;
-                }
+                MqttZeroSessionEgress? pump =
+                    session.TakeEgress();
 
                 await StopEgressAsync(pump).ConfigureAwait(false);
                 ReleaseSessionMessages(session);
@@ -239,13 +231,7 @@ public sealed partial class MqttZeroBroker
     {
         foreach (MqttZeroSessionState session in _sessions.Values)
         {
-            MqttZeroClientConnection? connection;
-            lock (session.SyncRoot)
-            {
-                connection = session.Connection;
-            }
-
-            connection?.Abort();
+            session.Connection?.Abort();
         }
     }
 

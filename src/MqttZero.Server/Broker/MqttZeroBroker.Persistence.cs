@@ -94,24 +94,36 @@ public sealed partial class MqttZeroBroker
 
                 MqttZeroSessionState session = CreateSessionState(
                     persisted.ClientId);
-                session.CleanStart = persisted.CleanStart;
-                session.ExpiryInterval = persisted.ExpiryInterval;
-                session.DisconnectedAt = persisted.DisconnectedAt;
-                session.WillMessage = persisted.Will == null
+                MqttZeroWillMessage? restoredWill =
+                    persisted.Will == null
                     ? null
                     : new MqttZeroWillMessage(persisted.Will);
-                if (session.DisconnectedAt.HasValue &&
-                    session.WillMessage != null)
+                DateTimeOffset? willDueAt = null;
+                if (persisted.DisconnectedAt.HasValue &&
+                    restoredWill != null)
                 {
-                    uint delay = session.WillMessage.DelayInterval;
-                    if (session.ExpiryInterval > 0)
+                    uint delay = restoredWill.DelayInterval;
+                    if (persisted.ExpiryInterval > 0)
                     {
-                        delay = Math.Min(delay, session.ExpiryInterval);
+                        delay = Math.Min(
+                            delay,
+                            persisted.ExpiryInterval);
                     }
 
-                    session.WillDueAt = session.DisconnectedAt.Value.AddSeconds(delay);
+                    willDueAt =
+                        persisted.DisconnectedAt.Value.AddSeconds(
+                            delay);
                 }
 
+                session.UpdateLifecycle(
+                    current => current with
+                    {
+                        CleanStart = persisted.CleanStart,
+                        ExpiryInterval = persisted.ExpiryInterval,
+                        DisconnectedAt = persisted.DisconnectedAt,
+                        WillMessage = restoredWill,
+                        WillDueAt = willDueAt
+                    });
                 bool validSession = true;
                 foreach (MqttZeroPersistedSubscription subscription in persisted.Subscriptions)
                 {
@@ -668,38 +680,35 @@ public sealed partial class MqttZeroBroker
         }
 
         List<MqttZeroPersistedSubscription> subscriptions = [];
-        bool cleanStart;
-        uint expiryInterval;
-        DateTimeOffset? disconnectedAt;
-        MqttZeroPersistedWill? will;
-        lock (session.SyncRoot)
+        MqttZeroSessionLifecycleSnapshot lifecycle =
+            session.Lifecycle;
+        MqttZeroPersistedWill? will =
+            CreatePersistedWill(lifecycle.WillMessage);
+        IReadOnlyList<MqttZeroSubscription> source =
+            candidateSubscriptions ??
+            session.Subscriptions.Snapshot();
+        for (int index = 0; index < source.Count; index++)
         {
-            cleanStart = session.CleanStart;
-            expiryInterval = session.ExpiryInterval;
-            disconnectedAt = session.DisconnectedAt;
-            will = CreatePersistedWill(session.WillMessage);
-            IReadOnlyList<MqttZeroSubscription> source =
-                candidateSubscriptions ?? session.Subscriptions;
-            for (int index = 0; index < source.Count; index++)
+            MqttZeroSubscription subscription = source[index];
+            subscriptions.Add(new MqttZeroPersistedSubscription
             {
-                MqttZeroSubscription subscription = source[index];
-                subscriptions.Add(new MqttZeroPersistedSubscription
-                {
-                    TopicFilter = subscription.TopicFilter,
-                    QualityOfServiceLevel = subscription.QualityOfServiceLevel,
-                    NoLocal = subscription.NoLocal,
-                    RetainAsPublished = subscription.RetainAsPublished,
-                    SubscriptionIdentifier = subscription.SubscriptionIdentifier
-                });
-            }
+                TopicFilter = subscription.TopicFilter,
+                QualityOfServiceLevel =
+                    subscription.QualityOfServiceLevel,
+                NoLocal = subscription.NoLocal,
+                RetainAsPublished =
+                    subscription.RetainAsPublished,
+                SubscriptionIdentifier =
+                    subscription.SubscriptionIdentifier
+            });
         }
 
         MqttZeroPersistedSession persisted = new()
         {
             ClientId = session.ClientId,
-            CleanStart = cleanStart,
-            ExpiryInterval = expiryInterval,
-            DisconnectedAt = disconnectedAt,
+            CleanStart = lifecycle.CleanStart,
+            ExpiryInterval = lifecycle.ExpiryInterval,
+            DisconnectedAt = lifecycle.DisconnectedAt,
             Will = will,
             Subscriptions = subscriptions
         };
@@ -1306,15 +1315,12 @@ public sealed partial class MqttZeroBroker
         CancellationToken cancellationToken)
     {
         await SaveSessionAsync(session, cancellationToken).ConfigureAwait(false);
-        MqttZeroQueuedMessage[] pending;
-        MqttZeroQueuedMessage[] inflight;
-        KeyValuePair<ushort, MqttZeroMessageLease>[] inboundQos2;
-        lock (session.SyncRoot)
-        {
-            pending = [.. session.PendingMessages];
-            inflight = [.. session.InflightMessages.Values];
-            inboundQos2 = [.. session.InboundQos2Messages];
-        }
+        MqttZeroQueuedMessage[] pending =
+            [.. session.PendingMessages];
+        MqttZeroQueuedMessage[] inflight =
+            [.. session.InflightMessages.Values];
+        KeyValuePair<ushort, MqttZeroMessageLease>[] inboundQos2 =
+            [.. session.InboundQos2Messages];
 
         foreach (MqttZeroQueuedMessage message in pending)
         {

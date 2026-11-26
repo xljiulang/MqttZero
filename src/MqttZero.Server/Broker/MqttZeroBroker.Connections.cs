@@ -1185,32 +1185,35 @@ public sealed partial class MqttZeroBroker
             }
 
             SelectConnectionSession(transaction, existing);
-            lock (transaction.Session.SyncRoot)
+            MqttZeroSessionLifecycleSnapshot lifecycle =
+                transaction.Session.Lifecycle;
+            MqttZeroClientConnection? currentConnection =
+                lifecycle.Connection;
+            if (currentConnection != null)
             {
-                MqttZeroClientConnection? currentConnection =
-                    transaction.Session.Connection;
-                if (currentConnection != null)
+                transaction.OldConnection = currentConnection;
+                if (lifecycle.WillMessage != null &&
+                    lifecycle.WillMessage.DelayInterval == 0)
                 {
-                    transaction.OldConnection = currentConnection;
-                    if (transaction.Session.WillMessage != null &&
-                        transaction.Session.WillMessage.DelayInterval == 0)
-                    {
-                        transaction.TakeoverWill =
-                            transaction.Session.WillMessage;
-                    }
+                    transaction.TakeoverWill =
+                        lifecycle.WillMessage;
                 }
-
-                transaction.Session.Connection = transaction.NewConnection;
-                transaction.Session.CleanStart = connectPacket.CleanStart;
-                transaction.Session.ExpiryInterval =
-                    transaction.EffectiveExpiry;
-                transaction.Session.DisconnectedAt = null;
-                transaction.Session.WillDueAt = null;
-                transaction.Session.WillMessage = connectPacket.HasWill
-                    ? new MqttZeroWillMessage(connectPacket)
-                    : null;
             }
 
+            MqttZeroWillMessage? willMessage =
+                connectPacket.HasWill
+                    ? new MqttZeroWillMessage(connectPacket)
+                    : null;
+            transaction.Session.UpdateLifecycle(
+                _ => lifecycle with
+                {
+                    Connection = transaction.NewConnection,
+                    CleanStart = connectPacket.CleanStart,
+                    ExpiryInterval = transaction.EffectiveExpiry,
+                    DisconnectedAt = null,
+                    WillDueAt = null,
+                    WillMessage = willMessage
+                });
             RegisterSessionDeadlines(transaction.Session);
         }
     }
@@ -1226,18 +1229,16 @@ public sealed partial class MqttZeroBroker
         {
             transaction.ReplacedSession = existing;
             transaction.ReplacingSession = true;
-            lock (existing.SyncRoot)
+            MqttZeroSessionLifecycleSnapshot lifecycle =
+                existing.Lifecycle;
+            transaction.OldConnection = lifecycle.Connection;
+            transaction.PreviousPumpSession = existing;
+            transaction.PreviousPump = existing.TakeEgress();
+            if (transaction.OldConnection != null &&
+                lifecycle.WillMessage != null &&
+                lifecycle.WillMessage.DelayInterval == 0)
             {
-                transaction.OldConnection = existing.Connection;
-                transaction.PreviousPumpSession = existing;
-                transaction.PreviousPump = existing.Egress;
-                existing.Egress = null;
-                if (transaction.OldConnection != null &&
-                    existing.WillMessage != null &&
-                    existing.WillMessage.DelayInterval == 0)
-                {
-                    transaction.TakeoverWill = existing.WillMessage;
-                }
+                transaction.TakeoverWill = lifecycle.WillMessage;
             }
 
             transaction.Session = CreateSessionState(transaction.ClientId);
@@ -1260,17 +1261,20 @@ public sealed partial class MqttZeroBroker
 
         transaction.Session = existing;
         transaction.SessionPresent = true;
-        lock (existing.SyncRoot)
-        {
-            transaction.PreviousCleanStart = existing.CleanStart;
-            transaction.PreviousExpiryInterval = existing.ExpiryInterval;
-            transaction.PreviousDisconnectedAt = existing.DisconnectedAt;
-            transaction.PreviousWillMessage = existing.WillMessage;
-            transaction.PreviousWillDueAt = existing.WillDueAt;
-            transaction.PreviousPumpSession = existing;
-            transaction.PreviousPump = existing.Egress;
-            existing.Egress = null;
-        }
+        MqttZeroSessionLifecycleSnapshot restoreLifecycle =
+            existing.Lifecycle;
+        transaction.PreviousCleanStart =
+            restoreLifecycle.CleanStart;
+        transaction.PreviousExpiryInterval =
+            restoreLifecycle.ExpiryInterval;
+        transaction.PreviousDisconnectedAt =
+            restoreLifecycle.DisconnectedAt;
+        transaction.PreviousWillMessage =
+            restoreLifecycle.WillMessage;
+        transaction.PreviousWillDueAt =
+            restoreLifecycle.WillDueAt;
+        transaction.PreviousPumpSession = existing;
+        transaction.PreviousPump = existing.TakeEgress();
     }
 
     private async ValueTask PersistSessionAsync(
@@ -1572,10 +1576,11 @@ public sealed partial class MqttZeroBroker
             }
         }
 
-        lock (replacedSession.SyncRoot)
-        {
-            replacedSession.Connection = restore.OldConnection;
-        }
+        replacedSession.UpdateLifecycle(
+            current => current with
+            {
+                Connection = restore.OldConnection
+            });
 
         if (registerDeadlines)
         {
@@ -1652,15 +1657,16 @@ public sealed partial class MqttZeroBroker
         MqttZeroSessionRestoreState restore,
         bool persistRestoredSession)
     {
-        lock (session.SyncRoot)
-        {
-            session.Connection = restore.OldConnection;
-            session.CleanStart = restore.PreviousCleanStart;
-            session.ExpiryInterval = restore.PreviousExpiryInterval;
-            session.DisconnectedAt = restore.PreviousDisconnectedAt;
-            session.WillMessage = restore.PreviousWillMessage;
-            session.WillDueAt = restore.PreviousWillDueAt;
-        }
+        session.UpdateLifecycle(
+            current => current with
+            {
+                Connection = restore.OldConnection,
+                CleanStart = restore.PreviousCleanStart,
+                ExpiryInterval = restore.PreviousExpiryInterval,
+                DisconnectedAt = restore.PreviousDisconnectedAt,
+                WillMessage = restore.PreviousWillMessage,
+                WillDueAt = restore.PreviousWillDueAt
+            });
 
         RestoreSessionEgress(
             restore.PreviousPumpSession,
@@ -1699,15 +1705,9 @@ public sealed partial class MqttZeroBroker
 
         if (!pumpStopped && pump != null)
         {
-            lock (session.SyncRoot)
+            if (!session.TryAttachEgress(connection, pump))
             {
-                if (!ReferenceEquals(session.Connection, connection) ||
-                    session.Egress != null)
-                {
-                    return;
-                }
-
-                session.Egress = pump;
+                return;
             }
 
             pump.Signal();
