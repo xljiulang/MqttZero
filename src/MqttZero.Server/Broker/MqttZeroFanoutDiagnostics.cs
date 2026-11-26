@@ -43,6 +43,7 @@ internal sealed class MqttZeroFanoutDiagnostics
     private long _totalPublishEncodeTicks;
     private long _totalPublishWriteTicks;
     private long _sessionLockWaitCount;
+    private long _shardOwnershipViolationCount;
     private long _totalSessionLockWaitTicks;
 
     public MqttZeroFanoutDiagnostics()
@@ -107,7 +108,8 @@ internal sealed class MqttZeroFanoutDiagnostics
             Interlocked.Read(ref _maxPublishEncodeTicks),
             Interlocked.Read(ref _totalPublishWriteTicks),
             Interlocked.Read(ref _maxPublishWriteTicks),
-            Interlocked.Read(ref _fanoutFailureCount));
+            Interlocked.Read(ref _fanoutFailureCount),
+            Interlocked.Read(ref _shardOwnershipViolationCount));
     }
 
     public void RecordEgressDrain()
@@ -291,6 +293,14 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    public void RecordShardOwnershipViolation()
+    {
+        if (_enabled)
+        {
+            Interlocked.Increment(ref _shardOwnershipViolationCount);
+        }
+    }
+
     public void RecordPendingQueueDepth(int depth)
     {
         if (!_enabled)
@@ -359,6 +369,7 @@ internal sealed class MqttZeroFanoutDiagnostics
         Interlocked.Exchange(ref _totalPublishWriteTicks, 0);
         Interlocked.Exchange(ref _maxPublishWriteTicks, 0);
         Interlocked.Exchange(ref _fanoutFailureCount, 0);
+        Interlocked.Exchange(ref _shardOwnershipViolationCount, 0);
     }
 
     public void RecordPublish(

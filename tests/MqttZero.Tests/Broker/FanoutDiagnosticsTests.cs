@@ -121,6 +121,18 @@ public sealed class FanoutDiagnosticsTests
     }
 
     [Fact]
+    public void SnapshotCountsShardOwnershipViolations()
+    {
+        MqttZeroFanoutDiagnostics diagnostics = new(enabled: true);
+
+        diagnostics.RecordShardOwnershipViolation();
+
+        Assert.Equal(
+            1,
+            diagnostics.GetSnapshot().ShardOwnershipViolationCount);
+    }
+
+    [Fact]
     public void ResetClearsAllDiagnostics()
     {
         MqttZeroFanoutDiagnostics diagnostics = new(enabled: true);
@@ -138,6 +150,7 @@ public sealed class FanoutDiagnosticsTests
         diagnostics.RecordFanoutSchedulerPass(8);
         diagnostics.RecordFanoutSchedulerFailure();
         diagnostics.RecordFanoutFailure();
+        diagnostics.RecordShardOwnershipViolation();
 
         diagnostics.Reset();
         MqttZeroFanoutDiagnosticsSnapshot snapshot =
@@ -157,5 +170,6 @@ public sealed class FanoutDiagnosticsTests
         Assert.Equal(0, snapshot.FanoutSchedulerFailureCount);
         Assert.Equal(0, snapshot.FanoutFailureCount);
         Assert.Equal(0, snapshot.MaxFanoutSchedulerWaitMicroseconds);
+        Assert.Equal(0, snapshot.ShardOwnershipViolationCount);
     }
 }

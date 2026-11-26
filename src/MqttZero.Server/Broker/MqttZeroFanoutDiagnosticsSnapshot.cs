@@ -38,4 +38,5 @@ internal sealed record MqttZeroFanoutDiagnosticsSnapshot(
     long MaxPublishEncodeTicks,
     long TotalPublishWriteTicks,
     long MaxPublishWriteTicks,
-    long FanoutFailureCount);
+    long FanoutFailureCount,
+    long ShardOwnershipViolationCount);
