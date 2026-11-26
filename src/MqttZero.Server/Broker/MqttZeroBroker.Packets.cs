@@ -170,68 +170,23 @@ public sealed partial class MqttZeroBroker
         for (int index = 0; index < packet.Subscriptions.Count; index++)
         {
             MqttSubscriptionRequest request = packet.Subscriptions[index];
-            MqttZeroSubscribeContext context = new()
+            MqttZeroSubscriptionDecision decision =
+                await EvaluateSubscriptionAsync(
+                    connection,
+                    request,
+                    packet.SubscriptionIdentifier,
+                    candidate,
+                    cancellationToken).ConfigureAwait(false);
+            if (decision.CloseConnection)
             {
-                ConnectedClient = connection.ConnectedClient,
-                TopicFilter = request.TopicFilter,
-                QualityOfServiceLevel = request.QualityOfServiceLevel,
-                NoLocal = request.NoLocal,
-                RetainAsPublished = request.RetainAsPublished,
-                RetainHandling = request.RetainHandling
-            };
-            MqttZeroInterceptionResult interception =
-                await RunSubscribeInterceptorsAsync(context, cancellationToken)
+                await connection.CloseAsync(decision.ReasonCode, cancellationToken)
                     .ConfigureAwait(false);
-
-            if (interception == MqttZeroInterceptionResult.CloseConnection)
-            {
-                await connection.CloseAsync(context.ReasonCode, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
-            if (interception == MqttZeroInterceptionResult.Consume)
-            {
-                reasonCodes[index] = (byte)context.ReasonCode;
-                continue;
-            }
-
-            byte[] topicFilter = request.TopicFilter.ToArray();
-            int existingIndex = candidate.FindIndex(
-                subscription => subscription.TopicFilter
-                    .AsSpan()
-                    .SequenceEqual(topicFilter));
-            if (existingIndex < 0 &&
-                candidate.Count >= _options.MaxSubscriptionsPerSession)
-            {
-                reasonCodes[index] = (byte)MqttReasonCode.QuotaExceeded;
-                continue;
-            }
-
-            existed[index] = existingIndex >= 0;
-            MqttZeroSubscription subscription = new(
-                topicFilter,
-                request.QualityOfServiceLevel,
-                request.NoLocal,
-                request.RetainAsPublished,
-                packet.SubscriptionIdentifier);
-            if (existingIndex >= 0)
-            {
-                candidate[existingIndex] = subscription;
-            }
-            else
-            {
-                candidate.Add(subscription);
-            }
-
-            reasonCodes[index] = request.QualityOfServiceLevel switch
-            {
-                MqttQualityOfServiceLevel.ExactlyOnce =>
-                    (byte)MqttReasonCode.GrantedQos2,
-                MqttQualityOfServiceLevel.AtLeastOnce =>
-                    (byte)MqttReasonCode.GrantedQos1,
-                _ => (byte)MqttReasonCode.Success
-            };
-            changed = true;
+            reasonCodes[index] = (byte)decision.ReasonCode;
+            existed[index] = decision.Existed;
+            changed |= decision.Outcome == MqttZeroSubscriptionOutcome.Subscribed;
         }
 
         if (changed)
@@ -251,102 +206,19 @@ public sealed partial class MqttZeroBroker
             },
             cancellationToken).ConfigureAwait(false);
 
-        List<MqttZeroRetainedMessage> retainedMessages = [];
         for (int index = 0; index < packet.Subscriptions.Count; index++)
         {
             MqttSubscriptionRequest request = packet.Subscriptions[index];
-            if (request.RetainHandling == MqttRetainHandling.DoNotSendOnSubscribe ||
-                (request.RetainHandling ==
-                    MqttRetainHandling.SendAtSubscribeIfNewSubscriptionOnly &&
-                    existed[index]) ||
-                request.TopicFilter.IsEmpty)
+            if (!ShouldDeliverRetained(request, existed[index]))
             {
                 continue;
             }
 
-            byte[] filter = request.TopicFilter.ToArray();
-            if (filter.AsSpan().StartsWith("$share/"u8))
-            {
-                continue;
-            }
-
-            retainedMessages.Clear();
-            MatchRetainedMessages(filter, retainedMessages);
-            try
-            {
-                DateTimeOffset now = _timeProvider.GetUtcNow();
-                for (int retainedIndex = 0;
-                    retainedIndex < retainedMessages.Count;
-                    retainedIndex++)
-                {
-                    MqttZeroRetainedMessage retainedMessage =
-                        retainedMessages[retainedIndex];
-                    if (retainedMessage.ExpiresAt.HasValue &&
-                        retainedMessage.ExpiresAt.Value <= now)
-                    {
-                        continue;
-                    }
-
-                    MqttQualityOfServiceLevel qos =
-                        (MqttQualityOfServiceLevel)Math.Min(
-                            (byte)retainedMessage.QualityOfServiceLevel,
-                            (byte)request.QualityOfServiceLevel);
-                    ReadOnlySequence<byte> retainedProperties =
-                        retainedMessage.Lease.Properties.Length == 0
-                            ? ReadOnlySequence<byte>.Empty
-                            : new ReadOnlySequence<byte>(
-                                retainedMessage.Lease.Properties);
-                    if (!MqttPublishPropertiesCodec.TryDecode(
-                            retainedProperties,
-                            out MqttPublishProperties properties,
-                            out _,
-                            out _))
-                    {
-                        MqttZeroBrokerLogging.LogInvalidRetainedProperties(
-                            _logger,
-                            Encoding.UTF8.GetString(
-                                retainedMessage.Topic.Span));
-                        continue;
-                    }
-
-                    properties = new MqttPublishProperties
-                    {
-                        PayloadFormatIndicator =
-                            properties.PayloadFormatIndicator,
-                        MessageExpiryInterval =
-                            GetRemainingMessageExpiry(
-                                retainedMessage.ExpiresAt,
-                                now),
-                        ContentType = properties.ContentType,
-                        ResponseTopic = properties.ResponseTopic,
-                        CorrelationData = properties.CorrelationData,
-                        UserProperties = properties.UserProperties
-                    };
-                    MqttPublishPacket retainedPacket = new()
-                    {
-                        TopicName = new ReadOnlySequence<byte>(
-                            retainedMessage.Topic),
-                        Payload = new ReadOnlySequence<byte>(
-                            retainedMessage.Payload),
-                        Properties = properties,
-                        QualityOfServiceLevel = qos,
-                        Retain = true,
-                        SubscriptionIdentifier =
-                            packet.SubscriptionIdentifier
-                    };
-                    await DeliverAsync(
-                        session,
-                        retainedPacket,
-                        qos,
-                        true,
-                        packet.SubscriptionIdentifier,
-                        cancellationToken).ConfigureAwait(false);
-                }
-            }
-            finally
-            {
-                ReleaseRetainedMessages(retainedMessages);
-            }
+            await DeliverRetainedForSubscriptionAsync(
+                session,
+                request,
+                packet.SubscriptionIdentifier,
+                cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -367,42 +239,21 @@ public sealed partial class MqttZeroBroker
         List<MqttZeroSubscription> candidate = new(original);
         for (int index = 0; index < packet.TopicFilters.Count; index++)
         {
-            byte[] topicFilter = packet.TopicFilters[index].ToArray();
-            MqttZeroUnsubscribeContext context = new()
+            MqttZeroUnsubscriptionDecision decision =
+                await EvaluateUnsubscriptionAsync(
+                    connection,
+                    packet.TopicFilters[index],
+                    candidate,
+                    cancellationToken).ConfigureAwait(false);
+            if (decision.CloseConnection)
             {
-                ConnectedClient = connection.ConnectedClient,
-                TopicFilter = new ReadOnlySequence<byte>(topicFilter)
-            };
-            MqttZeroInterceptionResult interception =
-                await RunUnsubscribeInterceptorsAsync(context, cancellationToken)
+                await connection.CloseAsync(decision.ReasonCode, cancellationToken)
                     .ConfigureAwait(false);
-
-            if (interception == MqttZeroInterceptionResult.CloseConnection)
-            {
-                await connection.CloseAsync(context.ReasonCode, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
-            if (interception == MqttZeroInterceptionResult.Consume)
-            {
-                reasonCodes[index] = (byte)context.ReasonCode;
-                continue;
-            }
-
-            int existingIndex = candidate.FindIndex(
-                subscription => subscription.TopicFilter
-                    .AsSpan()
-                    .SequenceEqual(topicFilter));
-            bool removed = existingIndex >= 0;
-            if (removed)
-            {
-                candidate.RemoveAt(existingIndex);
-                changed = true;
-            }
-
-            reasonCodes[index] = removed
-                ? (byte)MqttReasonCode.Success
-                : (byte)MqttReasonCode.NoSubscriptionExisted;
+            reasonCodes[index] = (byte)decision.ReasonCode;
+            changed |= decision.Changed;
         }
 
         if (changed)
