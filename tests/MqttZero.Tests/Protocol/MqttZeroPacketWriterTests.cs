@@ -5,25 +5,6 @@ namespace MqttZero.Tests.Protocol
 {
     public sealed class MqttZeroPacketWriterTests
     {
-        [Theory]
-        [InlineData(0U, 1)]
-        [InlineData(127U, 1)]
-        [InlineData(128U, 2)]
-        [InlineData(16_383U, 2)]
-        [InlineData(16_384U, 3)]
-        [InlineData(2_097_151U, 3)]
-        [InlineData(2_097_152U, 4)]
-        public void VariableByteIntegerUsesExpectedLength(uint value, int expectedLength)
-        {
-            Span<byte> destination = stackalloc byte[4];
-
-            int written = MqttZeroPacketWriter.WriteVariableByteInteger(
-                destination,
-                value);
-
-            Assert.Equal(expectedLength, written);
-        }
-
         [Fact]
         public void WriterSupportsPrimitivesBytesAndReset()
         {

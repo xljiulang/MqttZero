@@ -691,9 +691,9 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             {
                 Span<byte> fixedHeader = _writer.GetSpan(5);
                 fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.ConnAck);
-                int lengthBytes = MqttZeroPacketWriter.WriteVariableByteInteger(
+                int lengthBytes = MqttZeroWireFormat.WriteVariableByteInteger(
                     fixedHeader[1..],
-                    (uint)size.BodyLength);
+                    size.BodyLength);
                 _writer.Advance(1 + lengthBytes);
                 Span<byte> acknowledgeHeader = _writer.GetSpan(2);
                 acknowledgeHeader[0] = packet.SessionPresent ? (byte)1 : (byte)0;
@@ -770,9 +770,9 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             {
                 Span<byte> fixedHeader = _writer.GetSpan(5);
                 fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.Disconnect);
-                int lengthBytes = MqttZeroPacketWriter.WriteVariableByteInteger(
+                int lengthBytes = MqttZeroWireFormat.WriteVariableByteInteger(
                     fixedHeader[1..],
-                    (uint)size.BodyLength);
+                    size.BodyLength);
                 _writer.Advance(1 + lengthBytes);
                 if (includeDetail)
                 {
@@ -1158,11 +1158,6 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         catch (InvalidOperationException)
         {
         }
-    }
-
-    private static int GetVariableByteIntegerSize(long value)
-    {
-        return MqttZeroWireFormat.GetVariableByteIntegerSize(value);
     }
 
     private MqttZeroEgressControlFrame? TryRentEgressControlFrame(

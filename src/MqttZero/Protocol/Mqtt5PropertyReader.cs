@@ -65,7 +65,7 @@ internal static class Mqtt5PropertyReader
                     break;
                 case ReceiveMaximum:
                     if (hasReceiveMaximum ||
-                        !TryReadUInt16(ref reader, out ushort receiveMaximum) ||
+                        !MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort receiveMaximum) ||
                         receiveMaximum == 0)
                     {
                         return false;
@@ -87,7 +87,7 @@ internal static class Mqtt5PropertyReader
                     break;
                 case TopicAliasMaximum:
                     if (hasTopicAliasMaximum ||
-                        !TryReadUInt16(ref reader, out ushort topicAliasMaximum))
+                        !MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort topicAliasMaximum))
                     {
                         return false;
                     }
@@ -224,7 +224,7 @@ internal static class Mqtt5PropertyReader
             {
                 case TopicAliasMaximum:
                     if (hasTopicAliasMaximum ||
-                        !TryReadUInt16(ref reader, out ushort topicAliasMaximum))
+                        !MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort topicAliasMaximum))
                     {
                         return false;
                     }
@@ -234,7 +234,7 @@ internal static class Mqtt5PropertyReader
                     break;
                 case ReceiveMaximum:
                     if (hasReceiveMaximum ||
-                        !TryReadUInt16(ref reader, out ushort receiveMaximum) ||
+                        !MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort receiveMaximum) ||
                         receiveMaximum == 0)
                     {
                         return false;
@@ -328,7 +328,7 @@ internal static class Mqtt5PropertyReader
                     break;
                 case ServerKeepAlive:
                     if (hasServerKeepAlive ||
-                        !TryReadUInt16(ref reader, out ushort serverKeepAlive))
+                        !MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort serverKeepAlive))
                     {
                         return false;
                     }
@@ -435,7 +435,7 @@ internal static class Mqtt5PropertyReader
             if (identifier == SubscriptionIdentifier)
             {
                 if (packet.SubscriptionIdentifier.HasValue ||
-                    !TryReadVariableByteInteger(ref reader, out int subscriptionIdentifier) ||
+                    !MqttZeroWireFormat.TryReadVariableByteInteger(ref reader, out int subscriptionIdentifier) ||
                     subscriptionIdentifier == 0)
                 {
                     return false;
@@ -749,7 +749,7 @@ internal static class Mqtt5PropertyReader
                     correlationData = readCorrelationData;
                     break;
                 case SubscriptionIdentifier when !isWill:
-                    if (!TryReadVariableByteInteger(
+                    if (!MqttZeroWireFormat.TryReadVariableByteInteger(
                             ref reader,
                             out int subscriptionIdentifier) ||
                         subscriptionIdentifier == 0)
@@ -764,7 +764,7 @@ internal static class Mqtt5PropertyReader
                     break;
                 case TopicAlias when !isWill:
                     if (topicAlias.HasValue ||
-                        !TryReadUInt16(ref reader, out ushort readTopicAlias) ||
+                        !MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort readTopicAlias) ||
                         readTopicAlias == 0)
                     {
                         publishProperties = MqttPublishProperties.Empty;
@@ -856,17 +856,12 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
-    private static bool TrySkipBinary(ref SequenceReader<byte> reader)
-    {
-        return MqttZeroWireFormat.TrySkipBinary(ref reader);
-    }
-
     private static bool TryReadBinary(
         ref SequenceReader<byte> reader,
         out ReadOnlyMemory<byte> value)
     {
         value = ReadOnlyMemory<byte>.Empty;
-        if (!TryReadUInt16(ref reader, out ushort length) ||
+        if (!MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort length) ||
             reader.Remaining < length)
         {
             return false;
@@ -881,12 +876,12 @@ internal static class Mqtt5PropertyReader
 
     private static bool TrySkipUtf8(ref SequenceReader<byte> reader)
     {
-        return TrySkipBinary(ref reader);
+        return MqttZeroWireFormat.TrySkipBinary(ref reader);
     }
 
     private static bool TrySkipValidatedUtf8(ref SequenceReader<byte> reader)
     {
-        if (!TryReadUInt16(ref reader, out ushort length) ||
+        if (!MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort length) ||
             reader.Remaining < length)
         {
             return false;
@@ -910,7 +905,7 @@ internal static class Mqtt5PropertyReader
         bool isTopicName = false)
     {
         value = null;
-        if (!TryReadUInt16(ref reader, out ushort length) ||
+        if (!MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort length) ||
             reader.Remaining < length)
         {
             return false;
@@ -936,11 +931,6 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
-    private static bool TryReadUInt16(ref SequenceReader<byte> reader, out ushort value)
-    {
-        return MqttZeroWireFormat.TryReadUInt16(ref reader, out value);
-    }
-
     private static bool TryReadUInt32(ref SequenceReader<byte> reader, out uint value)
     {
         value = 0;
@@ -956,8 +946,4 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
-    private static bool TryReadVariableByteInteger(ref SequenceReader<byte> reader, out int value)
-    {
-        return MqttZeroWireFormat.TryReadVariableByteInteger(ref reader, out value);
-    }
 }

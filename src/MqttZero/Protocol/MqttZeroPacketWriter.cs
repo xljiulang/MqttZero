@@ -87,7 +87,9 @@ internal sealed class MqttZeroPacketWriter : IBufferWriter<byte>
     public void WriteVariableByteInteger(uint value)
     {
         Span<byte> destination = GetSpan(4);
-        int count = WriteVariableByteInteger(destination, value);
+        int count = MqttZeroWireFormat.WriteVariableByteInteger(
+            destination,
+            (int)value);
         Advance(count);
     }
 
@@ -96,11 +98,6 @@ internal sealed class MqttZeroPacketWriter : IBufferWriter<byte>
         Span<byte> destination = GetSpan(value.Length);
         value.CopyTo(destination);
         Advance(value.Length);
-    }
-
-    public static int WriteVariableByteInteger(Span<byte> destination, uint value)
-    {
-        return MqttZeroWireFormat.WriteVariableByteInteger(destination, (int)value);
     }
 
     private void EnsureCapacity(int required)

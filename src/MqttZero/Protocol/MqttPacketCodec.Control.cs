@@ -27,7 +27,7 @@ public static partial class MqttPacketCodec
 
         MqttPacketType packetType = (MqttPacketType)(firstByte >> 4);
         if (!IsAcknowledgementPacketType(packetType) ||
-            !TryReadVariableByteInteger(ref reader, out int remainingLength) ||
+            !MqttZeroWireFormat.TryReadVariableByteInteger(ref reader, out int remainingLength) ||
             remainingLength < 0 ||
             reader.Remaining < remainingLength)
         {
@@ -36,7 +36,7 @@ public static partial class MqttPacketCodec
 
         ReadOnlySequence<byte> body = sequence.Slice(reader.Position, remainingLength);
         SequenceReader<byte> bodyReader = new(body);
-        if (!TryReadUInt16(ref bodyReader, out ushort packetIdentifier) ||
+        if (!MqttZeroWireFormat.TryReadUInt16(ref bodyReader, out ushort packetIdentifier) ||
             packetIdentifier == 0)
         {
             return false;
@@ -260,7 +260,7 @@ public static partial class MqttPacketCodec
         reasonCode = MqttReasonCode.Success;
         reasonString = null;
         userProperties = Array.Empty<MqttUserProperty>();
-        if (!TryReadUInt16(ref reader, out packetIdentifier))
+        if (!MqttZeroWireFormat.TryReadUInt16(ref reader, out packetIdentifier))
         {
             return false;
         }
@@ -322,12 +322,12 @@ public static partial class MqttPacketCodec
         bool includeReason = reasonCode != MqttReasonCode.Success || propertiesLength > 0;
         int bodyLength = includeReason
             ? 3 +
-                GetVariableByteIntegerSize(propertiesLength) +
+                MqttZeroWireFormat.GetVariableByteIntegerSize(propertiesLength) +
                 propertiesLength
             : 2;
         Span<byte> fixedHeader = writer.GetSpan(5);
         fixedHeader[0] = firstByte;
-        int lengthBytes = WriteVariableByteInteger(fixedHeader[1..], bodyLength);
+        int lengthBytes = MqttZeroWireFormat.WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(1 + lengthBytes);
         WriteUInt16(writer, packetIdentifier);
         if (includeReason)
@@ -412,12 +412,12 @@ public static partial class MqttPacketCodec
         bool includeReason = packet.ReasonCode != MqttReasonCode.Success ||
             propertiesLength > 0;
         int bodyLength = includeReason
-            ? 3 + GetVariableByteIntegerSize(propertiesLength) + propertiesLength
+            ? 3 + MqttZeroWireFormat.GetVariableByteIntegerSize(propertiesLength) + propertiesLength
             : 2;
 
         Span<byte> fixedHeader = writer.GetSpan(1 + 4);
         fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.PubAck);
-        int lengthBytes = WriteVariableByteInteger(fixedHeader[1..], bodyLength);
+        int lengthBytes = MqttZeroWireFormat.WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(1 + lengthBytes);
         WriteUInt16(writer, packet.PacketIdentifier);
 
@@ -451,12 +451,12 @@ public static partial class MqttPacketCodec
             packet.ReasonCode != MqttReasonCode.Success ||
             propertiesLength > 0;
         int bodyLength = includeDetail
-            ? 1 + GetVariableByteIntegerSize(propertiesLength) + propertiesLength
+            ? 1 + MqttZeroWireFormat.GetVariableByteIntegerSize(propertiesLength) + propertiesLength
             : 0;
 
         Span<byte> fixedHeader = writer.GetSpan(1 + 4);
         fixedHeader[0] = MqttPacketHeader.GetFirstByte(MqttPacketType.Disconnect);
-        int lengthBytes = WriteVariableByteInteger(fixedHeader[1..], bodyLength);
+        int lengthBytes = MqttZeroWireFormat.WriteVariableByteInteger(fixedHeader[1..], bodyLength);
         writer.Advance(1 + lengthBytes);
 
         if (includeDetail)
