@@ -6,67 +6,67 @@ namespace MqttZero.Server.Sessions;
 public sealed class MqttZeroSessionSnapshot
 {
     /// <summary>
-    /// Gets the client identifier.
+    /// 获取客户端标识。
     /// </summary>
     public required string ClientId { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether a network connection is attached.
+    /// 获取是否已挂接网络连接。
     /// </summary>
     public bool IsConnected { get; init; }
 
     /// <summary>
-    /// Gets the latest Clean Start flag.
+    /// 获取最近一次的清理会话标志。
     /// </summary>
     public bool CleanStart { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether the session can be restored.
+    /// 获取该会话是否可恢复。
     /// </summary>
     public bool SessionPresent { get; init; }
 
     /// <summary>
-    /// Gets the configured session expiry interval in seconds.
+    /// 获取配置的会话过期秒数。
     /// </summary>
     public uint ExpiryIntervalSeconds { get; init; }
 
     /// <summary>
-    /// Gets the next session expiry time when disconnected.
+    /// 获取断开状态下的下一次会话过期时间。
     /// </summary>
     public DateTimeOffset? ExpiresAt { get; init; }
 
     /// <summary>
-    /// Gets the subscription count.
+    /// 获取订阅数量。
     /// </summary>
     public int SubscriptionCount { get; init; }
 
     /// <summary>
-    /// Gets the pending message count.
+    /// 获取待发送消息数量。
     /// </summary>
     public int PendingMessageCount { get; init; }
 
     /// <summary>
-    /// Gets the in-flight QoS 1 and QoS 2 message count.
+    /// 获取在途的 QoS 1 与 QoS 2 消息数量。
     /// </summary>
     public int InflightMessageCount { get; init; }
 
     /// <summary>
-    /// Gets the inbound QoS 2 message count awaiting PUBREL.
+    /// 获取等待 PUBREL 的入站 QoS 2 消息数量。
     /// </summary>
     public int InboundQos2MessageCount { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether the session stores a will message.
+    /// 获取该会话是否保存了遗嘱消息。
     /// </summary>
     public bool HasWill { get; init; }
 
     /// <summary>
-    /// Gets the will topic when a will message is stored.
+    /// 获取遗嘱主题；仅在保存了遗嘱消息时有值。
     /// </summary>
     public string? WillTopic { get; init; }
 
     /// <summary>
-    /// Gets the time at which this snapshot was sampled.
+    /// 获取该快照的采样时间。
     /// </summary>
     public DateTimeOffset SampledAt { get; init; }
 }

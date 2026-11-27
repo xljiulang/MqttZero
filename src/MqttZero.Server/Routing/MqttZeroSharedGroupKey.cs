@@ -26,7 +26,7 @@ internal readonly struct MqttZeroSharedGroupKey :
     }
 
     /// <summary>
-    /// Creates the key of one shared subscription.
+    /// 创建共享订阅的键。
     /// </summary>
     /// <param name="subscription">The shared subscription.</param>
     /// <returns>The shared group key.</returns>

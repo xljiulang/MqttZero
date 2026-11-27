@@ -303,7 +303,7 @@ public sealed partial class MqttZeroBroker
     }
 
     /// <summary>
-    /// 调度AfterTick。
+    /// 调度After推进一次时间轮。
     /// </summary>
     /// <param name="node">节点。</param>
     /// <param name="now">当前时间。</param>

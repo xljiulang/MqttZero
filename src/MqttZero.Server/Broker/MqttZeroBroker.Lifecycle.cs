@@ -20,7 +20,7 @@ namespace MqttZero.Server.Broker;
 public sealed partial class MqttZeroBroker
 {
     /// <summary>
-    /// Starts the broker and maintenance scheduler.
+    /// 启动 Broker 与维护调度器。
     /// </summary>
     /// <param name="cancellationToken">A token that cancels startup.</param>
     /// <returns>A task representing startup.</returns>

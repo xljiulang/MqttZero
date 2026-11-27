@@ -98,7 +98,7 @@ internal sealed class MqttZeroSubscription
     public byte[] MatchFilter { get; }
 
     /// <summary>
-    /// Gets the shared group name when this is a shared subscription.
+    /// 获取共享组名称；非共享订阅时为 null。
     /// </summary>
     /// <param name="sharedGroup">The shared group name when shared.</param>
     /// <returns><see langword="true"/> when the subscription is shared.</returns>

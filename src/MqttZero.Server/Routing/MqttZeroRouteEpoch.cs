@@ -115,7 +115,7 @@ internal sealed class MqttZeroRouteEpoch
     }
 
     /// <summary>
-    /// Matches a topic against this epoch and collects delivery candidates.
+    /// 用该路由快照匹配主题并收集投递候选。
     /// </summary>
     /// <param name="topic">The published topic.</param>
     /// <param name="sender">The publishing session, or null for server-originated messages.</param>

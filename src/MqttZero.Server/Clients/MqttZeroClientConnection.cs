@@ -205,8 +205,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     public MqttReasonCode? CloseReasonCode { get; private set; }
 
     /// <summary>
-    /// Gets the UTC time of the last received packet. The underlying value is
-    /// stored as one tick value so readers never observe a torn timestamp.
+    /// 获取最后一次收到报文的 UTC 时间。底层以单个 tick 值存储，读取方不会读到被撕裂的时间戳。
     /// </summary>
     public DateTimeOffset LastPacketReceivedAt
     {
@@ -1227,10 +1226,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     }
 
     /// <summary>
-    /// Acquires the write gate with a bounded wait for writers that run off
-    /// the session shard. A gate held for longer than the timeout means the
-    /// peer stopped reading, so the connection is aborted instead of letting
-    /// the shard wait behind it.
+    /// 以限时方式获取写门，供不在会话分片上的写入方使用。持门超过超时说明对端已停止读取，
+    /// 此时直接中止连接，避免整个分片排在它后面等待。
     /// </summary>
     private async ValueTask<MqttZeroWriteLease?> TryEnterWriteAsync(
         CancellationToken cancellationToken)

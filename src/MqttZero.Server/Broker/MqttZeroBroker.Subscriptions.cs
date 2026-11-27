@@ -91,7 +91,7 @@ public sealed partial class MqttZeroBroker
     }
 
     /// <summary>
-    /// EvaluateUnsubscription。
+    /// 评估一次退订请求。
     /// </summary>
     /// <param name="connection">连接。</param>
     /// <param name="encodedFilter">encoded过滤器。</param>
@@ -134,8 +134,7 @@ public sealed partial class MqttZeroBroker
     }
 
     /// <summary>
-    /// Finds one subscription by topic filter. Packet-local scans are bounded by
-    /// the subscription count, so a linear scan avoids a per-request string key.
+    /// 按主题过滤器查找订阅。扫描范围受单会话订阅数限制，因此线性查找可以避免每次请求构造字符串键。
     /// </summary>
     private static int IndexOfSubscription(
         List<MqttZeroSubscription> subscriptions,

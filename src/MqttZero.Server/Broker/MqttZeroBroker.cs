@@ -240,7 +240,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     }
 
     /// <summary>
-    /// Gets the current broker lifecycle state.
+    /// 获取 Broker 当前的运行状态。
     /// </summary>
     public MqttZeroBrokerState State
     {
@@ -251,7 +251,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     }
 
     /// <summary>
-    /// Gets the number of active accepted transport connections.
+    /// 获取已受理的活跃传输连接数。
     /// </summary>
     public int ActiveConnectionCount
     {
@@ -262,7 +262,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     }
 
     /// <summary>
-    /// Gets the number of connected MQTT clients.
+    /// 获取已连接的 MQTT 客户端数量。
     /// </summary>
     public int ConnectedClientCount
     {
@@ -273,7 +273,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     }
 
     /// <summary>
-    /// Gets the number of will messages published since broker creation.
+    /// 获取 Broker 创建以来已发布的遗嘱消息数量。
     /// </summary>
     public long PublishedWillCount
     {
@@ -379,7 +379,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     }
 
     /// <summary>
-    /// Stops the broker and releases pooled resources.
+    /// 停止 Broker 并释放池化资源。
     /// </summary>
     /// <returns>A task representing disposal.</returns>
     public async ValueTask DisposeAsync()

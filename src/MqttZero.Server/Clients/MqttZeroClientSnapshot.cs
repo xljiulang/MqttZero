@@ -9,7 +9,7 @@ namespace MqttZero.Server.Clients;
 public sealed class MqttZeroClientSnapshot
 {
     /// <summary>
-    /// Gets the client identifier.
+    /// 获取客户端标识。
     /// </summary>
     public required string ClientId { get; init; }
 
@@ -17,17 +17,17 @@ public sealed class MqttZeroClientSnapshot
     public string? UserName { get; init; }
 
     /// <summary>
-    /// Gets the remote network endpoint.
+    /// 获取远端网络地址。
     /// </summary>
     public EndPoint? RemoteEndPoint { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether the connection uses TLS.
+    /// 获取连接是否使用 TLS。
     /// </summary>
     public bool IsSecure { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether the connection uses WebSocket.
+    /// 获取连接是否使用 WebSocket。
     /// </summary>
     public bool IsWebSocket { get; init; }
 
@@ -35,7 +35,7 @@ public sealed class MqttZeroClientSnapshot
     public MqttProtocolVersion ProtocolVersion { get; init; }
 
     /// <summary>
-    /// Gets the number of active subscriptions.
+    /// 获取当前生效的订阅数量。
     /// </summary>
     public int SubscriptionCount { get; init; }
 

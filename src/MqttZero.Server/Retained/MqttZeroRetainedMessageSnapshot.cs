@@ -7,17 +7,17 @@ namespace MqttZero.Server.Retained;
 public sealed class MqttZeroRetainedMessageSnapshot
 {
     /// <summary>
-    /// Gets the retained topic.
+    /// 获取保留消息的主题。
     /// </summary>
     public required string Topic { get; init; }
 
     /// <summary>
-    /// Gets the payload length in bytes.
+    /// 获取负载字节数。
     /// </summary>
     public int PayloadLength { get; init; }
 
     /// <summary>
-    /// Gets the retained message quality of service.
+    /// 获取保留消息的服务质量等级。
     /// </summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; init; }
 }

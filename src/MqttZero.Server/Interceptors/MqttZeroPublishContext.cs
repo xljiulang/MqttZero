@@ -13,27 +13,27 @@ public sealed class MqttZeroPublishContext
     private static readonly MqttZeroBoundedObjectPool<MqttZeroPublishContext> ContextPool = new(MqttZeroBoundedObjectPool<MqttZeroPublishContext>.DefaultCapacity);
 
     /// <summary>
-    /// Gets or sets the UTF-8 topic name.
+    /// 获取或设置 UTF-8 主题名。
     /// </summary>
     public ReadOnlySequence<byte> Topic { get; set; }
 
     /// <summary>
-    /// Gets or sets the payload sequence.
+    /// 获取或设置负载序列。
     /// </summary>
     public ReadOnlySequence<byte> Payload { get; set; }
 
     /// <summary>
-    /// Gets or sets the end-to-end MQTT 5 publish properties.
+    /// 获取或设置随发布传递的 MQTT 5 属性。
     /// </summary>
     public MqttPublishProperties Properties { get; set; } = MqttPublishProperties.Empty;
 
     /// <summary>
-    /// Gets or sets the quality of service.
+    /// 获取或设置服务质量等级。
     /// </summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the message is retained.
+    /// 获取或设置消息是否作为保留消息发布。
     /// </summary>
     public bool Retain { get; set; }
 

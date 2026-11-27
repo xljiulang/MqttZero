@@ -21,7 +21,7 @@ namespace MqttZero.Server.Broker;
 public sealed partial class MqttZeroBroker
 {
     /// <summary>
-    /// Gets a point-in-time snapshot of connected clients.
+    /// 获取已连接客户端在某一时刻的快照。
     /// </summary>
     /// <returns>The connected client snapshots.</returns>
     public IReadOnlyList<MqttZeroClientSnapshot> GetClientSnapshots()
@@ -54,7 +54,7 @@ public sealed partial class MqttZeroBroker
     }
 
     /// <summary>
-    /// Gets snapshots for all stored sessions.
+    /// 获取全部已保存会话的快照。
     /// </summary>
     /// <returns>The session snapshots.</returns>
     public IReadOnlyList<MqttZeroSessionSnapshot> GetSessionSnapshots()
@@ -70,7 +70,7 @@ public sealed partial class MqttZeroBroker
     }
 
     /// <summary>
-    /// Gets retained message metadata snapshots.
+    /// 获取保留消息的元数据快照。
     /// </summary>
     /// <returns>The retained message snapshots.</returns>
     public IReadOnlyList<MqttZeroRetainedMessageSnapshot> GetRetainedMessageSnapshots()
@@ -97,7 +97,7 @@ public sealed partial class MqttZeroBroker
     }
 
     /// <summary>
-    /// Publishes a server-originated message to matching subscribers.
+    /// 发布一条服务端发起的消息给匹配的订阅者。
     /// </summary>
     /// <param name="message">The message to publish.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
@@ -157,7 +157,7 @@ public sealed partial class MqttZeroBroker
     }
 
     /// <summary>
-    /// Gets the maximum MQTT packet size accepted by the broker.
+    /// 获取 Broker 可接受的最大 MQTT 报文大小。
     /// </summary>
     public int MaximumPacketSize
     {
@@ -168,7 +168,7 @@ public sealed partial class MqttZeroBroker
     }
 
     /// <summary>
-    /// Disconnects one connected client.
+    /// 断开指定的已连接客户端。
     /// </summary>
     /// <param name="clientId">The client identifier.</param>
     /// <param name="reasonCode">The DISCONNECT reason code.</param>

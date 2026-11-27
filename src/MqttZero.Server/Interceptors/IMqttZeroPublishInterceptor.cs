@@ -7,7 +7,7 @@ namespace MqttZero.Server.Interceptors;
 public interface IMqttZeroPublishInterceptor
 {
     /// <summary>
-    /// Intercepts one publish operation.
+    /// 拦截一次发布操作。
     /// </summary>
     /// <param name="context">The mutable publish context.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>

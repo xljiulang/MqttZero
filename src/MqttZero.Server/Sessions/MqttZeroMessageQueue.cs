@@ -312,7 +312,7 @@ internal sealed class MqttZeroMessageQueue
     }
 
     /// <summary>
-    /// PrepareLink。
+    /// 准备把消息链接进队列。
     /// </summary>
     /// <param name="message">消息。</param>
     private static void PrepareForLink(MqttZeroQueuedMessage message)

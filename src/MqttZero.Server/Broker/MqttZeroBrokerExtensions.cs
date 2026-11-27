@@ -12,7 +12,7 @@ namespace MqttZero.Server.Broker;
 public static class MqttZeroBrokerExtensions
 {
     /// <summary>
-    /// Publishes a server-originated message from a payload sequence.
+    /// 用负载序列发布一条服务端发起的消息。
     /// </summary>
     /// <param name="broker">The MQTTZero broker.</param>
     /// <param name="topic">The MQTT topic name.</param>
@@ -42,7 +42,7 @@ public static class MqttZeroBrokerExtensions
     }
 
     /// <summary>
-    /// Publishes a server-originated message from a pipe payload factory.
+    /// 用管道负载工厂发布一条服务端发起的消息。
     /// </summary>
     /// <param name="broker">The MQTTZero broker.</param>
     /// <param name="topic">The MQTT topic name.</param>
@@ -88,7 +88,7 @@ public static class MqttZeroBrokerExtensions
     }
 
     /// <summary>
-    /// Publishes a server-originated message from a stream.
+    /// 用流发布一条服务端发起的消息。
     /// </summary>
     /// <param name="broker">The MQTTZero broker.</param>
     /// <param name="topic">The MQTT topic name.</param>

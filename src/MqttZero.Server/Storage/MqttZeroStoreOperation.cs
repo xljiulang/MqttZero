@@ -1,7 +1,7 @@
 namespace MqttZero.Server.Storage;
 
 /// <summary>
-/// Represents one persistence store call that the broker logs on failure.
+/// 表示一次持久化 Store 调用，失败时由 Broker 记录日志。
 /// </summary>
 /// <typeparam name="TState">The call state type.</typeparam>
 /// <param name="state">The provider-supplied call state.</param>

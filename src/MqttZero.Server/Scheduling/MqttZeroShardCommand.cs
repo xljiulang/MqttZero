@@ -217,7 +217,7 @@ internal sealed class MqttZeroShardCommand<T> :
     }
 
     /// <summary>
-    /// AwaitInline。
+    /// 内联等待命令。
     /// </summary>
     /// <param name="task">对应的 task。</param>
     /// <returns>异步操作的结果。</returns>
@@ -236,7 +236,7 @@ internal sealed class MqttZeroShardCommand<T> :
     }
 
     /// <summary>
-    /// AwaitAndComplete。
+    /// 等待并完成命令。
     /// </summary>
     /// <param name="task">对应的 task。</param>
     /// <returns>表示异步操作的任务。</returns>

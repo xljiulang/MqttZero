@@ -6,7 +6,7 @@ namespace MqttZero.Server.Broker;
 internal static class MqttZeroQosZeroDirectRouting
 {
     /// <summary>
-    /// Gets a value indicating whether the direct QoS 0 route is safe.
+    /// 获取是否可以直接路由该 QoS 0 发布而不经过分片。
     /// </summary>
     /// <param name="pendingPublishCount">
     /// The number of deferred publishes still owned by this connection.

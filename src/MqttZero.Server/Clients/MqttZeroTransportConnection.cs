@@ -10,37 +10,37 @@ namespace MqttZero.Server.Clients;
 public sealed class MqttZeroTransportConnection
 {
     /// <summary>
-    /// Gets the inbound transport pipe.
+    /// 获取入站传输管道。
     /// </summary>
     public required PipeReader Input { get; init; }
 
     /// <summary>
-    /// Gets the outbound transport pipe.
+    /// 获取出站传输管道。
     /// </summary>
     public required PipeWriter Output { get; init; }
 
     /// <summary>
-    /// Gets the optional remote network endpoint.
+    /// 获取可选的远端网络地址。
     /// </summary>
     public EndPoint? RemoteEndPoint { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether the connection uses TLS.
+    /// 获取连接是否使用 TLS。
     /// </summary>
     public bool IsSecure { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether the connection uses WebSocket transport.
+    /// 获取连接是否使用 WebSocket 传输。
     /// </summary>
     public bool IsWebSocket { get; init; }
 
     /// <summary>
-    /// Gets the optional client certificate supplied by the transport.
+    /// 获取传输层提供的可选客户端证书。
     /// </summary>
     public X509Certificate2? ClientCertificate { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether outbound PUBLISH packets may span multiple writes.
+    /// 获取出站 PUBLISH 是否允许跨多次写入。
     /// </summary>
     public bool AllowPacketFragmentation { get; init; } = true;
 }

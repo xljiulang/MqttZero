@@ -116,7 +116,7 @@ internal sealed class MqttZeroEgressControlFrame : IValueTaskSource, IDisposable
     }
 
     /// <summary>
-    /// MarkActorRelease。
+    /// 标记为由 Egress Actor 释放。
     /// </summary>
     internal void MarkForActorRelease()
     {

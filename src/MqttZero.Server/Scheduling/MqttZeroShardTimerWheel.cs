@@ -164,7 +164,7 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
     }
 
     /// <summary>
-    /// Tick。
+    /// 推进一次时间轮。
     /// </summary>
     /// <param name="nowUtcTicks">当前时间Utc时钟滴答。</param>
     /// <param name="cancellationToken">取消令牌。</param>
@@ -207,7 +207,7 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
     }
 
     /// <summary>
-    /// Captures the bucket distribution of this wheel.
+    /// 采集该时间轮的槽位分布。
     /// </summary>
     /// <remarks>
     /// Must be called on the owning shard because it walks the bucket lists that
@@ -365,7 +365,7 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
     }
 
     /// <summary>
-    /// 通知Tick。
+    /// 通知推进一次时间轮。
     /// </summary>
     private void SignalTick()
     {
@@ -565,7 +565,7 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
     }
 
     /// <summary>
-    /// 获取SlotTick。
+    /// 获取Slot推进一次时间轮。
     /// </summary>
     /// <param name="tick">对应的 tick。</param>
     /// <param name="level">对应的 level。</param>

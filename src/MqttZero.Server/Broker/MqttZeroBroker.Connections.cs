@@ -23,7 +23,7 @@ namespace MqttZero.Server.Broker;
 public sealed partial class MqttZeroBroker
 {
     /// <summary>
-    /// Processes one accepted connection until it disconnects.
+    /// 处理一条已受理的连接，直到它断开。
     /// </summary>
     /// <param name="transport">The transport resources and connection metadata.</param>
     /// <param name="cancellationToken">A token that terminates the connection.</param>
@@ -1851,7 +1851,7 @@ public sealed partial class MqttZeroBroker
     }
 
     /// <summary>
-    /// RollbackTransaction。
+    /// 回滚连接事务。
     /// </summary>
     /// <param name="transaction">对应的 transaction。</param>
     /// <param name="registerDeadlines">对应的 registerDeadlines。</param>

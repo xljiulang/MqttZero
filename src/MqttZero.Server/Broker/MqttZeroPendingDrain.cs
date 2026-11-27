@@ -11,7 +11,7 @@ internal sealed class MqttZeroPendingDrain
     private int _outstanding;
 
     /// <summary>
-    /// Gets the number of outstanding work items.
+    /// 获取尚未完成的工作项数量。
     /// </summary>
     public int Count
     {
@@ -22,7 +22,7 @@ internal sealed class MqttZeroPendingDrain
     }
 
     /// <summary>
-    /// Registers one work item and returns the token that owns its completion.
+    /// 登记一个工作项并返回负责完成它的令牌。
     /// </summary>
     /// <returns>The drain token of the current episode.</returns>
     public TaskCompletionSource Begin()
@@ -38,7 +38,7 @@ internal sealed class MqttZeroPendingDrain
     }
 
     /// <summary>
-    /// Completes one work item.
+    /// 完成一个工作项。
     /// </summary>
     /// <param name="token">The token returned by <see cref="Begin"/>.</param>
     public void Complete(TaskCompletionSource token)
@@ -66,7 +66,7 @@ internal sealed class MqttZeroPendingDrain
     }
 
     /// <summary>
-    /// Waits until no work item is outstanding.
+    /// 等待所有工作项完成。
     /// </summary>
     /// <returns>A task that completes when the drain is idle.</returns>
     public async ValueTask WaitAsync()
