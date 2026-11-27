@@ -2,7 +2,7 @@
 
 MQTTZero 是直接运行在 ASP.NET Core / Kestrel 上的 MQTT 5 Broker：设备接入与现有 HTTP 服务
 同进程部署，不需要再单独维护一个 Broker 进程。MIT 许可，目标框架 .NET 10，当前版本
-`0.11.0-alpha.3`（alpha）。
+`0.12.0-alpha.1`（alpha）。
 
 ## 为什么把它放进现有服务
 

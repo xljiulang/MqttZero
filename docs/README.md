@@ -18,6 +18,7 @@
 - [`performance/branch-convergence.md`](performance/branch-convergence.md)：性能分支的收敛与归因记录。
 - [`performance/mqttnet-fork-audit.md`](performance/mqttnet-fork-audit.md)：MQTTnet fork 优化项与 MQTTZero 的逐条对照。
 - [`performance/hot-path-audit.md`](performance/hot-path-audit.md)：热路径方法的分配与重复计算审计结论。
+- [`api-migration-0.12.md`](api-migration-0.12.md)：0.12 公开接口变更与升级指引。
 - [`../perf/baseline/README.md`](../perf/baseline/README.md)：历史基准与 A/B 原始记录索引。
 
 ## 历史计划与评审
