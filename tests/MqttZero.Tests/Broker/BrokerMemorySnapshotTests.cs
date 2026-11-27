@@ -46,5 +46,17 @@ public sealed class BrokerMemorySnapshotTests
             MqttZero.Memory.MqttZeroBoundedObjectPool<
                 MqttZero.Server.Sessions.MqttZeroQueuedMessage>.
                 DefaultCapacity);
+        Assert.InRange(
+            snapshot.ObjectPools.AcknowledgementWorkCount,
+            0,
+            MqttZero.Memory.MqttZeroBoundedObjectPool<
+                MqttZero.Server.Broker.MqttZeroAcknowledgementWork>.
+                DefaultCapacity);
+        Assert.InRange(
+            snapshot.ObjectPools.AcknowledgementShardWorkCount,
+            0,
+            MqttZero.Memory.MqttZeroBoundedObjectPool<
+                MqttZero.Server.Broker.MqttZeroAcknowledgementShardWork>.
+                DefaultCapacity);
     }
 }

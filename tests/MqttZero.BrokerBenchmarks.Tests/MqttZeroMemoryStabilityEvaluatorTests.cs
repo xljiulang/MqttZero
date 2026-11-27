@@ -100,6 +100,8 @@ public sealed class MqttZeroMemoryStabilityEvaluatorTests
                         InboundShardWorkCount: 0,
                         FanoutOperationCount: 0,
                         FanoutBatchWorkCount: 0,
-                        FanoutScheduledBatchCount: 0)));
+                        FanoutScheduledBatchCount: 0,
+                        AcknowledgementWorkCount: 0,
+                        AcknowledgementShardWorkCount: 0)));
     }
 }

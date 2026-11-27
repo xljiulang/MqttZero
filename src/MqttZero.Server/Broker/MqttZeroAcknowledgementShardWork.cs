@@ -20,6 +20,14 @@ internal sealed class MqttZeroAcknowledgementShardWork : MqttZeroShardWork
     {
     }
 
+    internal static int PoolCountForTest
+    {
+        get
+        {
+            return Pool.Count;
+        }
+    }
+
     public static MqttZeroAcknowledgementShardWork Rent(
         MqttZeroAcknowledgementWork work,
         Func<

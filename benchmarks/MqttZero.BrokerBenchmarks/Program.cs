@@ -1492,6 +1492,8 @@ static async Task RunMemoryProbeAsync(
             snapshot.ObjectPools.FanoutOperationCount,
             snapshot.ObjectPools.FanoutBatchWorkCount,
             snapshot.ObjectPools.FanoutScheduledBatchCount,
+            snapshot.ObjectPools.AcknowledgementWorkCount,
+            snapshot.ObjectPools.AcknowledgementShardWorkCount,
             GC.GetTotalMemory(forceFullCollection: false),
             process.WorkingSet64,
             GC.GetTotalAllocatedBytes(precise: false),

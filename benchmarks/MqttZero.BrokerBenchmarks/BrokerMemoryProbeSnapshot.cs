@@ -21,6 +21,8 @@ internal sealed record BrokerMemoryProbeSnapshot(
     int FanoutOperationCount,
     int FanoutBatchWorkCount,
     int FanoutScheduledBatchCount,
+    int AcknowledgementWorkCount,
+    int AcknowledgementShardWorkCount,
     long ManagedHeapBytes,
     long WorkingSetBytes,
     long AllocatedBytes,

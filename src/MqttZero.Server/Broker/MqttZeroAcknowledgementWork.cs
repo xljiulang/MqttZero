@@ -17,6 +17,14 @@ internal sealed class MqttZeroAcknowledgementWork
     {
     }
 
+    internal static int PoolCountForTest
+    {
+        get
+        {
+            return Pool.Count;
+        }
+    }
+
     public MqttZeroAcknowledgementView Acknowledgement
     { get; private set; }
 
