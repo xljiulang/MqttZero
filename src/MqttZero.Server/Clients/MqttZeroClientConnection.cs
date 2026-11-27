@@ -423,7 +423,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     /// <param name="duplicate">对应的 duplicate。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>表示异步操作的任务。</returns>
-    public async ValueTask SendPublishAsync(
+    public async ValueTask TrySendPublishAsync(
         MqttZeroQueuedMessage message,
         bool duplicate,
         CancellationToken cancellationToken)
@@ -462,7 +462,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         {
             for (int index = 0; index < messages.Count; index++)
             {
-                await SendPublishAsync(
+                await TrySendPublishAsync(
                     messages[index],
                     duplicate,
                     cancellationToken).ConfigureAwait(false);
@@ -600,7 +600,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     /// <param name="duplicate">对应的 duplicate。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>表示异步操作的任务。</returns>
-    public async ValueTask SendPublishAsync(
+    public async ValueTask TrySendPublishAsync(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
         bool retain,

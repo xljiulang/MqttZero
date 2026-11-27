@@ -176,7 +176,7 @@ namespace MqttZero.Tests.Broker
 
             for (int index = 0; index < 10; index++)
             {
-                await connection.SendPublishAsync(
+                await connection.TrySendPublishAsync(
                     message,
                     false,
                     TestContext.Current.CancellationToken);
@@ -185,7 +185,7 @@ namespace MqttZero.Tests.Broker
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int index = 0; index < 1000; index++)
             {
-                await connection.SendPublishAsync(
+                await connection.TrySendPublishAsync(
                     message,
                     false,
                     TestContext.Current.CancellationToken);

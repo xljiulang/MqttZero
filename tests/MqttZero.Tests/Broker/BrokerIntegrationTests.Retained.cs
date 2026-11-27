@@ -102,7 +102,7 @@ namespace MqttZero.Tests.Broker
             await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
 
             MqttZeroBroker broker = app.Services.GetRequiredService<MqttZeroBroker>();
-            Assert.Empty(broker.GetRetainedMessages());
+            Assert.Empty(broker.GetRetainedMessageSnapshots());
             List<MqttZero.Server.Retained.MqttZeroRetainedMessage> matches = [];
             broker.RetainedTopicTrieForTest.Match(
                 "retained/#"u8,

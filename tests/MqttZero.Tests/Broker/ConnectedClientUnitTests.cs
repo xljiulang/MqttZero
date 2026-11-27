@@ -239,7 +239,7 @@ namespace MqttZero.Tests.Broker
             await using MqttZeroBroker brokerLifetime = broker;
             await using MqttZeroClientConnection connectionLifetime = connection;
 
-            bool sent = await connection.ConnectedClient.SendPublishAsync(
+            bool sent = await connection.ConnectedClient.TrySendPublishAsync(
                 new MqttZeroPublishMessage
                 {
                     Topic = "state/topic",

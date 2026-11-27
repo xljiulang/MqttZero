@@ -40,7 +40,7 @@ namespace MqttZero.Tests.Broker
                 TimeSpan.FromSeconds(10),
                 cancellationToken);
 
-            _ = broker.GetRetainedMessages();
+            _ = broker.GetRetainedMessageSnapshots();
 
             List<MqttZeroRetainedMessage> matches = [];
             broker.RetainedTopicTrieForTest.Match(
@@ -50,7 +50,7 @@ namespace MqttZero.Tests.Broker
 
             store.Release();
             await WaitUntilAsync(
-                () => broker.GetRetainedMessages().Count == 0,
+                () => broker.GetRetainedMessageSnapshots().Count == 0,
                 cancellationToken);
             Assert.Equal(1, store.DeleteAttempts);
         }

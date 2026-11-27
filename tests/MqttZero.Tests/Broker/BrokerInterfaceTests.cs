@@ -43,7 +43,7 @@ namespace MqttZero.Tests.Broker
                     TestContext.Current.CancellationToken);
 
                 MqttZeroRetainedMessageSnapshot retained =
-                    Assert.Single(concrete.GetRetainedMessages());
+                    Assert.Single(concrete.GetRetainedMessageSnapshots());
                 Assert.Equal("api/interface", retained.Topic);
                 Assert.Equal(9, retained.PayloadLength);
             }

@@ -52,7 +52,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(
                 1,
                 Assert.Single(
-                    broker.GetSessions(),
+                    broker.GetSessionSnapshots(),
                     session => session.ClientId == "will-watcher").SubscriptionCount);
 
             using TcpClient abortedClient = new();
@@ -84,7 +84,7 @@ namespace MqttZero.Tests.Broker
             byte[] connAck = new byte[5];
             _ = await stream.ReadAsync(connAck, cancellationToken);
             MqttZeroSessionSnapshot connectedAbortedSession = Assert.Single(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 session => session.ClientId == "aborted-client");
             Assert.True(connectedAbortedSession.HasWill);
             Assert.Equal("will/aborted", connectedAbortedSession.WillTopic);

@@ -313,17 +313,17 @@ namespace MqttZero.Dashboard.Tests
                 return ValueTask.CompletedTask;
             }
 
-            public IReadOnlyList<MqttZeroClientSnapshot> GetClients()
+            public IReadOnlyList<MqttZeroClientSnapshot> GetClientSnapshots()
             {
                 return Clients;
             }
 
-            public IReadOnlyList<MqttZeroSessionSnapshot> GetSessions()
+            public IReadOnlyList<MqttZeroSessionSnapshot> GetSessionSnapshots()
             {
                 return Sessions;
             }
 
-            public IReadOnlyList<MqttZeroRetainedMessageSnapshot> GetRetainedMessages()
+            public IReadOnlyList<MqttZeroRetainedMessageSnapshot> GetRetainedMessageSnapshots()
             {
                 return [];
             }

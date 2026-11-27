@@ -40,7 +40,7 @@ namespace MqttZero.Tests.Storage
 
             await broker.StartAsync(TestContext.Current.CancellationToken);
 
-            MqttZeroSessionSnapshot session = Assert.Single(broker.GetSessions());
+            MqttZeroSessionSnapshot session = Assert.Single(broker.GetSessionSnapshots());
             Assert.Equal("restored", session.ClientId);
             Assert.Equal(1, session.SubscriptionCount);
         }
@@ -84,9 +84,9 @@ namespace MqttZero.Tests.Storage
 
             await broker.StartAsync(TestContext.Current.CancellationToken);
 
-            MqttZeroSessionSnapshot session = Assert.Single(broker.GetSessions());
+            MqttZeroSessionSnapshot session = Assert.Single(broker.GetSessionSnapshots());
             Assert.Equal(1, session.InflightMessageCount);
-            Assert.Single(broker.GetRetainedMessages());
+            Assert.Single(broker.GetRetainedMessageSnapshots());
             Assert.Single(messageStore.DeletedMessageIds);
             Assert.True(bufferPool.RentedBytes > 0);
 
@@ -120,7 +120,7 @@ namespace MqttZero.Tests.Storage
 
             await broker.StartAsync(TestContext.Current.CancellationToken);
 
-            MqttZeroSessionSnapshot session = Assert.Single(broker.GetSessions());
+            MqttZeroSessionSnapshot session = Assert.Single(broker.GetSessionSnapshots());
             Assert.Equal(1, session.InboundQos2MessageCount);
             Assert.Single(
                 messageStore.Messages,
@@ -151,7 +151,7 @@ namespace MqttZero.Tests.Storage
 
             await broker.StartAsync(TestContext.Current.CancellationToken);
 
-            Assert.Equal(2, broker.GetRetainedMessages().Count);
+            Assert.Equal(2, broker.GetRetainedMessageSnapshots().Count);
         }
 
         [Fact]
@@ -180,8 +180,8 @@ namespace MqttZero.Tests.Storage
                 async () => await broker.StartAsync(
                     TestContext.Current.CancellationToken));
 
-            Assert.Empty(broker.GetSessions());
-            Assert.Empty(broker.GetRetainedMessages());
+            Assert.Empty(broker.GetSessionSnapshots());
+            Assert.Empty(broker.GetRetainedMessageSnapshots());
             Assert.Equal(0, bufferPool.RentedBytes);
         }
 
@@ -208,7 +208,7 @@ namespace MqttZero.Tests.Storage
                     MqttQualityOfServiceLevel.AtMostOnce,
                     true,
                     TestContext.Current.CancellationToken));
-            Assert.Empty(broker.GetRetainedMessages());
+            Assert.Empty(broker.GetRetainedMessageSnapshots());
             Assert.Empty(retainedStore.Messages);
 
             await broker.PublishAsync(
@@ -217,7 +217,7 @@ namespace MqttZero.Tests.Storage
                 MqttQualityOfServiceLevel.AtMostOnce,
                 true,
                 TestContext.Current.CancellationToken);
-            Assert.Single(broker.GetRetainedMessages());
+            Assert.Single(broker.GetRetainedMessageSnapshots());
             Assert.Single(retainedStore.Messages);
 
             await Assert.ThrowsAsync<InvalidOperationException>(
@@ -227,7 +227,7 @@ namespace MqttZero.Tests.Storage
                     MqttQualityOfServiceLevel.AtMostOnce,
                     true,
                     TestContext.Current.CancellationToken));
-            Assert.Single(broker.GetRetainedMessages());
+            Assert.Single(broker.GetRetainedMessageSnapshots());
             Assert.Single(retainedStore.Messages);
             await broker.DisposeAsync();
         }

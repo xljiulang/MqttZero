@@ -135,7 +135,7 @@ public sealed partial class BrokerIntegrationTests
         await client.DisconnectAsync(
             cancellationToken: cancellationToken);
         await WaitUntilAsync(
-            () => broker.GetSessions().Any(
+            () => broker.GetSessionSnapshots().Any(
                 static session =>
                     session.ClientId == "timer-expiring-session" &&
                     !session.IsConnected),
@@ -148,7 +148,7 @@ public sealed partial class BrokerIntegrationTests
             cancellationToken);
 
         await WaitUntilAsync(
-            () => !broker.GetSessions().Any(
+            () => !broker.GetSessionSnapshots().Any(
                 static session =>
                     session.ClientId == "timer-expiring-session"),
             cancellationToken);
@@ -208,7 +208,7 @@ public sealed partial class BrokerIntegrationTests
                 .Build(),
             cancellationToken);
         await WaitUntilAsync(
-            () => broker.GetSessions().Any(
+            () => broker.GetSessionSnapshots().Any(
                 static session =>
                     session.ClientId == "timer-offline-subscriber" &&
                     session.PendingMessageCount == 1),
@@ -221,7 +221,7 @@ public sealed partial class BrokerIntegrationTests
             cancellationToken);
 
         await WaitUntilAsync(
-            () => broker.GetSessions().Any(
+            () => broker.GetSessionSnapshots().Any(
                 static session =>
                     session.ClientId == "timer-offline-subscriber" &&
                     session.PendingMessageCount == 0),
@@ -263,7 +263,7 @@ public sealed partial class BrokerIntegrationTests
                 .Build(),
             cancellationToken);
         await WaitUntilAsync(
-            () => broker.GetRetainedMessages().Count == 1,
+            () => broker.GetRetainedMessageSnapshots().Count == 1,
             cancellationToken);
 
         timeProvider.Advance(TimeSpan.FromSeconds(2));
@@ -273,7 +273,7 @@ public sealed partial class BrokerIntegrationTests
             cancellationToken);
 
         await WaitUntilAsync(
-            () => broker.GetRetainedMessages().Count == 0,
+            () => broker.GetRetainedMessageSnapshots().Count == 0,
             cancellationToken);
     }
 

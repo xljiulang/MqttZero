@@ -71,7 +71,7 @@ namespace MqttZero.Tests.Broker
                 CreateClientOptions(port, "endpoint-client"),
                 cancellationToken);
 
-            MqttZeroClientSnapshot snapshot = Assert.Single(broker.GetClients());
+            MqttZeroClientSnapshot snapshot = Assert.Single(broker.GetClientSnapshots());
             IPEndPoint remoteEndPoint = Assert.IsType<IPEndPoint>(snapshot.RemoteEndPoint);
             Assert.True(IPAddress.IsLoopback(remoteEndPoint.Address));
             Assert.True(remoteEndPoint.Port > 0);

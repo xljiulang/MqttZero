@@ -33,7 +33,7 @@ namespace MqttZero.Tests.Broker
             await client.DisconnectAsync(
                 cancellationToken: cancellationToken);
             await WaitUntilAsync(
-                () => broker.GetSessions().Any(
+                () => broker.GetSessionSnapshots().Any(
                     static session =>
                         session.ClientId == "expiring-session" &&
                         !session.IsConnected),
@@ -42,7 +42,7 @@ namespace MqttZero.Tests.Broker
                 broker.GetMemorySnapshotForTest().PendingDeadlineCount > 0);
 
             await WaitUntilAsync(
-                () => !broker.GetSessions().Any(
+                () => !broker.GetSessionSnapshots().Any(
                     static session =>
                         session.ClientId == "expiring-session"),
                 cancellationToken);
@@ -85,7 +85,7 @@ namespace MqttZero.Tests.Broker
                 () => store.DeleteAttempts >= 2,
                 cancellationToken);
 
-            Assert.Empty(broker.GetRetainedMessages());
+            Assert.Empty(broker.GetRetainedMessageSnapshots());
         }
 
         private sealed class FailingDeleteRetainedStore :

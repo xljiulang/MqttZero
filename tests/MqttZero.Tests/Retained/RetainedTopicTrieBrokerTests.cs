@@ -62,7 +62,7 @@ public sealed class RetainedTopicTrieBrokerTests
                 true,
                 TestContext.Current.CancellationToken).AsTask());
         Assert.Equal(0, CountMatches(broker, "failure/#"));
-        Assert.Empty(broker.GetRetainedMessages());
+        Assert.Empty(broker.GetRetainedMessageSnapshots());
 
         await broker.PublishAsync(
             "failure/topic",
@@ -88,7 +88,7 @@ public sealed class RetainedTopicTrieBrokerTests
         await broker.StartAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(2, CountMatches(broker, "restore/+"));
-        Assert.Equal(2, broker.GetRetainedMessages().Count);
+        Assert.Equal(2, broker.GetRetainedMessageSnapshots().Count);
     }
 
     private static int CountMatches(

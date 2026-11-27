@@ -211,7 +211,7 @@ namespace MqttZero.Tests.Broker
 
             MqttZeroBroker broker = app.Services.GetRequiredService<MqttZeroBroker>();
             Assert.False(received.Task.IsCompleted);
-            Assert.Empty(broker.GetRetainedMessages());
+            Assert.Empty(broker.GetRetainedMessageSnapshots());
             await subscriber.DisconnectAsync(cancellationToken: cancellationToken);
             await app.StopAsync(cancellationToken);
         }
@@ -410,7 +410,7 @@ namespace MqttZero.Tests.Broker
 
             MqttZeroBroker broker = app.Services.GetRequiredService<MqttZeroBroker>();
             MqttZeroSessionSnapshot snapshot = Assert.Single(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 session => session.ClientId == "expiry-client");
             Assert.True(result.IsSessionPresent);
             Assert.False(received.Task.IsCompleted);
@@ -458,7 +458,7 @@ namespace MqttZero.Tests.Broker
             }
 
             MqttZeroSessionSnapshot queuedSession = Assert.Single(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 session => session.ClientId == "queue-client");
             Assert.Equal(2, queuedSession.PendingMessageCount);
 

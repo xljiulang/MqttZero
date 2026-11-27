@@ -159,7 +159,7 @@ namespace MqttZero.Tests.Broker
 
         private static int GetSubscriptionCount(MqttZeroBroker broker, string clientId)
         {
-            MqttZeroSessionSnapshot session = broker.GetSessions()
+            MqttZeroSessionSnapshot session = broker.GetSessionSnapshots()
                 .Single(item => item.ClientId == clientId);
             return session.SubscriptionCount;
         }
@@ -170,7 +170,7 @@ namespace MqttZero.Tests.Broker
         {
             for (int attempt = 0; attempt < 100; attempt++)
             {
-                if (broker.GetRetainedMessages().Count >= expected)
+                if (broker.GetRetainedMessageSnapshots().Count >= expected)
                 {
                     return;
                 }

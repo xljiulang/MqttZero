@@ -56,7 +56,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(MqttReasonCode.BadUserNameOrPassword, connAck.ReasonCode);
             MqttZeroBroker broker = app.Services.GetRequiredService<MqttZeroBroker>();
             Assert.DoesNotContain(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 session => session.ClientId == "rejected");
         }
 
@@ -199,7 +199,7 @@ namespace MqttZero.Tests.Broker
                 await ReadPacketAsync(stream, TestContext.Current.CancellationToken));
             Assert.Equal(MqttReasonCode.PayloadFormatInvalid, connAck.ReasonCode);
             Assert.DoesNotContain(
-                app.Services.GetRequiredService<MqttZeroBroker>().GetSessions(),
+                app.Services.GetRequiredService<MqttZeroBroker>().GetSessionSnapshots(),
                 session => session.ClientId == "invalid-will-utf8");
         }
 
@@ -268,7 +268,7 @@ namespace MqttZero.Tests.Broker
                 item => item.TopicFilter.Topic == "denied/#" &&
                     item.ResultCode == MqttClientSubscribeResultCode.NotAuthorized);
             MqttZeroSessionSnapshot session = Assert.Single(
-                app.Services.GetRequiredService<MqttZeroBroker>().GetSessions(),
+                app.Services.GetRequiredService<MqttZeroBroker>().GetSessionSnapshots(),
                 item => item.ClientId == "filter-client");
             Assert.Equal(1, session.SubscriptionCount);
         }
@@ -419,7 +419,7 @@ namespace MqttZero.Tests.Broker
                 TestContext.Current.CancellationToken);
 
             MqttZeroSessionSnapshot session = Assert.Single(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 item => item.ClientId == "close-sender-client");
             Assert.Equal(0, session.PendingMessageCount);
             Assert.Equal(0, session.InflightMessageCount);

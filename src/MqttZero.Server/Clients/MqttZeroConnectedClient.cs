@@ -93,7 +93,7 @@ public sealed class MqttZeroConnectedClient
     }
 
     /// <summary>Sends one PUBLISH packet only to this client.</summary>
-    public ValueTask<bool> SendPublishAsync(
+    public ValueTask<bool> TrySendPublishAsync(
         MqttZeroPublishMessage message,
         CancellationToken cancellationToken = default)
     {

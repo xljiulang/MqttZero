@@ -55,7 +55,7 @@ namespace MqttZero.Tests.Broker
             await broker.StartAsync(TestContext.Current.CancellationToken);
 
             Assert.Equal(MqttZeroBrokerState.Running, broker.State);
-            Assert.Empty(broker.GetClients());
+            Assert.Empty(broker.GetClientSnapshots());
 
             await broker.PublishAsync(
                 "devices/a",
@@ -63,7 +63,7 @@ namespace MqttZero.Tests.Broker
                 MqttQualityOfServiceLevel.AtMostOnce,
                 true,
                 TestContext.Current.CancellationToken);
-            MqttZeroRetainedMessageSnapshot retained = Assert.Single(broker.GetRetainedMessages());
+            MqttZeroRetainedMessageSnapshot retained = Assert.Single(broker.GetRetainedMessageSnapshots());
             Assert.Equal("devices/a", retained.Topic);
             Assert.Equal(7, retained.PayloadLength);
 
@@ -73,7 +73,7 @@ namespace MqttZero.Tests.Broker
                 MqttQualityOfServiceLevel.AtMostOnce,
                 true,
                 TestContext.Current.CancellationToken);
-            Assert.Empty(broker.GetRetainedMessages());
+            Assert.Empty(broker.GetRetainedMessageSnapshots());
 
             await broker.StopAsync(TestContext.Current.CancellationToken);
             Assert.Equal(MqttZeroBrokerState.Stopped, broker.State);

@@ -69,7 +69,7 @@ namespace MqttZero.Tests.Broker
                 TimeSpan.FromSeconds(5),
                 TestContext.Current.CancellationToken);
 
-            await connected.SendPublishAsync(
+            await connected.TrySendPublishAsync(
                 new MqttZeroPublishMessage
                 {
                     Topic = "managed/direct",
@@ -122,7 +122,7 @@ namespace MqttZero.Tests.Broker
                 MqttReasonCode.GrantedQos2,
                 Assert.Single(replacedSubscription).ReasonCode);
             await Assert.ThrowsAsync<ArgumentException>(async () =>
-                await connected.SendPublishAsync(
+                await connected.TrySendPublishAsync(
                     new MqttZeroPublishMessage
                     {
                         Topic = "invalid/+",
@@ -179,7 +179,7 @@ namespace MqttZero.Tests.Broker
                 TestContext.Current.CancellationToken);
 
             Assert.False(connected.IsConnected);
-            Assert.False(await connected.SendPublishAsync(
+            Assert.False(await connected.TrySendPublishAsync(
                 new MqttZeroPublishMessage
                 {
                     Topic = "stale/topic",

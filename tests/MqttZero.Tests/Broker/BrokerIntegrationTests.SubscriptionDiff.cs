@@ -54,7 +54,7 @@ namespace MqttZero.Tests.Broker
 
             Assert.Equal(
                 ExistingSubscriptions + 1,
-                broker.GetSessions()
+                broker.GetSessionSnapshots()
                     .Single(session =>
                         session.ClientId == "diff-subscriber")
                     .SubscriptionCount);

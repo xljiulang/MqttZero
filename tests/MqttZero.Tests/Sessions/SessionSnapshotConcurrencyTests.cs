@@ -160,9 +160,9 @@ public sealed class SessionSnapshotConcurrencyTests
             token =>
             {
                 IReadOnlyList<MqttZeroSessionSnapshot> sessions =
-                    broker.GetSessions();
+                    broker.GetSessionSnapshots();
                 IReadOnlyList<MqttZeroClientSnapshot> clients =
-                    broker.GetClients();
+                    broker.GetClientSnapshots();
                 _ = broker.TryGetClient(
                     session.ClientId,
                     out _);
@@ -251,7 +251,7 @@ public sealed class SessionSnapshotConcurrencyTests
         for (int index = 0; index < 1_000; index++)
         {
             MqttZeroSessionSnapshot sessionSnapshot =
-                Assert.Single(broker.GetSessions());
+                Assert.Single(broker.GetSessionSnapshots());
             if (!sessionSnapshot.IsConnected ||
                 sessionSnapshot.SubscriptionCount != 0 ||
                 !broker.TryGetClient("takeover", out _))
@@ -260,7 +260,7 @@ public sealed class SessionSnapshotConcurrencyTests
             }
 
             IReadOnlyList<MqttZeroClientSnapshot> clients =
-                broker.GetClients();
+                broker.GetClientSnapshots();
             if (clients.Count != 1 ||
                 clients[0].ClientId != "takeover")
             {
@@ -304,7 +304,7 @@ public sealed class SessionSnapshotConcurrencyTests
 
         await connection.DisposeAsync();
 
-        Assert.Empty(broker.GetClients());
+        Assert.Empty(broker.GetClientSnapshots());
         Assert.False(broker.TryGetClient(
             session.ClientId,
             out _));

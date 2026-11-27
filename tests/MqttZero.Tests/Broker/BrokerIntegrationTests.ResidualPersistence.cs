@@ -158,7 +158,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(0, await stream.ReadAsync(buffer, closeTimeout.Token));
 
             MqttZeroSessionSnapshot session = Assert.Single(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 item => item.ClientId == "transition-client");
             Assert.Equal(1, session.PendingMessageCount);
             Assert.Equal(0, session.InflightMessageCount);
@@ -417,14 +417,14 @@ namespace MqttZero.Tests.Broker
             await WaitUntilAsync(
                 () => messageStore.DeleteAttempts >= 2 &&
                     messageStore.Messages.Count == 0 &&
-                    broker.GetSessions().Any(
+                    broker.GetSessionSnapshots().Any(
                         static session =>
                             session.ClientId == "expired-delete-client" &&
                             session.PendingMessageCount == 0),
                 cancellationToken);
 
             MqttZeroSessionSnapshot restored = Assert.Single(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 item => item.ClientId == "expired-delete-client");
             Assert.Equal(0, restored.PendingMessageCount);
             Assert.Empty(messageStore.Messages.Values);

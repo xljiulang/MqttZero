@@ -104,7 +104,7 @@ public static class MqttZeroDashboardEndpointRouteBuilderExtensions
         int page = 1,
         int pageSize = 0)
     {
-        DashboardClientDto[] allClients = broker.GetClients()
+        DashboardClientDto[] allClients = broker.GetClientSnapshots()
             .OrderBy(static client => client.ClientId, StringComparer.Ordinal)
             .Select(static client => new DashboardClientDto(
                 client.ClientId,
@@ -137,7 +137,7 @@ public static class MqttZeroDashboardEndpointRouteBuilderExtensions
         int page = 1,
         int pageSize = 0)
     {
-        DashboardSessionDto[] allSessions = broker.GetSessions()
+        DashboardSessionDto[] allSessions = broker.GetSessionSnapshots()
             .OrderBy(static session => session.ClientId, StringComparer.Ordinal)
             .Select(static session => new DashboardSessionDto(
                 session.ClientId,

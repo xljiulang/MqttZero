@@ -45,7 +45,7 @@ namespace MqttZero.Tests.Broker
                 CreateRetainedPublishOptions("retained/one"),
                 cancellationToken);
             await WaitUntilAsync(
-                () => broker.GetRetainedMessages().Count == 1,
+                () => broker.GetRetainedMessageSnapshots().Count == 1,
                 cancellationToken);
             store.Arm();
             try

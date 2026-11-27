@@ -62,7 +62,7 @@ namespace MqttZero.Tests.Broker
                         TestContext.Current.CancellationToken).AsTask());
 
             MqttZeroSessionSnapshot session = Assert.Single(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 item => item.ClientId == "failed-subscription");
             Assert.Equal(0, session.SubscriptionCount);
             Assert.Same(baseline, broker.RouteEpoch);
@@ -146,7 +146,7 @@ namespace MqttZero.Tests.Broker
                     TestContext.Current.CancellationToken).AsTask());
 
             MqttZeroSessionSnapshot session = Assert.Single(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 item => item.ClientId == "failed-unsubscribe");
             Assert.Equal(1, session.SubscriptionCount);
             Assert.Same(baseline, broker.RouteEpoch);
@@ -211,7 +211,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(0, await stream.ReadAsync(buffer, timeout.Token));
 
             MqttZeroSessionSnapshot session = Assert.Single(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 item => item.ClientId == "packet-failed-subscribe");
             Assert.Equal(0, session.SubscriptionCount);
             Assert.Same(baseline, broker.RouteEpoch);
@@ -243,7 +243,7 @@ namespace MqttZero.Tests.Broker
                 cancellationToken);
 
             MqttZeroSessionSnapshot snapshot = Assert.Single(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 session => session.ClientId == "unsubscribe-client");
             Assert.Equal(0, snapshot.SubscriptionCount);
 

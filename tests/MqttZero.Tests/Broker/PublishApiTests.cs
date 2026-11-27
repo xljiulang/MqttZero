@@ -33,7 +33,7 @@ namespace MqttZero.Tests.Broker
                     TestContext.Current.CancellationToken);
 
                 MqttZeroRetainedMessageSnapshot retained =
-                    Assert.Single(broker.GetRetainedMessages());
+                    Assert.Single(broker.GetRetainedMessageSnapshots());
                 Assert.Equal("api/entity", retained.Topic);
                 Assert.Equal(6, retained.PayloadLength);
             }
@@ -60,7 +60,7 @@ namespace MqttZero.Tests.Broker
                     TestContext.Current.CancellationToken);
 
                 MqttZeroRetainedMessageSnapshot retained =
-                    Assert.Single(broker.GetRetainedMessages());
+                    Assert.Single(broker.GetRetainedMessageSnapshots());
                 Assert.Equal("api/factory", retained.Topic);
                 Assert.Equal(7, retained.PayloadLength);
             }
@@ -95,7 +95,7 @@ namespace MqttZero.Tests.Broker
                     TestContext.Current.CancellationToken);
 
                 MqttZeroRetainedMessageSnapshot retained =
-                    Assert.Single(broker.GetRetainedMessages());
+                    Assert.Single(broker.GetRetainedMessageSnapshots());
                 Assert.Equal("api/sequence", retained.Topic);
                 Assert.Equal(8, retained.PayloadLength);
             }
@@ -123,7 +123,7 @@ namespace MqttZero.Tests.Broker
                     TestContext.Current.CancellationToken);
 
                 MqttZeroRetainedMessageSnapshot retained =
-                    Assert.Single(broker.GetRetainedMessages());
+                    Assert.Single(broker.GetRetainedMessageSnapshots());
                 Assert.Equal("api/stream", retained.Topic);
                 Assert.Equal(6, retained.PayloadLength);
                 Assert.False(payload.IsDisposed);
@@ -156,7 +156,7 @@ namespace MqttZero.Tests.Broker
                         true,
                         TestContext.Current.CancellationToken));
 
-                Assert.Empty(broker.GetRetainedMessages());
+                Assert.Empty(broker.GetRetainedMessageSnapshots());
             }
             finally
             {
@@ -214,7 +214,7 @@ namespace MqttZero.Tests.Broker
                         TestContext.Current.CancellationToken);
                 }
 
-                Assert.Equal(3, broker.GetRetainedMessages().Count);
+                Assert.Equal(3, broker.GetRetainedMessageSnapshots().Count);
             }
             finally
             {

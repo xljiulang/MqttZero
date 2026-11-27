@@ -37,7 +37,7 @@ namespace MqttZero.Tests.Broker
             try
             {
                 lease.SetExpiresAt(now.AddSeconds(5));
-                await connection.SendPublishAsync(
+                await connection.TrySendPublishAsync(
                     lease,
                     MqttQualityOfServiceLevel.AtMostOnce,
                     false,

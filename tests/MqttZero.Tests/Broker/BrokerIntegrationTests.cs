@@ -174,7 +174,7 @@ namespace MqttZero.Tests.Broker
         {
             for (int attempt = 0; attempt < 200; attempt++)
             {
-                MqttZeroSessionSnapshot? session = broker.GetSessions()
+                MqttZeroSessionSnapshot? session = broker.GetSessionSnapshots()
                     .SingleOrDefault(item => item.ClientId == clientId);
                 if (session != null && !session.IsConnected)
                 {

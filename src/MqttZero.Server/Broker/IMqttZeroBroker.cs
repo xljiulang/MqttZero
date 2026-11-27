@@ -50,19 +50,19 @@ public interface IMqttZeroBroker
     /// Gets a point-in-time snapshot of connected clients.
     /// </summary>
     /// <returns>The connected client snapshots.</returns>
-    IReadOnlyList<MqttZeroClientSnapshot> GetClients();
+    IReadOnlyList<MqttZeroClientSnapshot> GetClientSnapshots();
 
     /// <summary>
     /// Gets snapshots for all stored sessions.
     /// </summary>
     /// <returns>The session snapshots.</returns>
-    IReadOnlyList<MqttZeroSessionSnapshot> GetSessions();
+    IReadOnlyList<MqttZeroSessionSnapshot> GetSessionSnapshots();
 
     /// <summary>
     /// Gets retained message metadata snapshots.
     /// </summary>
     /// <returns>The retained message snapshots.</returns>
-    IReadOnlyList<MqttZeroRetainedMessageSnapshot> GetRetainedMessages();
+    IReadOnlyList<MqttZeroRetainedMessageSnapshot> GetRetainedMessageSnapshots();
 
     /// <summary>
     /// Tries to get the connected client handle for a client identifier.

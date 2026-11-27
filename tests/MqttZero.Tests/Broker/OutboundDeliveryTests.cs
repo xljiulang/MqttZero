@@ -753,7 +753,7 @@ namespace MqttZero.Tests.Broker
                 null);
             try
             {
-                Task publish = connection.SendPublishAsync(
+                Task publish = connection.TrySendPublishAsync(
                     message,
                     false,
                     TestContext.Current.CancellationToken).AsTask();

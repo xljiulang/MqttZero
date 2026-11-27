@@ -170,7 +170,7 @@ namespace MqttZero.Tests.Broker
                 TestContext.Current.CancellationToken);
 
             MqttZeroSessionSnapshot session = Assert.Single(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 current => current.ClientId == "failed-pubrec");
             Assert.Equal(0, session.InflightMessageCount);
             await app.StopAsync(TestContext.Current.CancellationToken);

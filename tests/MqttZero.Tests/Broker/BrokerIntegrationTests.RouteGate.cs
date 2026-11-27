@@ -68,7 +68,7 @@ namespace MqttZero.Tests.Broker
             Assert.NotEmpty(slowResult.Items);
             Assert.Equal(
                 2,
-                broker.GetSessions().Sum(
+                broker.GetSessionSnapshots().Sum(
                     static session => session.SubscriptionCount));
         }
 

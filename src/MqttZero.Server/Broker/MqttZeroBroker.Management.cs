@@ -24,7 +24,7 @@ public sealed partial class MqttZeroBroker
     /// Gets a point-in-time snapshot of connected clients.
     /// </summary>
     /// <returns>The connected client snapshots.</returns>
-    public IReadOnlyList<MqttZeroClientSnapshot> GetClients()
+    public IReadOnlyList<MqttZeroClientSnapshot> GetClientSnapshots()
     {
         List<MqttZeroClientSnapshot> clients = [];
         foreach (MqttZeroSessionState session in _sessions.Values)
@@ -57,7 +57,7 @@ public sealed partial class MqttZeroBroker
     /// Gets snapshots for all stored sessions.
     /// </summary>
     /// <returns>The session snapshots.</returns>
-    public IReadOnlyList<MqttZeroSessionSnapshot> GetSessions()
+    public IReadOnlyList<MqttZeroSessionSnapshot> GetSessionSnapshots()
     {
         DateTimeOffset now = _timeProvider.GetUtcNow();
         List<MqttZeroSessionSnapshot> snapshots = [];
@@ -73,7 +73,7 @@ public sealed partial class MqttZeroBroker
     /// Gets retained message metadata snapshots.
     /// </summary>
     /// <returns>The retained message snapshots.</returns>
-    public IReadOnlyList<MqttZeroRetainedMessageSnapshot> GetRetainedMessages()
+    public IReadOnlyList<MqttZeroRetainedMessageSnapshot> GetRetainedMessageSnapshots()
     {
         DateTimeOffset now = _timeProvider.GetUtcNow();
         List<MqttZeroRetainedMessageSnapshot> messages = [];

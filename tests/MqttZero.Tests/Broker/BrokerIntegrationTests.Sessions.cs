@@ -101,7 +101,7 @@ namespace MqttZero.Tests.Broker
 
             await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
             Assert.DoesNotContain(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 session => session.ClientId == "expiring-client");
             await app.StopAsync(cancellationToken);
         }
@@ -220,7 +220,7 @@ namespace MqttZero.Tests.Broker
             await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
 
             Assert.DoesNotContain(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 session => session.ClientId == "disconnect-expiry");
             await app.StopAsync(cancellationToken);
         }
@@ -318,7 +318,7 @@ namespace MqttZero.Tests.Broker
 
             Assert.Equal(0, read);
             Assert.DoesNotContain(
-                app.Services.GetRequiredService<MqttZeroBroker>().GetSessions(),
+                app.Services.GetRequiredService<MqttZeroBroker>().GetSessionSnapshots(),
                 static session => session.ClientId == "failed-save");
             await app.StopAsync(TestContext.Current.CancellationToken);
         }
@@ -385,7 +385,7 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(0, await stream.ReadAsync(buffer, closeTimeout.Token));
 
             MqttZeroSessionSnapshot restored = Assert.Single(
-                broker.GetSessions(),
+                broker.GetSessionSnapshots(),
                 session => session.ClientId == "clean-rollback");
             Assert.Equal(1, restored.SubscriptionCount);
             Assert.False(restored.CleanStart);

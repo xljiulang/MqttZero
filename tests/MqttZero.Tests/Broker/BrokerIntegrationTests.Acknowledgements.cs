@@ -207,7 +207,7 @@ namespace MqttZero.Tests.Broker
             MqttZeroSessionSnapshot? session = null;
             while (session == null || session.IsConnected)
             {
-                session = broker.GetSessions()
+                session = broker.GetSessionSnapshots()
                     .SingleOrDefault(item => item.ClientId == clientId);
                 await Task.Delay(
                     TimeSpan.FromMilliseconds(10),
