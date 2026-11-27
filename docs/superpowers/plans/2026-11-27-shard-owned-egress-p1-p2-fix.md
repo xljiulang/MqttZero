@@ -15,10 +15,11 @@
 | P2-2 PUBACK 移交 | 非分片控制投递支持 fire-and-forget：标记 actor 释放、用池化 `MqttZeroControlPostWork` 转移帧并立即返回；仅 `SendPubAckAsync` 使用，其余控制帧仍等待写入 | `OffShardControlPostReturnsBeforeTheFrameIsWritten`；`AttachedConnectionRoutesControlPacketsThroughEgress` 改为按帧计数 |
 | P2-4 ACK 池快照 | 两个 ACK work 池暴露 `PoolCountForTest`，进入 `MqttZeroObjectPoolSnapshot`、基准探针与 `CountObjects` | `BrokerBenchmarks.Tests` 71/71，`BrokerMemorySnapshotTests` 断言两项计数在容量范围内 |
 | P2-3 共享游标 | cursor 由 `MqttZeroSharedRouteEntries` 持有，planner 与 epoch match 直接调用 `group.Cursor.NextOffset`；注册表留在 broker，经 `MqttZeroRouteEpochManager` 注入并按引用计数修剪；`Empty` 每次返回新注册表，`ResetToEmpty` 复用 broker 注册表 | 790/790 测试；`CursorSurvivesEquivalentEpochRebuild` 改为 Remove/Add 重建；新增 `RemovedGroupNoLongerMatchesOrKeepsItsCursor`；分配哨兵 23/23 |
+| P2-5 Inflight 恢复 | `SendPublishBatchAsync`/`WritePublishBatch` 增加 `duplicate` 参数；恢复时把 `AwaitPubAck` 项一次性批量写出（DUP=1），`AwaitPubComp` 项走非等待控制投递，由 egress 合并成一批 | 794/794 测试；新增 `DuplicateBatchSetsTheDupFlagOnEveryPublish`；`ResendsInflightQos1MessageWithDuplicateFlag` 通过；分配哨兵 23/23 |
 
 ## 本轮未做
 
-- **P2-5 Inflight 恢复并入批量路径**：需要给 `SendPublishBatchAsync` 增加 `duplicate` 参数并在首轮 drain 组装恢复批次，同样留待下一轮。
+- 无（P1 与 P2 全部完成）。
 
 ## 偏差与限制
 
@@ -27,6 +28,7 @@
 - **行为变化**：交付级 fanout 异常不再把 Broker 置为 `Stopping`（评审 P1-3 的要求）。依赖旧行为的 `BackgroundFanoutFailureStopsNewConnections` 已被替换。
 - **P1-1 成本**：`Begin`/`Complete` 从 Interlocked 对改为每连接锁；连接线程与分片线程竞争时可能多一次上下文切换，代价远小于一次网络发布。
 - **P2-3 语义**：`MqttZeroRouteEpoch.Empty` 改为属性，每次访问给出独立注册表，避免测试之间共享游标；broker 侧改用 `ResetToEmpty()` 以保留自己的注册表。
+- **P2-5 限制**：恢复批次在 `AllowPacketFragmentation=false` 时回退为逐条发送（DUP 仍为 1），此时 flush 次数等于消息数；批次仍然只有一次内存分配与一次状态检查。
 
 ## 验证
 
