@@ -260,16 +260,35 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
             0) != 0;
         try
         {
+            int controlFramesSinceDataPass = 0;
             while (_controlQueue.Count > 0)
             {
                 _controlBatch.Clear();
-                while (_controlQueue.Count > 0)
+                int batchSize = MqttZeroEgressFairness.GetControlBatchSize(
+                    _controlQueue.Count);
+                while (_controlQueue.Count > 0 &&
+                    _controlBatch.Count < batchSize)
                 {
                     _controlBatch.Add(_controlQueue.Dequeue());
                 }
 
+                controlFramesSinceDataPass += _controlBatch.Count;
                 await RunControlBatchAsync(cancellationToken)
                     .ConfigureAwait(false);
+                if (MqttZeroEgressFairness.ShouldDrainData(
+                        controlFramesSinceDataPass,
+                        dataSignaled ||
+                            Volatile.Read(ref _dataSignaled) != 0))
+                {
+                    bool hasMoreData = await _drainData(cancellationToken)
+                        .ConfigureAwait(false);
+                    if (hasMoreData)
+                    {
+                        Volatile.Write(ref _dataSignaled, 1);
+                    }
+
+                    controlFramesSinceDataPass = 0;
+                }
             }
 
             if (Volatile.Read(ref _stopping) == 0 &&
