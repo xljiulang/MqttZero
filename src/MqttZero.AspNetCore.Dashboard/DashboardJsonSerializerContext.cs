@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 namespace MqttZero.AspNetCore.Dashboard;
 
 /// <summary>
-/// Source-generated JSON metadata for dashboard API DTOs.
+/// 管理后台 DTO 的源生成 JSON 元数据。
 /// </summary>
 [JsonSerializable(typeof(DashboardOverviewDto))]
 [JsonSerializable(typeof(DashboardClientDto[]))]

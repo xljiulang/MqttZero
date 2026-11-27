@@ -13,7 +13,7 @@ using System.Security.Cryptography.X509Certificates;
 namespace MqttZero.AspNetCore;
 
 /// <summary>
-/// Bridges Kestrel connections into the MQTTZero broker.
+/// 把 Kestrel 连接交给 Broker。
 /// </summary>
 public sealed class MqttZeroConnectionHandler : ConnectionHandler
 {

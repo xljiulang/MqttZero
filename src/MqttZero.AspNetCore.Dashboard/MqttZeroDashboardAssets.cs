@@ -4,11 +4,21 @@ using System.Reflection;
 
 namespace MqttZero.AspNetCore.Dashboard;
 
+/// <summary>
+/// 管理后台的静态资源清单。
+/// </summary>
 internal static class MqttZeroDashboardAssets
 {
     private const string ResourcePrefix = "MqttZeroDashboard/";
     private static readonly Assembly DashboardAssembly = typeof(MqttZeroDashboardAssets).Assembly;
 
+    /// <summary>
+    /// 尝试Open。
+    /// </summary>
+    /// <param name="path">路径。</param>
+    /// <param name="stream">对应的 stream。</param>
+    /// <param name="contentType">content类型。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool TryOpen(
         string path,
         out Stream? stream,
@@ -31,6 +41,11 @@ internal static class MqttZeroDashboardAssets
         return stream != null;
     }
 
+    /// <summary>
+    /// 获取Content类型。
+    /// </summary>
+    /// <param name="path">路径。</param>
+    /// <returns>对应的字符串。</returns>
     private static string GetContentType(string path)
     {
         return Path.GetExtension(path).ToLowerInvariant() switch

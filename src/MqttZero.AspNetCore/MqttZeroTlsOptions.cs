@@ -5,7 +5,7 @@ using System.Security.Cryptography.X509Certificates;
 namespace MqttZero.AspNetCore;
 
 /// <summary>
-/// Configures static TLS settings for a MQTTZero Kestrel listener.
+/// 监听端点的静态 TLS 配置。
 /// </summary>
 public sealed class MqttZeroTlsOptions
 {
@@ -35,6 +35,10 @@ public sealed class MqttZeroTlsOptions
     /// </summary>
     public Action<HttpsConnectionAdapterOptions>? Configure { get; set; }
 
+    /// <summary>
+    /// 创建Kestrel选项。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     internal HttpsConnectionAdapterOptions CreateKestrelOptions()
     {
         HttpsConnectionAdapterOptions options = new()

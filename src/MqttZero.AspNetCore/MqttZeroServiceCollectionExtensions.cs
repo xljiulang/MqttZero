@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace MqttZero.AspNetCore;
 
 /// <summary>
-/// Registers MQTTZero services.
+/// 注册 MQTTZero 服务。
 /// </summary>
 public static class MqttZeroServiceCollectionExtensions
 {

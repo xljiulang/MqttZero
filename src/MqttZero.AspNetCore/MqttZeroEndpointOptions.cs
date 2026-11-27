@@ -1,7 +1,7 @@
 namespace MqttZero.AspNetCore;
 
 /// <summary>
-/// Configures a TCP or TLS MQTTZero Kestrel listener.
+/// TCP 或 TLS 监听端点配置。
 /// </summary>
 public sealed class MqttZeroEndpointOptions
 {
@@ -20,6 +20,11 @@ public sealed class MqttZeroEndpointOptions
     /// </summary>
     public Func<MqttZeroTransportInfo, bool>? AllowPacketFragmentationSelector { get; set; }
 
+    /// <summary>
+    /// 解析Allow报文Fragmentation。
+    /// </summary>
+    /// <param name="transportInfo">传输Info。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     internal bool ResolveAllowPacketFragmentation(MqttZeroTransportInfo transportInfo)
     {
         ArgumentNullException.ThrowIfNull(transportInfo);

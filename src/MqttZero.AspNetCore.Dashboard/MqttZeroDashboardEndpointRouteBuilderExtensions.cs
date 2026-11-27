@@ -12,7 +12,7 @@ using Microsoft.Extensions.Options;
 namespace MqttZero.AspNetCore.Dashboard;
 
 /// <summary>
-/// Maps MQTTZero dashboard endpoints.
+/// 映射管理后台端点。
 /// </summary>
 public static class MqttZeroDashboardEndpointRouteBuilderExtensions
 {
@@ -55,6 +55,10 @@ public static class MqttZeroDashboardEndpointRouteBuilderExtensions
         return endpoints;
     }
 
+    /// <summary>
+    /// 校验选项。
+    /// </summary>
+    /// <param name="options">选项。</param>
     private static void ValidateOptions(MqttZeroDashboardOptions options)
     {
         if (string.IsNullOrWhiteSpace(options.ReadAuthorizationPolicy) ||
@@ -71,6 +75,11 @@ public static class MqttZeroDashboardEndpointRouteBuilderExtensions
         }
     }
 
+    /// <summary>
+    /// 获取Overview。
+    /// </summary>
+    /// <param name="broker">对应的 broker。</param>
+    /// <returns>对应的结果。</returns>
     private static IResult GetOverview(IMqttZeroBroker broker)
     {
         return Results.Json(
@@ -81,6 +90,14 @@ public static class MqttZeroDashboardEndpointRouteBuilderExtensions
             DashboardJsonSerializerContext.Default.DashboardOverviewDto);
     }
 
+    /// <summary>
+    /// 获取客户端。
+    /// </summary>
+    /// <param name="broker">对应的 broker。</param>
+    /// <param name="configuredOptions">configured选项。</param>
+    /// <param name="page">对应的 page。</param>
+    /// <param name="pageSize">page大小。</param>
+    /// <returns>对应的结果。</returns>
     private static IResult GetClients(
         IMqttZeroBroker broker,
         IOptions<MqttZeroDashboardOptions> configuredOptions,
@@ -106,6 +123,14 @@ public static class MqttZeroDashboardEndpointRouteBuilderExtensions
             DashboardJsonSerializerContext.Default.DashboardClientPageDto);
     }
 
+    /// <summary>
+    /// 获取Sessions。
+    /// </summary>
+    /// <param name="broker">对应的 broker。</param>
+    /// <param name="configuredOptions">configured选项。</param>
+    /// <param name="page">对应的 page。</param>
+    /// <param name="pageSize">page大小。</param>
+    /// <returns>对应的结果。</returns>
     private static IResult GetSessions(
         IMqttZeroBroker broker,
         IOptions<MqttZeroDashboardOptions> configuredOptions,
@@ -137,6 +162,14 @@ public static class MqttZeroDashboardEndpointRouteBuilderExtensions
             DashboardJsonSerializerContext.Default.DashboardSessionPageDto);
     }
 
+    /// <summary>
+    /// 创建Page。
+    /// </summary>
+    /// <param name="items">项。</param>
+    /// <param name="options">选项。</param>
+    /// <param name="page">对应的 page。</param>
+    /// <param name="pageSize">page大小。</param>
+    /// <returns>对应的结果。</returns>
     private static DashboardClientPageDto CreatePage(
         DashboardClientDto[] items,
         MqttZeroDashboardOptions options,
@@ -151,6 +184,14 @@ public static class MqttZeroDashboardEndpointRouteBuilderExtensions
             items.Length);
     }
 
+    /// <summary>
+    /// 创建Page。
+    /// </summary>
+    /// <param name="items">项。</param>
+    /// <param name="options">选项。</param>
+    /// <param name="page">对应的 page。</param>
+    /// <param name="pageSize">page大小。</param>
+    /// <returns>对应的结果。</returns>
     private static DashboardSessionPageDto CreatePage(
         DashboardSessionDto[] items,
         MqttZeroDashboardOptions options,
@@ -165,6 +206,14 @@ public static class MqttZeroDashboardEndpointRouteBuilderExtensions
             items.Length);
     }
 
+    /// <summary>
+    /// 选择Page。
+    /// </summary>
+    /// <param name="total">对应的 total。</param>
+    /// <param name="options">选项。</param>
+    /// <param name="page">对应的 page。</param>
+    /// <param name="pageSize">page大小。</param>
+    /// <returns>对应的结果。</returns>
     private static PageSelection SelectPage(
         int total,
         MqttZeroDashboardOptions options,
@@ -182,17 +231,35 @@ public static class MqttZeroDashboardEndpointRouteBuilderExtensions
             (selectedPage - 1) * size);
     }
 
+    /// <summary>
+    /// 表示 struct 的类型。
+    /// </summary>
     private readonly record struct PageSelection(
         int Page,
         int Size,
         int Offset);
 
+    /// <summary>
+    /// 获取Antiforgery令牌。
+    /// </summary>
+    /// <param name="context">上下文。</param>
+    /// <param name="antiforgery">对应的 antiforgery。</param>
+    /// <returns>对应的结果。</returns>
     private static IResult GetAntiforgeryToken(HttpContext context, IAntiforgery antiforgery)
     {
         AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(context);
         return Results.Json(new { token = tokens.RequestToken });
     }
 
+    /// <summary>
+    /// 发布。
+    /// </summary>
+    /// <param name="context">上下文。</param>
+    /// <param name="antiforgery">对应的 antiforgery。</param>
+    /// <param name="broker">对应的 broker。</param>
+    /// <param name="request">对应的 request。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private static async Task<IResult> PublishAsync(
         HttpContext context,
         IAntiforgery antiforgery,
@@ -218,18 +285,34 @@ public static class MqttZeroDashboardEndpointRouteBuilderExtensions
         return Results.NoContent();
     }
 
+    /// <summary>
+    /// 获取索引。
+    /// </summary>
+    /// <param name="context">上下文。</param>
+    /// <returns>对应的结果。</returns>
     private static IResult GetIndex(HttpContext context)
     {
         context.Response.Headers.CacheControl = "no-store";
         return GetAssetResult("index.html");
     }
 
+    /// <summary>
+    /// 获取Asset。
+    /// </summary>
+    /// <param name="path">路径。</param>
+    /// <param name="context">上下文。</param>
+    /// <returns>对应的结果。</returns>
     private static IResult GetAsset(string path, HttpContext context)
     {
         context.Response.Headers.CacheControl = "public,max-age=31536000,immutable";
         return GetAssetResult($"assets/{path.TrimStart('/')}");
     }
 
+    /// <summary>
+    /// 获取Asset结果。
+    /// </summary>
+    /// <param name="path">路径。</param>
+    /// <returns>对应的结果。</returns>
     private static IResult GetAssetResult(string path)
     {
         if (!MqttZeroDashboardAssets.TryOpen(path, out Stream? stream, out string contentType) ||
@@ -241,6 +324,12 @@ public static class MqttZeroDashboardEndpointRouteBuilderExtensions
         return Results.Stream(stream, contentType);
     }
 
+    /// <summary>
+    /// 添加SecurityHeaders。
+    /// </summary>
+    /// <param name="context">上下文。</param>
+    /// <param name="next">下一个。</param>
+    /// <returns>异步操作的结果。</returns>
     private static async ValueTask<object?> AddSecurityHeadersAsync(
         EndpointFilterInvocationContext context,
         EndpointFilterDelegate next)

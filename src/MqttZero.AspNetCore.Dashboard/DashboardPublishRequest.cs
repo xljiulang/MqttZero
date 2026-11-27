@@ -3,7 +3,7 @@ using MqttZero.Protocol;
 namespace MqttZero.AspNetCore.Dashboard;
 
 /// <summary>
-/// Requests publication of a management-originated MQTT message.
+/// 管理端发起发布请求。
 /// </summary>
 public sealed class DashboardPublishRequest
 {

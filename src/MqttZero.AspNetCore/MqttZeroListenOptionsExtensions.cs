@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 namespace MqttZero.AspNetCore;
 
 /// <summary>
-/// Configures Kestrel listeners for MQTTZero.
+/// 为 MQTTZero 配置 Kestrel 监听。
 /// </summary>
 public static class MqttZeroListenOptionsExtensions
 {

@@ -3,7 +3,7 @@ using MqttZero.Protocol;
 namespace MqttZero.AspNetCore.Dashboard;
 
 /// <summary>
-/// Configures the MQTTZero management dashboard.
+/// 管理后台的配置。
 /// </summary>
 public sealed class MqttZeroDashboardOptions
 {

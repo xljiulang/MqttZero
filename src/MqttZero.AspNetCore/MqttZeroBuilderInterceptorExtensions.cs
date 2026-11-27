@@ -76,6 +76,10 @@ public static class MqttZeroBuilderInterceptorExtensions
         return builder;
     }
 
+    /// <summary>
+    /// 添加Extension。
+    /// </summary>
+    /// <param name="builder">构建器。</param>
     private static void AddExtension<TService, TImplementation>(IMqttZeroBuilder builder)
         where TService : class
         where TImplementation : class, TService

@@ -5,7 +5,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace MqttZero.AspNetCore;
 
 /// <summary>
-/// Reports MQTTZero broker readiness.
+/// 报告 Broker 是否就绪。
 /// </summary>
 public sealed class MqttZeroHealthCheck : IHealthCheck
 {

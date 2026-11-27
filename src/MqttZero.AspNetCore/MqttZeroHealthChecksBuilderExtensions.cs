@@ -6,7 +6,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace MqttZero.AspNetCore;
 
 /// <summary>
-/// Registers MQTTZero health checks.
+/// 注册 MQTTZero 健康检查。
 /// </summary>
 public static class MqttZeroHealthChecksBuilderExtensions
 {

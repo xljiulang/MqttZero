@@ -4,7 +4,7 @@ using System.Net.Sockets;
 namespace MqttZero.AspNetCore;
 
 /// <summary>
-/// Configures sockets accepted by a MQTTZero Kestrel listener.
+/// Kestrel 已受理套接字的选项。
 /// </summary>
 public sealed class MqttZeroAcceptedSocketOptions
 {
@@ -53,6 +53,11 @@ public sealed class MqttZeroAcceptedSocketOptions
     /// </summary>
     public Action<Socket, EndPoint?>? Configure { get; set; }
 
+    /// <summary>
+    /// 应用。
+    /// </summary>
+    /// <param name="socket">对应的 socket。</param>
+    /// <param name="remoteEndPoint">远端EndPoint。</param>
     internal void Apply(Socket socket, EndPoint? remoteEndPoint)
     {
         if (socket.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6)
@@ -103,6 +108,12 @@ public sealed class MqttZeroAcceptedSocketOptions
         Configure?.Invoke(socket, remoteEndPoint);
     }
 
+    /// <summary>
+    /// 应用KeepAlive时间。
+    /// </summary>
+    /// <param name="socket">对应的 socket。</param>
+    /// <param name="value">值。</param>
+    /// <param name="optionName">option名称。</param>
     private static void ApplyKeepAliveTime(
         Socket socket,
         TimeSpan? value,

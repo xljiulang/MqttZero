@@ -3,7 +3,7 @@ using System.Net;
 namespace MqttZero.AspNetCore;
 
 /// <summary>
-/// Describes transport details available while accepting a MQTTZero connection.
+/// 受理阶段可用的传输信息。
 /// </summary>
 public sealed class MqttZeroTransportInfo
 {

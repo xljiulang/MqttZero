@@ -1,12 +1,8 @@
 namespace MqttZero.AspNetCore.Dashboard;
 
 /// <summary>
-/// Represents one page of dashboard sessions.
+/// 会话的分页结果。
 /// </summary>
-/// <param name="Items">The session items.</param>
-/// <param name="Page">The one-based page number.</param>
-/// <param name="PageSize">The page size.</param>
-/// <param name="Total">The total session count.</param>
 public sealed record DashboardSessionPageDto(
     IReadOnlyList<DashboardSessionDto> Items,
     int Page,

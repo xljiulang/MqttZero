@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace MqttZero.AspNetCore;
 
 /// <summary>
-/// Exposes service registration capabilities for MQTTZero.
+/// 服务注册能力接口。
 /// </summary>
 public interface IMqttZeroBuilder
 {

@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace MqttZero.AspNetCore.Dashboard;
 
 /// <summary>
-/// Registers MQTTZero dashboard services.
+/// 注册管理后台服务。
 /// </summary>
 public static class MqttZeroDashboardServiceCollectionExtensions
 {

@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Routing;
 namespace MqttZero.AspNetCore;
 
 /// <summary>
-/// Maps MQTTZero WebSocket endpoints.
+/// 映射 MQTT over WebSocket 端点。
 /// </summary>
 public static class MqttZeroEndpointRouteBuilderExtensions
 {
@@ -38,6 +38,11 @@ public static class MqttZeroEndpointRouteBuilderExtensions
         return builder;
     }
 
+    /// <summary>
+    /// 选择MqttSubProtocol。
+    /// </summary>
+    /// <param name="requestedProtocols">对应的 requestedProtocols。</param>
+    /// <returns>对应的字符串。</returns>
     private static string SelectMqttSubProtocol(IList<string> requestedProtocols)
     {
         foreach (string protocol in requestedProtocols)
