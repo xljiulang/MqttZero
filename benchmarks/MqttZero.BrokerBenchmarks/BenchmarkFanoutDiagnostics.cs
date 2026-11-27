@@ -26,4 +26,17 @@ internal sealed record BenchmarkFanoutDiagnostics(
     double AveragePendingSelectionMicroseconds,
     double AverageInflightUpdateMicroseconds,
     double AveragePublishEncodeMicroseconds,
-    double AveragePublishWriteMicroseconds);
+    double AveragePublishWriteMicroseconds,
+    long ControlFrameCount,
+    long ControlFrameDirectCount,
+    long ControlFrameQueuedCount,
+    long ControlBatchCount,
+    long ControlBatchFrameSum,
+    long ControlBatchFrameMax,
+    long TotalControlWriteTicks,
+    long MaxControlWriteTicks,
+    long AckWorkCount,
+    long TotalAckWorkQueueTicks,
+    long MaxAckWorkQueueTicks,
+    long QosZeroDirectCount,
+    long QosZeroDeferredCount);

@@ -15,7 +15,8 @@ param(
     [int] $StartPort = 25000,
     [string] $OutputDirectory = 'artifacts/broker-ab',
     [switch] $SkipBuild,
-    [switch] $SkipExisting
+    [switch] $SkipExisting,
+    [switch] $Diagnostics
 )
 
 $ErrorActionPreference = 'Stop'
@@ -117,6 +118,11 @@ else {
 }
 
 $driverAssembly = $candidateAssembly
+$diagnosticArguments = @()
+if ($Diagnostics) {
+    $diagnosticArguments = @('--diagnostics', 'true')
+}
+
 $cellIndex = 0
 $cells = @()
 foreach ($cellQos in $Qos) {
@@ -153,7 +159,8 @@ foreach ($cellQos in $Qos) {
                 --start-port $cellPort `
                 --min-gain-percent $MinGainPercent `
                 --max-delivery-p99-regression-percent $MaxDeliveryP99RegressionPercent `
-                --output $cellPath
+                --output $cellPath `
+                @diagnosticArguments
             if (-not (Test-Path -LiteralPath $cellPath)) {
                 throw "Cell '$cellName' did not produce $cellPath."
             }
