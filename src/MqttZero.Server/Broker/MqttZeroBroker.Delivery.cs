@@ -966,7 +966,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroInboundShardWork shardWork = MqttZeroInboundShardWork.Rent(
             work,
             DispatchInboundWorkAsync,
-            HandleInboundShardFailure);
+            HandleConnectionWorkFailure);
         if (senderConnection.ShardId < 0 ||
             senderConnection.ShardId >= shards.Count)
         {
@@ -1003,15 +1003,11 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
-    private void HandleInboundShardFailure(Exception exception)
+    private void HandleConnectionWorkFailure(Exception exception)
     {
         MqttZeroBrokerLogging.LogInboundDispatcherFailure(
             _logger,
             exception);
-        Volatile.Write(ref _stopping, 1);
-        Volatile.Write(
-            ref _state,
-            (int)MqttZeroBrokerState.Stopping);
     }
 
     private static void ReleaseSessionMessagesCore(

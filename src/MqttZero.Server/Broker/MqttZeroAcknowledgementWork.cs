@@ -11,7 +11,7 @@ internal sealed class MqttZeroAcknowledgementWork
         MqttZeroAcknowledgementWork> Pool = new(
             MqttZeroBoundedObjectPool<MqttZeroAcknowledgementWork>.
                 DefaultCapacity);
-    private Action? _completed;
+    private Action<TaskCompletionSource>? _completed;
 
     private MqttZeroAcknowledgementWork()
     {
@@ -24,11 +24,14 @@ internal sealed class MqttZeroAcknowledgementWork
 
     public MqttZeroSessionState Session { get; private set; } = null!;
 
+    public TaskCompletionSource? Completion { get; private set; }
+
     public static MqttZeroAcknowledgementWork Rent(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
         MqttZeroAcknowledgementView acknowledgement,
-        Action completed)
+        Action<TaskCompletionSource> completed,
+        TaskCompletionSource completion)
     {
         ArgumentNullException.ThrowIfNull(completed);
         if (!Pool.TryRent(out MqttZeroAcknowledgementWork? work) ||
@@ -41,17 +44,24 @@ internal sealed class MqttZeroAcknowledgementWork
         work.Connection = connection;
         work.Acknowledgement = acknowledgement;
         work._completed = completed;
+        work.Completion = completion;
         return work;
     }
 
     public void Release()
     {
-        Action? completed = _completed;
+        Action<TaskCompletionSource>? completed = _completed;
+        TaskCompletionSource? completion = Completion;
         _completed = null;
+        Completion = null;
         Session = null!;
         Connection = null!;
         Acknowledgement = default;
-        completed?.Invoke();
+        if (completed != null && completion != null)
+        {
+            completed(completion);
+        }
+
         _ = Pool.Return(this);
     }
 }

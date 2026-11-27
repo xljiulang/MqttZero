@@ -10,7 +10,7 @@ internal sealed class MqttZeroInboundWork
         Pool = new(
             MqttZeroBoundedObjectPool<MqttZeroInboundWork>.
                 DefaultCapacity);
-    private Action? _completed;
+    private Action<TaskCompletionSource>? _completed;
 
     private MqttZeroInboundWork()
     {
@@ -34,12 +34,15 @@ internal sealed class MqttZeroInboundWork
 
     public long CreatedTimestamp { get; private set; }
 
+    public TaskCompletionSource? Completion { get; private set; }
+
     public static MqttZeroInboundWork Rent(
         MqttZeroMessageLease lease,
         MqttZeroSessionState sender,
         MqttZeroClientConnection? senderConnection,
         long messageId = 0,
-        Action? completed = null)
+        Action<TaskCompletionSource>? completed = null,
+        TaskCompletionSource? completion = null)
     {
         if (!Pool.TryRent(out MqttZeroInboundWork? work) ||
             work is null)
@@ -53,20 +56,27 @@ internal sealed class MqttZeroInboundWork
         work.SenderConnection = senderConnection;
         work.MessageId = messageId;
         work._completed = completed;
+        work.Completion = completion;
         work.CreatedTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
         return work;
     }
 
     public void Release()
     {
-        Action? completed = _completed;
+        Action<TaskCompletionSource>? completed = _completed;
+        TaskCompletionSource? completion = Completion;
         _completed = null;
+        Completion = null;
         Lease.Release();
         Lease = null!;
         Sender = null!;
         SenderConnection = null;
         MessageId = 0;
-        completed?.Invoke();
+        if (completed != null && completion != null)
+        {
+            completed(completion);
+        }
+
         _ = Pool.Return(this);
     }
 }

@@ -545,13 +545,14 @@ public sealed partial class MqttZeroBroker
         ushort packetIdentifier,
         out MqttZeroInboundShardWork shardWork)
     {
-        context.BeginPendingPublish();
+        TaskCompletionSource completion = context.BeginPendingPublish();
         MqttZeroInboundWork work = MqttZeroInboundWork.Rent(
             lease,
             session,
             connection,
             packetIdentifier,
-            context.CachedPendingPublishCompleted);
+            context.CachedPendingPublishCompleted,
+            completion);
         try
         {
             shardWork = MqttZeroInboundShardWork.Rent(
@@ -624,13 +625,14 @@ public sealed partial class MqttZeroBroker
         MqttZeroAcknowledgementView acknowledgement,
         CancellationToken cancellationToken)
     {
-        context.BeginAcknowledgement();
+        TaskCompletionSource completion = context.BeginAcknowledgement();
         MqttZeroAcknowledgementWork work =
             MqttZeroAcknowledgementWork.Rent(
                 session,
                 connection,
                 acknowledgement,
-                context.CachedAcknowledgementCompleted);
+                context.CachedAcknowledgementCompleted,
+                completion);
         MqttZeroAcknowledgementShardWork shardWork =
             MqttZeroAcknowledgementShardWork.Rent(
                 work,
@@ -1089,10 +1091,8 @@ public sealed partial class MqttZeroBroker
         private readonly MqttZeroBroker _broker;
         private readonly MqttZeroShardCommand<
             MqttZeroInboundBufferAction> _shardCommand = new();
-        private TaskCompletionSource? _acknowledgementDrain;
-        private int _acknowledgementOutstanding;
-        private TaskCompletionSource? _pendingPublishDrain;
-        private int _pendingPublishOutstanding;
+        private readonly MqttZeroPendingDrain _acknowledgementDrain = new();
+        private readonly MqttZeroPendingDrain _pendingPublishDrain = new();
 
         public AcceptedConnectionContext(
             MqttZeroBroker broker,
@@ -1125,7 +1125,7 @@ public sealed partial class MqttZeroBroker
             CachedPendingPublishInvocation =
                 broker.ProcessQueuedFastPublishAsync;
             CachedInboundShardFailure =
-                broker.HandleInboundShardFailure;
+                broker.HandleConnectionWorkFailure;
             CachedAcknowledgementCompleted =
                 CompleteAcknowledgement;
             CachedAcknowledgementInvocation =
@@ -1198,7 +1198,7 @@ public sealed partial class MqttZeroBroker
             CachedOwnedPublishInvocation
         { get; }
 
-        public Action CachedPendingPublishCompleted { get; }
+        public Action<TaskCompletionSource> CachedPendingPublishCompleted { get; }
 
         public Func<
             MqttZeroInboundWork,
@@ -1209,7 +1209,7 @@ public sealed partial class MqttZeroBroker
 
         public Action<Exception> CachedInboundShardFailure { get; }
 
-        public Action CachedAcknowledgementCompleted { get; }
+        public Action<TaskCompletionSource> CachedAcknowledgementCompleted { get; }
 
         public Func<
             MqttZeroAcknowledgementWork,
@@ -1237,80 +1237,38 @@ public sealed partial class MqttZeroBroker
         {
             get
             {
-                return Volatile.Read(ref _pendingPublishOutstanding);
+                return _pendingPublishDrain.Count;
             }
         }
 
-        public void BeginPendingPublish()
+        public TaskCompletionSource BeginPendingPublish()
         {
-            if (Interlocked.Increment(
-                    ref _pendingPublishOutstanding) == 1)
-            {
-                Volatile.Write(
-                    ref _pendingPublishDrain,
-                    new TaskCompletionSource(
-                        TaskCreationOptions.
-                            RunContinuationsAsynchronously));
-            }
+            return _pendingPublishDrain.Begin();
         }
 
-        public void CompletePendingPublish()
+        public void CompletePendingPublish(TaskCompletionSource token)
         {
-            if (Interlocked.Decrement(
-                    ref _pendingPublishOutstanding) == 0)
-            {
-                Volatile.Read(
-                    ref _pendingPublishDrain)?.TrySetResult();
-            }
+            _pendingPublishDrain.Complete(token);
         }
 
-        public async ValueTask WaitForPendingPublishesAsync()
+        public ValueTask WaitForPendingPublishesAsync()
         {
-            while (Volatile.Read(ref _pendingPublishOutstanding) != 0)
-            {
-                TaskCompletionSource? drain =
-                    Volatile.Read(ref _pendingPublishDrain);
-                if (drain != null)
-                {
-                    await drain.Task.ConfigureAwait(false);
-                }
-            }
+            return _pendingPublishDrain.WaitAsync();
         }
 
-        public void BeginAcknowledgement()
+        public TaskCompletionSource BeginAcknowledgement()
         {
-            if (Interlocked.Increment(
-                    ref _acknowledgementOutstanding) == 1)
-            {
-                Volatile.Write(
-                    ref _acknowledgementDrain,
-                    new TaskCompletionSource(
-                        TaskCreationOptions.
-                            RunContinuationsAsynchronously));
-            }
+            return _acknowledgementDrain.Begin();
         }
 
-        public void CompleteAcknowledgement()
+        public void CompleteAcknowledgement(TaskCompletionSource token)
         {
-            if (Interlocked.Decrement(
-                    ref _acknowledgementOutstanding) == 0)
-            {
-                Volatile.Read(
-                    ref _acknowledgementDrain)?.TrySetResult();
-            }
+            _acknowledgementDrain.Complete(token);
         }
 
-        public async ValueTask WaitForAcknowledgementsAsync()
+        public ValueTask WaitForAcknowledgementsAsync()
         {
-            while (Volatile.Read(ref _acknowledgementOutstanding) != 0)
-            {
-                TaskCompletionSource? drain =
-                    Volatile.Read(ref _acknowledgementDrain);
-                if (drain != null)
-                {
-                    await drain.Task.ConfigureAwait(false);
-                }
-            }
+            return _acknowledgementDrain.WaitAsync();
         }
 
         public ValueTask<MqttZeroInboundBufferAction>
