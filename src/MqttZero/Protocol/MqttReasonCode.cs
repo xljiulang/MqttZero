@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// MQTT reason codes used by supported acknowledgement packets.
+/// 确认类报文使用的原因码。
 /// </summary>
 public enum MqttReasonCode : byte
 {

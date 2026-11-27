@@ -3,10 +3,18 @@ using System.Text;
 
 namespace MqttZero.Protocol;
 
+/// <summary>
+/// 主题名、主题过滤器、原因码与 UTF-8 校验。
+/// </summary>
 internal static class MqttZeroProtocolValidator
 {
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
 
+    /// <summary>
+    /// 判断是否Valid主题名称。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool IsValidTopicName(ReadOnlySequence<byte> topic)
     {
         if (topic.IsEmpty || !IsValidUtf8(topic))
@@ -25,6 +33,11 @@ internal static class MqttZeroProtocolValidator
         return true;
     }
 
+    /// <summary>
+    /// 判断是否Valid主题过滤器。
+    /// </summary>
+    /// <param name="topicFilter">主题过滤器。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool IsValidTopicFilter(ReadOnlySequence<byte> topicFilter)
     {
         if (topicFilter.IsEmpty || !IsValidUtf8(topicFilter))
@@ -45,6 +58,11 @@ internal static class MqttZeroProtocolValidator
         }
     }
 
+    /// <summary>
+    /// 判断是否ValidPub确认原因代码。
+    /// </summary>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool IsValidPubAckReasonCode(MqttReasonCode reasonCode)
     {
         return reasonCode is
@@ -60,6 +78,11 @@ internal static class MqttZeroProtocolValidator
             MqttReasonCode.PayloadFormatInvalid;
     }
 
+    /// <summary>
+    /// 判断是否ValidPubRel原因代码。
+    /// </summary>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool IsValidPubRelReasonCode(MqttReasonCode reasonCode)
     {
         return reasonCode is
@@ -67,6 +90,11 @@ internal static class MqttZeroProtocolValidator
             MqttReasonCode.PacketIdentifierNotFound;
     }
 
+    /// <summary>
+    /// 判断是否ValidConn确认原因代码。
+    /// </summary>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool IsValidConnAckReasonCode(MqttReasonCode reasonCode)
     {
         return reasonCode is
@@ -92,6 +120,11 @@ internal static class MqttZeroProtocolValidator
             MqttReasonCode.ConnectionRateExceeded;
     }
 
+    /// <summary>
+    /// 判断是否Valid断开原因代码。
+    /// </summary>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool IsValidDisconnectReasonCode(MqttReasonCode reasonCode)
     {
         return reasonCode is
@@ -126,6 +159,11 @@ internal static class MqttZeroProtocolValidator
             (MqttReasonCode)0xA2;
     }
 
+    /// <summary>
+    /// 判断是否ValidSub确认原因代码。
+    /// </summary>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool IsValidSubAckReasonCode(byte reasonCode)
     {
         return reasonCode is
@@ -133,11 +171,21 @@ internal static class MqttZeroProtocolValidator
             0x9E or 0xA1 or 0xA2;
     }
 
+    /// <summary>
+    /// 判断是否ValidUnsub确认原因代码。
+    /// </summary>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool IsValidUnsubAckReasonCode(byte reasonCode)
     {
         return reasonCode is 0x00 or 0x11 or 0x80 or 0x83 or 0x87 or 0x8F or 0x91;
     }
 
+    /// <summary>
+    /// 判断是否Valid主题过滤器缓冲区。
+    /// </summary>
+    /// <param name="topicFilter">主题过滤器。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool IsValidTopicFilterBuffer(ReadOnlySpan<byte> topicFilter)
     {
         if (topicFilter.StartsWith("$share/"u8))
@@ -189,6 +237,11 @@ internal static class MqttZeroProtocolValidator
         return true;
     }
 
+    /// <summary>
+    /// 判断是否ValidUTF-8。
+    /// </summary>
+    /// <param name="value">值。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool IsValidUtf8(ReadOnlySequence<byte> value)
     {
         if (value.IsEmpty)

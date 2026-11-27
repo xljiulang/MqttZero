@@ -3,7 +3,7 @@ using System.Buffers;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Represents an MQTT 5 UNSUBACK packet.
+/// MQTT 5 UNSUBACK 退订确认报文。
 /// </summary>
 public sealed class MqttUnsubAckPacket : MqttPacket
 {

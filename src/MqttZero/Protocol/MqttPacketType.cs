@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Identifies MQTT control packet types.
+/// MQTT 控制报文类型。
 /// </summary>
 public enum MqttPacketType : byte
 {

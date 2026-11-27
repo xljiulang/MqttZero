@@ -4,10 +4,17 @@ using System.Buffers.Binary;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Implements MQTT PUBLISH packet codecs.
+/// MQTT 报文的统一解码与编码入口，按报文族拆成多个分部文件。
 /// </summary>
 public static partial class MqttPacketCodec
 {
+    /// <summary>
+    /// 尝试Decode发布。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodePublish(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -68,6 +75,11 @@ public static partial class MqttPacketCodec
         return true;
     }
 
+    /// <summary>
+    /// 编码发布。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     private static void EncodePublish(MqttPublishPacket packet, IBufferWriter<byte> writer)
     {
         if ((byte)packet.QualityOfServiceLevel >

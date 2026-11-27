@@ -4,6 +4,9 @@ using System.Collections.Concurrent;
 
 namespace MqttZero.Memory;
 
+/// <summary>
+/// 受字节预算约束、按桶分级的缓冲区池。
+/// </summary>
 internal sealed class MqttZeroBufferPool : IDisposable
 {
     private const int BucketCount = 23;
@@ -25,11 +28,20 @@ internal sealed class MqttZeroBufferPool : IDisposable
     private long _returnGeneration;
     private int _disposed;
 
+    /// <summary>
+    /// 初始化 MqttZeroBufferPool 的新实例。
+    /// </summary>
+    /// <param name="maximumBytes">最大字节数。</param>
     public MqttZeroBufferPool(long maximumBytes)
         : this(maximumBytes, MqttZeroNoCacheArrayPool.Instance)
     {
     }
 
+    /// <summary>
+    /// 初始化 MqttZeroBufferPool 的新实例。
+    /// </summary>
+    /// <param name="maximumBytes">最大字节数。</param>
+    /// <param name="source">来源。</param>
     public MqttZeroBufferPool(long maximumBytes, ArrayPool<byte> source)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumBytes);
@@ -60,6 +72,11 @@ internal sealed class MqttZeroBufferPool : IDisposable
         }
     }
 
+    /// <summary>
+    /// 租用。
+    /// </summary>
+    /// <param name="minimumLength">最小长度。</param>
+    /// <returns>字节数组。</returns>
     public byte[] Rent(int minimumLength)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(minimumLength);
@@ -73,6 +90,10 @@ internal sealed class MqttZeroBufferPool : IDisposable
             Volatile.Read(ref _returnGeneration));
     }
 
+    /// <summary>
+    /// 获取快照。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroBufferPoolSnapshot GetSnapshot()
     {
         MqttZeroBufferBucketSnapshot[] buckets =
@@ -99,6 +120,12 @@ internal sealed class MqttZeroBufferPool : IDisposable
             buckets);
     }
 
+    /// <summary>
+    /// 尝试租用。
+    /// </summary>
+    /// <param name="minimumLength">最小长度。</param>
+    /// <param name="buffer">缓冲区。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool TryRent(int minimumLength, out byte[] buffer)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
@@ -140,6 +167,10 @@ internal sealed class MqttZeroBufferPool : IDisposable
         }
     }
 
+    /// <summary>
+    /// 归还。
+    /// </summary>
+    /// <param name="buffer">缓冲区。</param>
     public void Return(byte[] buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
@@ -170,6 +201,9 @@ internal sealed class MqttZeroBufferPool : IDisposable
         SignalCapacityRelease();
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
@@ -191,6 +225,11 @@ internal sealed class MqttZeroBufferPool : IDisposable
         _capacityReleased.Dispose();
     }
 
+    /// <summary>
+    /// 等待容量。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public ValueTask WaitForCapacityAsync(CancellationToken cancellationToken)
     {
         return WaitForCapacityAsync(
@@ -198,6 +237,12 @@ internal sealed class MqttZeroBufferPool : IDisposable
             cancellationToken);
     }
 
+    /// <summary>
+    /// 等待容量。
+    /// </summary>
+    /// <param name="observedReturnGeneration">observed归还代。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask WaitForCapacityAsync(
         long observedReturnGeneration,
         CancellationToken cancellationToken)
@@ -229,6 +274,10 @@ internal sealed class MqttZeroBufferPool : IDisposable
         }
     }
 
+    /// <summary>
+    /// 创建BucketSizes。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     private static int[] CreateBucketSizes()
     {
         int[] sizes = new int[BucketCount];
@@ -245,6 +294,11 @@ internal sealed class MqttZeroBufferPool : IDisposable
         return sizes;
     }
 
+    /// <summary>
+    /// 获取Bucket索引。
+    /// </summary>
+    /// <param name="length">长度。</param>
+    /// <returns>计算得到的数值。</returns>
     private static int GetBucketIndex(int length)
     {
         if (length <= MinimumBucketSize)
@@ -256,6 +310,9 @@ internal sealed class MqttZeroBufferPool : IDisposable
         return index >= BucketCount ? BucketCount - 1 : index;
     }
 
+    /// <summary>
+    /// 通知容量Release。
+    /// </summary>
     private void SignalCapacityRelease()
     {
         Interlocked.Increment(ref _returnGeneration);
@@ -265,6 +322,12 @@ internal sealed class MqttZeroBufferPool : IDisposable
         }
     }
 
+    /// <summary>
+    /// 尝试租用Cached。
+    /// </summary>
+    /// <param name="minimumLength">最小长度。</param>
+    /// <param name="buffer">缓冲区。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private bool TryRentCached(
         int minimumLength,
         out byte[] buffer)
@@ -298,6 +361,11 @@ internal sealed class MqttZeroBufferPool : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// 尝试ReserveCommitted。
+    /// </summary>
+    /// <param name="byteCount">字节数量。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private bool TryReserveCommitted(int byteCount)
     {
         while (true)
@@ -318,6 +386,12 @@ internal sealed class MqttZeroBufferPool : IDisposable
         }
     }
 
+    /// <summary>
+    /// 尝试ReserveWithReclaim。
+    /// </summary>
+    /// <param name="requestedBucketIndex">requestedBucket索引。</param>
+    /// <param name="bucketSize">bucket大小。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private bool TryReserveWithReclaim(
         int requestedBucketIndex,
         int bucketSize)
@@ -335,6 +409,12 @@ internal sealed class MqttZeroBufferPool : IDisposable
         return TryReserveCommitted(bucketSize);
     }
 
+    /// <summary>
+    /// 尝试ReclaimCached缓冲区。
+    /// </summary>
+    /// <param name="requestedBucketIndex">requestedBucket索引。</param>
+    /// <param name="bucketSize">bucket大小。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private bool TryReclaimCachedBuffers(
         int requestedBucketIndex,
         int bucketSize)

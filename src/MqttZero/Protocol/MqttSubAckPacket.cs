@@ -3,7 +3,7 @@ using System.Buffers;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Represents an MQTT 5 SUBACK packet.
+/// MQTT 5 SUBACK 订阅确认报文。
 /// </summary>
 public sealed class MqttSubAckPacket : MqttPacket
 {

@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Identifies MQTT protocol versions supported by MQTTZero.
+/// MQTTZero 支持的 MQTT 协议版本。
 /// </summary>
 public enum MqttProtocolVersion : byte
 {

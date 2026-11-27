@@ -4,10 +4,17 @@ using System.Buffers.Binary;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Implements MQTT CONNECT and CONNACK packet codecs.
+/// MQTT 报文的统一解码与编码入口，按报文族拆成多个分部文件。
 /// </summary>
 public static partial class MqttPacketCodec
 {
+    /// <summary>
+    /// 尝试Decode连接。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodeConnect(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -94,6 +101,11 @@ public static partial class MqttPacketCodec
         return reader.Remaining == 0;
     }
 
+    /// <summary>
+    /// 编码连接。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     private static void EncodeConnect(MqttConnectPacket packet, IBufferWriter<byte> writer)
     {
         if (packet.HasWill &&
@@ -163,6 +175,11 @@ public static partial class MqttPacketCodec
         }
     }
 
+    /// <summary>
+    /// 编码Conn确认。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     private static void EncodeConnAck(MqttConnAckPacket packet, IBufferWriter<byte> writer)
     {
         if (!MqttZeroProtocolValidator.IsValidConnAckReasonCode(packet.ReasonCode) ||
@@ -186,6 +203,11 @@ public static partial class MqttPacketCodec
         Mqtt5PropertyWriter.WriteConnAckProperties(packet, writer);
     }
 
+    /// <summary>
+    /// 构建连接标志。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <returns>对应的结果。</returns>
     private static byte BuildConnectFlags(MqttConnectPacket packet)
     {
         byte flags = 0;

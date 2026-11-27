@@ -3,6 +3,9 @@ using System.Buffers;
 
 namespace MqttZero.Memory;
 
+/// <summary>
+/// 引用计数的消息租约，共享主题、属性与负载。
+/// </summary>
 internal sealed class MqttZeroMessageLease : IDisposable
 {
     private static readonly MqttZeroBoundedObjectPool<MqttZeroMessageLease>
@@ -22,12 +25,21 @@ internal sealed class MqttZeroMessageLease : IDisposable
     private int _topicLength;
     private int _topicOffset;
 
+    /// <summary>
+    /// 初始化 MqttZeroMessageLease 的新实例。
+    /// </summary>
     private MqttZeroMessageLease()
     {
     }
 
+    /// <summary>
+    /// 主题。
+    /// </summary>
     public ReadOnlyMemory<byte> Topic { get; private set; }
 
+    /// <summary>
+    /// 属性。
+    /// </summary>
     public ReadOnlyMemory<byte> Properties { get; private set; }
 
     /// <summary>
@@ -45,10 +57,19 @@ internal sealed class MqttZeroMessageLease : IDisposable
         }
     }
 
+    /// <summary>
+    /// 主题序列。
+    /// </summary>
     public ReadOnlySequence<byte> TopicSequence { get; private set; }
 
+    /// <summary>
+    /// 属性序列。
+    /// </summary>
     public ReadOnlySequence<byte> PropertiesSequence { get; private set; }
 
+    /// <summary>
+    /// 负载序列。
+    /// </summary>
     public ReadOnlySequence<byte> PayloadSequence { get; private set; }
 
     public bool IsBorrowed
@@ -59,16 +80,34 @@ internal sealed class MqttZeroMessageLease : IDisposable
         }
     }
 
+    /// <summary>
+    /// 服务质量ServiceLevel。
+    /// </summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; private set; }
 
+    /// <summary>
+    /// 保留标志。
+    /// </summary>
     public bool RetainFlag { get; private set; }
 
+    /// <summary>
+    /// 消息Expiry间隔。
+    /// </summary>
     public uint? MessageExpiryInterval { get; private set; }
 
+    /// <summary>
+    /// 订阅标识符。
+    /// </summary>
     public uint? SubscriptionIdentifier { get; private set; }
 
+    /// <summary>
+    /// ExpiresAt 的值。
+    /// </summary>
     public DateTimeOffset? ExpiresAt { get; private set; }
 
+    /// <summary>
+    /// 报文标识符。
+    /// </summary>
     public ushort PacketIdentifier { get; set; }
 
     internal static int PoolCountForTest
@@ -79,6 +118,18 @@ internal sealed class MqttZeroMessageLease : IDisposable
         }
     }
 
+    /// <summary>
+    /// 复制From。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <param name="properties">属性。</param>
+    /// <param name="payload">负载。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="messageExpiryInterval">消息Expiry间隔。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
+    /// <param name="bufferPool">缓冲区池。</param>
+    /// <returns>对应的结果。</returns>
     public static MqttZeroMessageLease CopyFrom(
         ReadOnlySequence<byte> topic,
         ReadOnlySequence<byte> properties,
@@ -102,6 +153,18 @@ internal sealed class MqttZeroMessageLease : IDisposable
         return lease;
     }
 
+    /// <summary>
+    /// 执行 BorrowFrom 对应的处理。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <param name="properties">属性。</param>
+    /// <param name="payload">负载。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="messageExpiryInterval">消息Expiry间隔。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
+    /// <param name="bufferPool">缓冲区池。</param>
+    /// <returns>对应的结果。</returns>
     public static MqttZeroMessageLease BorrowFrom(
         ReadOnlySequence<byte> topic,
         ReadOnlySequence<byte> properties,
@@ -125,6 +188,10 @@ internal sealed class MqttZeroMessageLease : IDisposable
         return lease;
     }
 
+    /// <summary>
+    /// 创建OwnedCopy。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroMessageLease CreateOwnedCopy()
     {
         MqttZeroMessageLease copy = CopyFrom(
@@ -140,11 +207,18 @@ internal sealed class MqttZeroMessageLease : IDisposable
         return copy;
     }
 
+    /// <summary>
+    /// 设置ExpiresAt。
+    /// </summary>
+    /// <param name="expiresAt">对应的 expiresAt。</param>
     public void SetExpiresAt(DateTimeOffset? expiresAt)
     {
         ExpiresAt = expiresAt;
     }
 
+    /// <summary>
+    /// 确保Owned。
+    /// </summary>
     public void EnsureOwned()
     {
         if (!_isBorrowed)
@@ -198,11 +272,17 @@ internal sealed class MqttZeroMessageLease : IDisposable
         }
     }
 
+    /// <summary>
+    /// 保留。
+    /// </summary>
     public void Retain()
     {
         Interlocked.Increment(ref _referenceCount);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public void Release()
     {
         int references = Interlocked.Decrement(ref _referenceCount);
@@ -218,11 +298,19 @@ internal sealed class MqttZeroMessageLease : IDisposable
         _ = LeasePool.Return(this);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public void Dispose()
     {
         Release();
     }
 
+    /// <summary>
+    /// 复制Region。
+    /// </summary>
+    /// <param name="source">来源。</param>
+    /// <param name="destination">对应的 destination。</param>
     private static void CopyRegion(
         ReadOnlySequence<byte> source,
         Span<byte> destination)
@@ -233,6 +321,10 @@ internal sealed class MqttZeroMessageLease : IDisposable
         }
     }
 
+    /// <summary>
+    /// 租用租约。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     private static MqttZeroMessageLease RentLease()
     {
         return LeasePool.TryRent(out MqttZeroMessageLease? lease)
@@ -240,6 +332,17 @@ internal sealed class MqttZeroMessageLease : IDisposable
             : new MqttZeroMessageLease();
     }
 
+    /// <summary>
+    /// 初始化Borrowed。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <param name="properties">属性。</param>
+    /// <param name="payload">负载。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="messageExpiryInterval">消息Expiry间隔。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
+    /// <param name="bufferPool">缓冲区池。</param>
     private void InitializeBorrowed(
         ReadOnlySequence<byte> topic,
         ReadOnlySequence<byte> properties,
@@ -301,6 +404,17 @@ internal sealed class MqttZeroMessageLease : IDisposable
         }
     }
 
+    /// <summary>
+    /// 初始化Owned。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <param name="properties">属性。</param>
+    /// <param name="payload">负载。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="messageExpiryInterval">消息Expiry间隔。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
+    /// <param name="bufferPool">缓冲区池。</param>
     private void InitializeOwned(
         ReadOnlySequence<byte> topic,
         ReadOnlySequence<byte> properties,
@@ -354,6 +468,11 @@ internal sealed class MqttZeroMessageLease : IDisposable
         }
     }
 
+    /// <summary>
+    /// 租用内存块。
+    /// </summary>
+    /// <param name="length">长度。</param>
+    /// <returns>字节数组。</returns>
     private byte[] RentSlab(int length)
     {
         return length == 0
@@ -361,6 +480,9 @@ internal sealed class MqttZeroMessageLease : IDisposable
             : _bufferPool.Rent(length);
     }
 
+    /// <summary>
+    /// 重置。
+    /// </summary>
     private void Reset()
     {
         Topic = ReadOnlyMemory<byte>.Empty;
@@ -382,6 +504,10 @@ internal sealed class MqttZeroMessageLease : IDisposable
         PacketIdentifier = 0;
     }
 
+    /// <summary>
+    /// 归还内存块。
+    /// </summary>
+    /// <param name="slab">内存块。</param>
     private void ReturnSlab(byte[] slab)
     {
         if (slab.Length > 0)
@@ -390,6 +516,13 @@ internal sealed class MqttZeroMessageLease : IDisposable
         }
     }
 
+    /// <summary>
+    /// 设置Metadata。
+    /// </summary>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="messageExpiryInterval">消息Expiry间隔。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
     private void SetMetadata(
         MqttQualityOfServiceLevel qualityOfServiceLevel,
         bool retain,
@@ -405,6 +538,13 @@ internal sealed class MqttZeroMessageLease : IDisposable
         _referenceCount = 1;
     }
 
+    /// <summary>
+    /// 设置OwnedRegions。
+    /// </summary>
+    /// <param name="slab">内存块。</param>
+    /// <param name="topicLength">主题长度。</param>
+    /// <param name="propertiesLength">属性长度。</param>
+    /// <param name="payloadLength">负载长度。</param>
     private void SetOwnedRegions(
         byte[] slab,
         int topicLength,

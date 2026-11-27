@@ -3,7 +3,7 @@ using System.Buffers;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Represents an MQTT 5 CONNACK packet.
+/// MQTT 5 CONNACK 报文。
 /// </summary>
 public sealed class MqttConnAckPacket : MqttPacket
 {

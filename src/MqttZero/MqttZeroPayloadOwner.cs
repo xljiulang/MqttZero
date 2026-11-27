@@ -3,7 +3,7 @@ using System.Buffers;
 namespace MqttZero;
 
 /// <summary>
-/// Owns a pooled MQTT payload sequence and releases it when disposed.
+/// 池化负载的所有者抽象。
 /// </summary>
 public abstract class MqttZeroPayloadOwner : IAsyncDisposable
 {

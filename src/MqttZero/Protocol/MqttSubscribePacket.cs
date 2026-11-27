@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Represents an MQTT 5 SUBSCRIBE packet.
+/// MQTT 5 SUBSCRIBE 订阅报文。
 /// </summary>
 public sealed class MqttSubscribePacket : MqttPacket
 {

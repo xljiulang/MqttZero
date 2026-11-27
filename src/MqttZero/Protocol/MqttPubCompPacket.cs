@@ -1,6 +1,8 @@
 namespace MqttZero.Protocol;
 
-/// <summary>Represents an MQTT 5 PUBCOMP packet.</summary>
+/// <summary>
+/// QoS 2 的 PUBCOMP 完成报文。
+/// </summary>
 public sealed class MqttPubCompPacket : MqttPacket
 {
     /// <inheritdoc />

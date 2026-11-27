@@ -6,8 +6,17 @@ using static MqttZero.Protocol.Mqtt5PropertyId;
 
 namespace MqttZero.Protocol;
 
+/// <summary>
+/// MQTT 5 属性读取器。
+/// </summary>
 internal static class Mqtt5PropertyReader
 {
+    /// <summary>
+    /// 尝试读取连接。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool TryReadConnect(
         ReadOnlySequence<byte> properties,
         MqttConnectPacket packet)
@@ -148,6 +157,12 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取遗嘱。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool TryReadWill(
         ReadOnlySequence<byte> properties,
         MqttConnectPacket packet)
@@ -168,6 +183,12 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取发布。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool TryReadPublish(
         ReadOnlySequence<byte> properties,
         MqttPublishPacket packet)
@@ -189,6 +210,12 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取Conn确认。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool TryReadConnAck(
         ReadOnlySequence<byte> properties,
         MqttConnAckPacket packet)
@@ -419,6 +446,12 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取订阅。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool TryReadSubscribe(
         ReadOnlySequence<byte> properties,
         MqttSubscribePacket packet)
@@ -465,6 +498,12 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取退订。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool TryReadUnsubscribe(
         ReadOnlySequence<byte> properties,
         MqttUnsubscribePacket packet)
@@ -499,6 +538,13 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取原因属性。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="reasonString">原因字符串。</param>
+    /// <param name="userProperties">用户属性。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool TryReadReasonProperties(
         ReadOnlySequence<byte> properties,
         out string? reasonString,
@@ -549,6 +595,11 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试Validate原因属性。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     internal static bool TryValidateReasonProperties(ReadOnlySequence<byte> properties)
     {
         bool hasReasonString = false;
@@ -587,6 +638,12 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取断开。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool TryReadDisconnect(
         ReadOnlySequence<byte> properties,
         MqttDisconnectPacket packet)
@@ -658,6 +715,16 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取消息属性。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="isWill">is遗嘱。</param>
+    /// <param name="publishProperties">发布属性。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <param name="topicAlias">主题别名。</param>
+    /// <param name="willDelay">遗嘱Delay。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadMessageProperties(
         ReadOnlySequence<byte> properties,
         bool isWill,
@@ -827,6 +894,12 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取用户属性。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <param name="userProperty">用户属性。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadUserProperty(
         ref SequenceReader<byte> reader,
         [NotNullWhen(true)] out MqttUserProperty? userProperty)
@@ -844,6 +917,12 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取布尔值。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <param name="value">值。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadBoolean(ref SequenceReader<byte> reader, out bool value)
     {
         value = false;
@@ -856,6 +935,12 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取二进制。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <param name="value">值。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadBinary(
         ref SequenceReader<byte> reader,
         out ReadOnlyMemory<byte> value)
@@ -874,6 +959,11 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试SkipValidatedUTF-8。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TrySkipValidatedUtf8(ref SequenceReader<byte> reader)
     {
         if (!MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort length) ||
@@ -894,6 +984,13 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取UTF-8字符串。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <param name="value">值。</param>
+    /// <param name="isTopicName">is主题名称。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadUtf8String(
         ref SequenceReader<byte> reader,
         out string? value,
@@ -926,6 +1023,12 @@ internal static class Mqtt5PropertyReader
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取UInt32。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <param name="value">值。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadUInt32(ref SequenceReader<byte> reader, out uint value)
     {
         value = 0;

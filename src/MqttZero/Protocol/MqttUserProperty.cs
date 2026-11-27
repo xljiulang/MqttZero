@@ -3,7 +3,7 @@ using System.Text;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Represents one ordered MQTT user property name and value pair.
+/// 有序的用户属性名值对。
 /// </summary>
 public sealed class MqttUserProperty
 {
@@ -35,6 +35,11 @@ public sealed class MqttUserProperty
     /// </summary>
     public string Value { get; }
 
+    /// <summary>
+    /// 校验UTF-8字符串。
+    /// </summary>
+    /// <param name="value">值。</param>
+    /// <param name="parameterName">parameter名称。</param>
     private static void ValidateUtf8String(string value, string parameterName)
     {
         if (value.Contains('\0', StringComparison.Ordinal))

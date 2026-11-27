@@ -3,8 +3,16 @@ using System.Buffers.Binary;
 
 namespace MqttZero.Protocol;
 
+/// <summary>
+/// 在不整体解码的前提下重写 PUBLISH 属性。
+/// </summary>
 internal static class MqttZeroPublishPropertyTransformer
 {
+    /// <summary>
+    /// 获取长度Without消息Expiry。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <returns>计算得到的数值。</returns>
     public static int GetLengthWithoutMessageExpiry(ReadOnlySequence<byte> properties)
     {
         if (properties.IsEmpty)
@@ -44,6 +52,12 @@ internal static class MqttZeroPublishPropertyTransformer
         }
     }
 
+    /// <summary>
+    /// Contains属性。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="identifier">标识符。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool ContainsProperty(
         ReadOnlySequence<byte> properties,
         byte identifier)
@@ -84,6 +98,12 @@ internal static class MqttZeroPublishPropertyTransformer
         }
     }
 
+    /// <summary>
+    /// 写入Without消息Expiry。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="properties">属性。</param>
+    /// <param name="messageExpiryInterval">消息Expiry间隔。</param>
     public static void WriteWithoutMessageExpiry(
         IBufferWriter<byte> writer,
         ReadOnlySequence<byte> properties,
@@ -144,6 +164,13 @@ internal static class MqttZeroPublishPropertyTransformer
         }
     }
 
+    /// <summary>
+    /// 写入Without消息Expiry。
+    /// </summary>
+    /// <param name="destination">对应的 destination。</param>
+    /// <param name="properties">属性。</param>
+    /// <param name="messageExpiryInterval">消息Expiry间隔。</param>
+    /// <returns>计算得到的数值。</returns>
     public static int WriteWithoutMessageExpiry(
         Span<byte> destination,
         ReadOnlySequence<byte> properties,

@@ -4,7 +4,7 @@ using MqttZero.Protocol;
 namespace MqttZero.Publishing;
 
 /// <summary>
-/// Describes one server-originated MQTT PUBLISH message.
+/// 服务端发起的一条 PUBLISH 消息描述。
 /// </summary>
 public sealed class MqttZeroPublishMessage
 {

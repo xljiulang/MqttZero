@@ -2,12 +2,20 @@ using System.Buffers;
 
 namespace MqttZero.Memory;
 
+/// <summary>
+/// 从缓冲池租用内存的 IBufferWriter 实现。
+/// </summary>
 internal sealed class MqttZeroPooledBufferWriter : IBufferWriter<byte>, IDisposable
 {
     private readonly MqttZeroBufferPool _bufferPool;
     private byte[] _buffer;
     private int _written;
 
+    /// <summary>
+    /// 初始化 MqttZeroPooledBufferWriter 的新实例。
+    /// </summary>
+    /// <param name="bufferPool">缓冲区池。</param>
+    /// <param name="minimumLength">最小长度。</param>
     public MqttZeroPooledBufferWriter(MqttZeroBufferPool bufferPool, int minimumLength)
     {
         ArgumentNullException.ThrowIfNull(bufferPool);
@@ -32,6 +40,10 @@ internal sealed class MqttZeroPooledBufferWriter : IBufferWriter<byte>, IDisposa
         }
     }
 
+    /// <summary>
+    /// 推进。
+    /// </summary>
+    /// <param name="count">数量。</param>
     public void Advance(int count)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
@@ -43,18 +55,31 @@ internal sealed class MqttZeroPooledBufferWriter : IBufferWriter<byte>, IDisposa
         _written += count;
     }
 
+    /// <summary>
+    /// 获取内存。
+    /// </summary>
+    /// <param name="sizeHint">大小提示。</param>
+    /// <returns>可直接写入的字节内存块。</returns>
     public Memory<byte> GetMemory(int sizeHint = 0)
     {
         EnsureCapacity(sizeHint);
         return _buffer.AsMemory(_written);
     }
 
+    /// <summary>
+    /// 获取跨度。
+    /// </summary>
+    /// <param name="sizeHint">大小提示。</param>
+    /// <returns>可直接写入的字节内存块。</returns>
     public Span<byte> GetSpan(int sizeHint = 0)
     {
         EnsureCapacity(sizeHint);
         return _buffer.AsSpan(_written);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public void Dispose()
     {
         if (_buffer.Length == 0)
@@ -66,6 +91,10 @@ internal sealed class MqttZeroPooledBufferWriter : IBufferWriter<byte>, IDisposa
         _buffer = [];
     }
 
+    /// <summary>
+    /// 重置。
+    /// </summary>
+    /// <param name="minimumLength">最小长度。</param>
     public void Reset(int minimumLength)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(minimumLength);
@@ -79,6 +108,10 @@ internal sealed class MqttZeroPooledBufferWriter : IBufferWriter<byte>, IDisposa
         _written = 0;
     }
 
+    /// <summary>
+    /// 确保容量。
+    /// </summary>
+    /// <param name="sizeHint">大小提示。</param>
     private void EnsureCapacity(int sizeHint)
     {
         int required = Math.Max(sizeHint, 1);

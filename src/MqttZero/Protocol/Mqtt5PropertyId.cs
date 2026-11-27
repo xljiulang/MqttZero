@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Defines the MQTT 5 property identifiers shared by every codec.
+/// MQTT 5 属性标识符常量。
 /// </summary>
 internal static class Mqtt5PropertyId
 {

@@ -3,7 +3,7 @@ using System.Buffers;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Represents an MQTT 5 PUBLISH packet.
+/// MQTT 5 PUBLISH 发布报文。
 /// </summary>
 public sealed class MqttPublishPacket : MqttPacket
 {

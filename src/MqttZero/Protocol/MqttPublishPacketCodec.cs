@@ -4,8 +4,18 @@ using static MqttZero.Protocol.Mqtt5PropertyId;
 
 namespace MqttZero.Protocol;
 
+/// <summary>
+/// PUBLISH 报文的编解码实现。
+/// </summary>
 internal static class MqttPublishPacketCodec
 {
+    /// <summary>
+    /// 尝试Decode。
+    /// </summary>
+    /// <param name="sequence">序列。</param>
+    /// <param name="view">对应的 view。</param>
+    /// <param name="consumed">对应的 consumed。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool TryDecode(
         in ReadOnlySequence<byte> sequence,
         out MqttZeroPublishView view,
@@ -86,6 +96,11 @@ internal static class MqttPublishPacketCodec
         return true;
     }
 
+    /// <summary>
+    /// 编码。
+    /// </summary>
+    /// <param name="view">对应的 view。</param>
+    /// <param name="writer">写入器。</param>
     public static void Encode(in MqttZeroPublishView view, IBufferWriter<byte> writer)
     {
         int bodyLength = GetBodyLength(view);
@@ -123,6 +138,12 @@ internal static class MqttPublishPacketCodec
         WriteSequence(writer, view.Payload);
     }
 
+    /// <summary>
+    /// 编码头部。
+    /// </summary>
+    /// <param name="view">对应的 view。</param>
+    /// <param name="writer">写入器。</param>
+    /// <returns>对应的结果。</returns>
     public static MqttZeroPublishPacketBuffer EncodeHeader(
         in MqttZeroPublishView view,
         MqttZeroPacketWriter writer)
@@ -183,6 +204,13 @@ internal static class MqttPublishPacketCodec
             view.Payload);
     }
 
+    /// <summary>
+    /// 编码To写入器。
+    /// </summary>
+    /// <param name="view">对应的 view。</param>
+    /// <param name="headerWriter">头部写入器。</param>
+    /// <param name="writer">写入器。</param>
+    /// <returns>计算得到的数值。</returns>
     public static int EncodeToWriter(
         in MqttZeroPublishView view,
         MqttZeroPacketWriter headerWriter,
@@ -213,12 +241,27 @@ internal static class MqttPublishPacketCodec
         return buffer.Length;
     }
 
+    /// <summary>
+    /// 获取Encoded长度。
+    /// </summary>
+    /// <param name="view">对应的 view。</param>
+    /// <returns>计算得到的数值。</returns>
     public static int GetEncodedLength(in MqttZeroPublishView view)
     {
         int bodyLength = GetBodyLength(view);
         return 1 + MqttZeroWireFormat.GetVariableByteIntegerSize((uint)bodyLength) + bodyLength;
     }
 
+    /// <summary>
+    /// 尝试读取属性。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <param name="properties">属性。</param>
+    /// <param name="messageExpiryInterval">消息Expiry间隔。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <param name="topicAlias">主题别名。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadProperties(
         ref SequenceReader<byte> reader,
         out ReadOnlySequence<byte> properties,
@@ -318,6 +361,12 @@ internal static class MqttPublishPacketCodec
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取主题。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <param name="topic">主题。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadTopic(ref SequenceReader<byte> reader, out ReadOnlySequence<byte> topic)
     {
         if (!MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort length) || reader.Remaining < length)
@@ -333,6 +382,12 @@ internal static class MqttPublishPacketCodec
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取UInt32。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <param name="value">值。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadUInt32(ref SequenceReader<byte> reader, out uint value)
     {
         value = 0;
@@ -349,6 +404,11 @@ internal static class MqttPublishPacketCodec
         return true;
     }
 
+    /// <summary>
+    /// 获取Scalar属性长度。
+    /// </summary>
+    /// <param name="view">对应的 view。</param>
+    /// <returns>计算得到的数值。</returns>
     private static int GetScalarPropertyLength(in MqttZeroPublishView view)
     {
         int length = 0;
@@ -375,6 +435,11 @@ internal static class MqttPublishPacketCodec
         return length;
     }
 
+    /// <summary>
+    /// 获取正文长度。
+    /// </summary>
+    /// <param name="view">对应的 view。</param>
+    /// <returns>计算得到的数值。</returns>
     private static int GetBodyLength(in MqttZeroPublishView view)
     {
         int propertyLength = GetPropertyLength(view);
@@ -387,6 +452,11 @@ internal static class MqttPublishPacketCodec
             (int)view.Payload.Length;
     }
 
+    /// <summary>
+    /// 写入序列。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteSequence(
         MqttZeroPacketWriter writer,
         ReadOnlySequence<byte> value)
@@ -403,6 +473,11 @@ internal static class MqttPublishPacketCodec
         }
     }
 
+    /// <summary>
+    /// 写入Scalar属性。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="view">对应的 view。</param>
     private static void WriteScalarProperties(
         MqttZeroPacketWriter writer,
         in MqttZeroPublishView view)
@@ -432,6 +507,12 @@ internal static class MqttPublishPacketCodec
         }
     }
 
+    /// <summary>
+    /// 写入Scalar属性。
+    /// </summary>
+    /// <param name="destination">对应的 destination。</param>
+    /// <param name="view">对应的 view。</param>
+    /// <param name="offset">偏移。</param>
     private static void WriteScalarProperties(
         Span<byte> destination,
         in MqttZeroPublishView view,
@@ -472,6 +553,12 @@ internal static class MqttPublishPacketCodec
         }
     }
 
+    /// <summary>
+    /// 写入序列。
+    /// </summary>
+    /// <param name="destination">对应的 destination。</param>
+    /// <param name="value">值。</param>
+    /// <param name="offset">偏移。</param>
     private static void WriteSequence(
         Span<byte> destination,
         ReadOnlySequence<byte> value,
@@ -481,6 +568,11 @@ internal static class MqttPublishPacketCodec
         offset += (int)value.Length;
     }
 
+    /// <summary>
+    /// 获取属性长度。
+    /// </summary>
+    /// <param name="view">对应的 view。</param>
+    /// <returns>计算得到的数值。</returns>
     private static int GetPropertyLength(in MqttZeroPublishView view)
     {
         if (view.Properties.IsEmpty)
@@ -524,6 +616,11 @@ internal static class MqttPublishPacketCodec
         return length;
     }
 
+    /// <summary>
+    /// 写入AdditionalScalar属性。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="view">对应的 view。</param>
     private static void WriteAdditionalScalarProperties(
         IBufferWriter<byte> writer,
         in MqttZeroPublishView view)
@@ -560,6 +657,12 @@ internal static class MqttPublishPacketCodec
         }
     }
 
+    /// <summary>
+    /// 写入AdditionalScalar属性。
+    /// </summary>
+    /// <param name="destination">对应的 destination。</param>
+    /// <param name="view">对应的 view。</param>
+    /// <param name="offset">偏移。</param>
     private static void WriteAdditionalScalarProperties(
         Span<byte> destination,
         in MqttZeroPublishView view,
@@ -604,6 +707,11 @@ internal static class MqttPublishPacketCodec
         }
     }
 
+    /// <summary>
+    /// 写入Scalar属性。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="view">对应的 view。</param>
     private static void WriteScalarProperties(IBufferWriter<byte> writer, in MqttZeroPublishView view)
     {
         if (view.MessageExpiryInterval.HasValue)
@@ -631,6 +739,11 @@ internal static class MqttPublishPacketCodec
         }
     }
 
+    /// <summary>
+    /// 写入序列。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteSequence(IBufferWriter<byte> writer, ReadOnlySequence<byte> value)
     {
         foreach (ReadOnlyMemory<byte> segment in value)
@@ -641,6 +754,11 @@ internal static class MqttPublishPacketCodec
         }
     }
 
+    /// <summary>
+    /// 写入字节。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteByte(IBufferWriter<byte> writer, byte value)
     {
         Span<byte> destination = writer.GetSpan(1);
@@ -648,6 +766,11 @@ internal static class MqttPublishPacketCodec
         writer.Advance(1);
     }
 
+    /// <summary>
+    /// 写入UInt16。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteUInt16(IBufferWriter<byte> writer, ushort value)
     {
         Span<byte> destination = writer.GetSpan(2);
@@ -655,6 +778,11 @@ internal static class MqttPublishPacketCodec
         writer.Advance(2);
     }
 
+    /// <summary>
+    /// 写入UInt32。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteUInt32(IBufferWriter<byte> writer, uint value)
     {
         Span<byte> destination = writer.GetSpan(4);
@@ -662,6 +790,11 @@ internal static class MqttPublishPacketCodec
         writer.Advance(4);
     }
 
+    /// <summary>
+    /// 写入变长字节整数。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteVariableByteInteger(IBufferWriter<byte> writer, uint value)
     {
         Span<byte> destination = writer.GetSpan(4);

@@ -3,7 +3,7 @@ using System.Buffers;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Describes one topic-filter subscription request.
+/// 一条主题过滤器订阅请求。
 /// </summary>
 public sealed class MqttSubscriptionRequest
 {

@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Represents a decoded MQTT packet.
+/// MQTT 报文的抽象基类。
 /// </summary>
 public abstract class MqttPacket
 {

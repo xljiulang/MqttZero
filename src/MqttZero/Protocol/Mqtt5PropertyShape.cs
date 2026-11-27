@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Describes the wire shape of one MQTT 5 property value.
+/// 单个属性值在线上占用的形状。
 /// </summary>
 internal enum Mqtt5PropertyShape
 {

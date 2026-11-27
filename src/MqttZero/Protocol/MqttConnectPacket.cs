@@ -3,7 +3,7 @@ using System.Buffers;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Represents an MQTT 5 CONNECT packet.
+/// MQTT 5 CONNECT 报文。
 /// </summary>
 public sealed class MqttConnectPacket : MqttPacket
 {

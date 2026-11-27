@@ -3,7 +3,7 @@ using System.Buffers;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Describes end-to-end MQTT properties carried by a PUBLISH or Will message.
+/// PUBLISH 与 Will 携带的 MQTT 5 属性集合。
 /// </summary>
 public sealed class MqttPublishProperties
 {

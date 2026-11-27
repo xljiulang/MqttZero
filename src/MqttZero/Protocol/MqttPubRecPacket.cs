@@ -1,6 +1,8 @@
 namespace MqttZero.Protocol;
 
-/// <summary>Represents an MQTT 5 PUBREC packet.</summary>
+/// <summary>
+/// QoS 2 的 PUBREC 确认报文。
+/// </summary>
 public sealed class MqttPubRecPacket : MqttPacket
 {
     /// <inheritdoc />

@@ -3,8 +3,7 @@ using System.Buffers;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Provides the single MQTT 5 property layout table used by readers, writers
-/// and property transformers.
+/// 属性线上布局表，供读写、跳过与长度计算共用。
 /// </summary>
 internal static class Mqtt5PropertyLayout
 {
@@ -124,6 +123,12 @@ internal static class Mqtt5PropertyLayout
         return length <= properties.Length;
     }
 
+    /// <summary>
+    /// 尝试Get变长字节整数长度。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="length">长度。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryGetVariableByteIntegerLength(
         ReadOnlySpan<byte> properties,
         out int length)
@@ -142,6 +147,13 @@ internal static class Mqtt5PropertyLayout
         return false;
     }
 
+    /// <summary>
+    /// 尝试Get长度PrefixedEnd。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="offset">偏移。</param>
+    /// <param name="end">对应的 end。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryGetLengthPrefixedEnd(
         ReadOnlySpan<byte> properties,
         int offset,

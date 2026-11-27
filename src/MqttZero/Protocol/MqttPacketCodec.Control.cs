@@ -3,10 +3,17 @@ using System.Buffers;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Implements MQTT acknowledgement and control packet codecs.
+/// MQTT 报文的统一解码与编码入口，按报文族拆成多个分部文件。
 /// </summary>
 public static partial class MqttPacketCodec
 {
+    /// <summary>
+    /// 尝试Decode确认。
+    /// </summary>
+    /// <param name="sequence">序列。</param>
+    /// <param name="view">对应的 view。</param>
+    /// <param name="consumed">对应的 consumed。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     internal static bool TryDecodeAcknowledgement(
         in ReadOnlySequence<byte> sequence,
         out MqttZeroAcknowledgementView view,
@@ -81,6 +88,11 @@ public static partial class MqttPacketCodec
         return true;
     }
 
+    /// <summary>
+    /// 判断是否确认报文类型。
+    /// </summary>
+    /// <param name="packetType">报文类型。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     internal static bool IsAcknowledgementPacketType(MqttPacketType packetType)
     {
         return packetType is
@@ -90,6 +102,12 @@ public static partial class MqttPacketCodec
             MqttPacketType.PubComp;
     }
 
+    /// <summary>
+    /// 判断是否Valid确认原因代码。
+    /// </summary>
+    /// <param name="packetType">报文类型。</param>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool IsValidAcknowledgementReasonCode(
         MqttPacketType packetType,
         MqttReasonCode reasonCode)
@@ -104,6 +122,13 @@ public static partial class MqttPacketCodec
         };
     }
 
+    /// <summary>
+    /// 尝试DecodeConn确认。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodeConnAck(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -141,6 +166,13 @@ public static partial class MqttPacketCodec
         return true;
     }
 
+    /// <summary>
+    /// 尝试DecodePub确认。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodePubAck(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -169,6 +201,13 @@ public static partial class MqttPacketCodec
             MqttZeroProtocolValidator.IsValidPubAckReasonCode(reasonCode);
     }
 
+    /// <summary>
+    /// 尝试DecodePubRec。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodePubRec(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -196,6 +235,13 @@ public static partial class MqttPacketCodec
         return MqttZeroProtocolValidator.IsValidPubAckReasonCode(reasonCode);
     }
 
+    /// <summary>
+    /// 尝试DecodePubRel。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodePubRel(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -223,6 +269,13 @@ public static partial class MqttPacketCodec
         return MqttZeroProtocolValidator.IsValidPubRelReasonCode(reasonCode);
     }
 
+    /// <summary>
+    /// 尝试DecodePubComp。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodePubComp(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -250,6 +303,15 @@ public static partial class MqttPacketCodec
         return MqttZeroProtocolValidator.IsValidPubRelReasonCode(reasonCode);
     }
 
+    /// <summary>
+    /// 尝试读取确认。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <param name="reasonString">原因字符串。</param>
+    /// <param name="userProperties">用户属性。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadAcknowledgement(
         ref SequenceReader<byte> reader,
         out ushort packetIdentifier,
@@ -294,6 +356,15 @@ public static partial class MqttPacketCodec
         return reader.Remaining == 0;
     }
 
+    /// <summary>
+    /// 编码确认。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <param name="reasonString">原因字符串。</param>
+    /// <param name="userProperties">用户属性。</param>
+    /// <param name="writer">写入器。</param>
     private static void EncodeAcknowledgement(
         byte firstByte,
         ushort packetIdentifier,
@@ -340,6 +411,13 @@ public static partial class MqttPacketCodec
         }
     }
 
+    /// <summary>
+    /// 尝试DecodePingReq。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodePingReq(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -355,6 +433,13 @@ public static partial class MqttPacketCodec
         return reader.Remaining == 0;
     }
 
+    /// <summary>
+    /// 尝试Decode断开。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodeDisconnect(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -398,6 +483,11 @@ public static partial class MqttPacketCodec
         return reader.Remaining == 0;
     }
 
+    /// <summary>
+    /// 编码Pub确认。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     private static void EncodePubAck(MqttPubAckPacket packet, IBufferWriter<byte> writer)
     {
         if (packet.PacketIdentifier == 0 ||
@@ -431,6 +521,11 @@ public static partial class MqttPacketCodec
         }
     }
 
+    /// <summary>
+    /// 编码空报文。
+    /// </summary>
+    /// <param name="packetType">报文类型。</param>
+    /// <param name="writer">写入器。</param>
     private static void EncodeEmptyPacket(MqttPacketType packetType, IBufferWriter<byte> writer)
     {
         Span<byte> destination = writer.GetSpan(2);
@@ -439,6 +534,11 @@ public static partial class MqttPacketCodec
         writer.Advance(2);
     }
 
+    /// <summary>
+    /// 编码断开。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     private static void EncodeDisconnect(MqttDisconnectPacket packet, IBufferWriter<byte> writer)
     {
         if (!MqttZeroProtocolValidator.IsValidDisconnectReasonCode(packet.ReasonCode))

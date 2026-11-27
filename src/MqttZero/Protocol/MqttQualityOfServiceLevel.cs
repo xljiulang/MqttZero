@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// MQTT quality of service levels.
+/// MQTT 服务质量等级。
 /// </summary>
 public enum MqttQualityOfServiceLevel : byte
 {

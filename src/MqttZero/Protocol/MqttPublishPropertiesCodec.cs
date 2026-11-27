@@ -2,8 +2,19 @@ using System.Buffers;
 
 namespace MqttZero.Protocol;
 
+/// <summary>
+/// PUBLISH 属性的编解码实现。
+/// </summary>
 internal static class MqttPublishPropertiesCodec
 {
+    /// <summary>
+    /// 尝试Decode。
+    /// </summary>
+    /// <param name="encodedProperties">encoded属性。</param>
+    /// <param name="properties">属性。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <param name="topicAlias">主题别名。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool TryDecode(
         ReadOnlySequence<byte> encodedProperties,
         out MqttPublishProperties properties,
@@ -33,6 +44,13 @@ internal static class MqttPublishPropertiesCodec
         return true;
     }
 
+    /// <summary>
+    /// 编码。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <param name="topicAlias">主题别名。</param>
+    /// <returns>只读字节序列。</returns>
     public static ReadOnlySequence<byte> Encode(
         MqttPublishProperties properties,
         IReadOnlyList<uint>? subscriptionIdentifiers = null,
@@ -57,6 +75,11 @@ internal static class MqttPublishPropertiesCodec
         return new ReadOnlySequence<byte>(writer.WrittenMemory[prefixLength..]);
     }
 
+    /// <summary>
+    /// 获取变长字节整数长度。
+    /// </summary>
+    /// <param name="value">值。</param>
+    /// <returns>计算得到的数值。</returns>
     private static int GetVariableByteIntegerLength(ReadOnlySpan<byte> value)
     {
         for (int index = 0; index < Math.Min(value.Length, 4); index++)

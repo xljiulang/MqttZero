@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Defines when retained messages are sent for a subscription.
+/// 订阅时保留消息的投递方式。
 /// </summary>
 public enum MqttRetainHandling : byte
 {

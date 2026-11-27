@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Represents an MQTT 5 PUBACK packet.
+/// QoS 1 的 PUBACK 确认报文。
 /// </summary>
 public sealed class MqttPubAckPacket : MqttPacket
 {

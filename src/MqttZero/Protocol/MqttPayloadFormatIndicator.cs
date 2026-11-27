@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Identifies the payload encoding declared by an MQTT PUBLISH or Will message.
+/// PUBLISH 或 Will 负载的编码格式。
 /// </summary>
 public enum MqttPayloadFormatIndicator : byte
 {

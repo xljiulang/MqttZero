@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Provides the single MQTT wire-format primitive implementations shared by all codecs.
+/// 变长整数与无符号整数等线格式原语。
 /// </summary>
 internal static class MqttZeroWireFormat
 {

@@ -4,8 +4,16 @@ using System.Text;
 
 namespace MqttZero.Protocol;
 
+/// <summary>
+/// MQTT 5 属性写入器。
+/// </summary>
 internal static class Mqtt5PropertyWriter
 {
+    /// <summary>
+    /// 获取连接属性长度。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <returns>计算得到的数值。</returns>
     public static int GetConnectPropertiesLength(MqttConnectPacket packet)
     {
         int length = 0;
@@ -53,6 +61,11 @@ internal static class Mqtt5PropertyWriter
         return length;
     }
 
+    /// <summary>
+    /// 写入连接属性。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     public static void WriteConnectProperties(
         MqttConnectPacket packet,
         IBufferWriter<byte> writer)
@@ -107,6 +120,11 @@ internal static class Mqtt5PropertyWriter
         }
     }
 
+    /// <summary>
+    /// 获取遗嘱属性长度。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <returns>计算得到的数值。</returns>
     public static int GetWillPropertiesLength(MqttConnectPacket packet)
     {
         MqttPublishProperties properties = packet.WillProperties;
@@ -122,6 +140,11 @@ internal static class Mqtt5PropertyWriter
         return length;
     }
 
+    /// <summary>
+    /// 写入遗嘱属性。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     public static void WriteWillProperties(
         MqttConnectPacket packet,
         IBufferWriter<byte> writer)
@@ -140,6 +163,11 @@ internal static class Mqtt5PropertyWriter
             topicAlias: null);
     }
 
+    /// <summary>
+    /// 获取发布属性长度。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <returns>计算得到的数值。</returns>
     public static int GetPublishPropertiesLength(MqttPublishPacket packet)
     {
         return GetMessagePropertiesLength(
@@ -148,6 +176,11 @@ internal static class Mqtt5PropertyWriter
             packet.TopicAlias);
     }
 
+    /// <summary>
+    /// 写入发布属性。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     public static void WritePublishProperties(
         MqttPublishPacket packet,
         IBufferWriter<byte> writer)
@@ -161,6 +194,11 @@ internal static class Mqtt5PropertyWriter
             packet.TopicAlias);
     }
 
+    /// <summary>
+    /// 获取Conn确认属性长度。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <returns>计算得到的数值。</returns>
     public static int GetConnAckPropertiesLength(MqttConnAckPacket packet)
     {
         int length = 0;
@@ -243,6 +281,11 @@ internal static class Mqtt5PropertyWriter
         return length;
     }
 
+    /// <summary>
+    /// 写入Conn确认属性。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     public static void WriteConnAckProperties(
         MqttConnAckPacket packet,
         IBufferWriter<byte> writer)
@@ -331,6 +374,11 @@ internal static class Mqtt5PropertyWriter
         WriteUserProperties(writer, packet.UserProperties);
     }
 
+    /// <summary>
+    /// 获取断开属性长度。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <returns>计算得到的数值。</returns>
     public static int GetDisconnectPropertiesLength(MqttDisconnectPacket packet)
     {
         int length = packet.SessionExpiryInterval.HasValue ? 5 : 0;
@@ -347,6 +395,11 @@ internal static class Mqtt5PropertyWriter
         return length + GetUserPropertiesLength(packet.UserProperties);
     }
 
+    /// <summary>
+    /// 写入断开属性。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     public static void WriteDisconnectProperties(
         MqttDisconnectPacket packet,
         IBufferWriter<byte> writer)
@@ -374,6 +427,11 @@ internal static class Mqtt5PropertyWriter
         WriteUserProperties(writer, packet.UserProperties);
     }
 
+    /// <summary>
+    /// 获取订阅属性长度。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <returns>计算得到的数值。</returns>
     public static int GetSubscribePropertiesLength(MqttSubscribePacket packet)
     {
         int length = 0;
@@ -390,6 +448,11 @@ internal static class Mqtt5PropertyWriter
         return length + GetUserPropertiesLength(packet.UserProperties);
     }
 
+    /// <summary>
+    /// 写入订阅属性。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     public static void WriteSubscribeProperties(
         MqttSubscribePacket packet,
         IBufferWriter<byte> writer)
@@ -405,11 +468,21 @@ internal static class Mqtt5PropertyWriter
         WriteUserProperties(writer, packet.UserProperties);
     }
 
+    /// <summary>
+    /// 获取退订属性长度。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <returns>计算得到的数值。</returns>
     public static int GetUnsubscribePropertiesLength(MqttUnsubscribePacket packet)
     {
         return GetUserPropertiesLength(packet.UserProperties);
     }
 
+    /// <summary>
+    /// 写入退订属性。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     public static void WriteUnsubscribeProperties(
         MqttUnsubscribePacket packet,
         IBufferWriter<byte> writer)
@@ -419,6 +492,12 @@ internal static class Mqtt5PropertyWriter
         WriteUserProperties(writer, packet.UserProperties);
     }
 
+    /// <summary>
+    /// 获取原因属性长度。
+    /// </summary>
+    /// <param name="reasonString">原因字符串。</param>
+    /// <param name="userProperties">用户属性。</param>
+    /// <returns>计算得到的数值。</returns>
     public static int GetReasonPropertiesLength(
         string? reasonString,
         IReadOnlyList<MqttUserProperty> userProperties)
@@ -427,6 +506,12 @@ internal static class Mqtt5PropertyWriter
         return length + GetUserPropertiesLength(userProperties);
     }
 
+    /// <summary>
+    /// 写入原因属性。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="reasonString">原因字符串。</param>
+    /// <param name="userProperties">用户属性。</param>
     public static void WriteReasonProperties(
         IBufferWriter<byte> writer,
         string? reasonString,
@@ -442,6 +527,13 @@ internal static class Mqtt5PropertyWriter
         WriteUserProperties(writer, userProperties);
     }
 
+    /// <summary>
+    /// 获取消息属性长度。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <param name="topicAlias">主题别名。</param>
+    /// <returns>计算得到的数值。</returns>
     private static int GetMessagePropertiesLength(
         MqttPublishProperties properties,
         IReadOnlyList<uint> subscriptionIdentifiers,
@@ -497,6 +589,13 @@ internal static class Mqtt5PropertyWriter
         return length + GetUserPropertiesLength(properties.UserProperties);
     }
 
+    /// <summary>
+    /// 写入消息属性。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="properties">属性。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <param name="topicAlias">主题别名。</param>
     private static void WriteMessageProperties(
         IBufferWriter<byte> writer,
         MqttPublishProperties properties,
@@ -566,6 +665,11 @@ internal static class Mqtt5PropertyWriter
         WriteUserProperties(writer, properties.UserProperties);
     }
 
+    /// <summary>
+    /// 获取用户属性长度。
+    /// </summary>
+    /// <param name="userProperties">用户属性。</param>
+    /// <returns>计算得到的数值。</returns>
     private static int GetUserPropertiesLength(
         IReadOnlyList<MqttUserProperty>? userProperties)
     {
@@ -588,6 +692,11 @@ internal static class Mqtt5PropertyWriter
         return length;
     }
 
+    /// <summary>
+    /// 写入用户属性。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="userProperties">用户属性。</param>
     private static void WriteUserProperties(
         IBufferWriter<byte> writer,
         IReadOnlyList<MqttUserProperty>? userProperties)
@@ -604,6 +713,10 @@ internal static class Mqtt5PropertyWriter
         }
     }
 
+    /// <summary>
+    /// 校验主题名称。
+    /// </summary>
+    /// <param name="topic">主题。</param>
     private static void ValidateTopicName(string topic)
     {
         byte[] encoded = Encoding.UTF8.GetBytes(topic);
@@ -614,6 +727,11 @@ internal static class Mqtt5PropertyWriter
         }
     }
 
+    /// <summary>
+    /// 写入属性长度。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="length">长度。</param>
     private static void WritePropertyLength(IBufferWriter<byte> writer, int length)
     {
         Span<byte> destination = writer.GetSpan(4);
@@ -623,6 +741,11 @@ internal static class Mqtt5PropertyWriter
         writer.Advance(count);
     }
 
+    /// <summary>
+    /// 写入序列。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteSequence(
         IBufferWriter<byte> writer,
         ReadOnlySequence<byte> value)
@@ -639,6 +762,11 @@ internal static class Mqtt5PropertyWriter
         }
     }
 
+    /// <summary>
+    /// 写入字节数。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteBytes(IBufferWriter<byte> writer, ReadOnlySpan<byte> value)
     {
         Span<byte> destination = writer.GetSpan(value.Length);
@@ -646,6 +774,12 @@ internal static class Mqtt5PropertyWriter
         writer.Advance(value.Length);
     }
 
+    /// <summary>
+    /// 写入字符串。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="identifier">标识符。</param>
+    /// <param name="value">值。</param>
     private static void WriteString(IBufferWriter<byte> writer, byte identifier, string value)
     {
         int byteCount = Encoding.UTF8.GetByteCount(value);
@@ -656,6 +790,12 @@ internal static class Mqtt5PropertyWriter
         writer.Advance(byteCount + 3);
     }
 
+    /// <summary>
+    /// 写入二进制。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="identifier">标识符。</param>
+    /// <param name="value">值。</param>
     private static void WriteBinary(
         IBufferWriter<byte> writer,
         byte identifier,
@@ -668,6 +808,11 @@ internal static class Mqtt5PropertyWriter
         writer.Advance(value.Length + 3);
     }
 
+    /// <summary>
+    /// 写入用户属性。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="property">属性。</param>
     private static void WriteUserProperty(
         IBufferWriter<byte> writer,
         MqttUserProperty property)
@@ -686,11 +831,22 @@ internal static class Mqtt5PropertyWriter
         writer.Advance(1 + 4 + nameLength + valueLength);
     }
 
+    /// <summary>
+    /// 获取UTF-8属性长度。
+    /// </summary>
+    /// <param name="value">值。</param>
+    /// <returns>计算得到的数值。</returns>
     private static int GetUtf8PropertyLength(string value)
     {
         return 3 + Encoding.UTF8.GetByteCount(value);
     }
 
+    /// <summary>
+    /// 写入UInt16。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="identifier">标识符。</param>
+    /// <param name="value">值。</param>
     private static void WriteUInt16(
         IBufferWriter<byte> writer,
         byte identifier,
@@ -702,6 +858,12 @@ internal static class Mqtt5PropertyWriter
         writer.Advance(3);
     }
 
+    /// <summary>
+    /// 写入UInt32。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="identifier">标识符。</param>
+    /// <param name="value">值。</param>
     private static void WriteUInt32(
         IBufferWriter<byte> writer,
         byte identifier,
@@ -713,6 +875,11 @@ internal static class Mqtt5PropertyWriter
         writer.Advance(5);
     }
 
+    /// <summary>
+    /// 写入字节。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteByte(IBufferWriter<byte> writer, byte value)
     {
         Span<byte> destination = writer.GetSpan(1);
@@ -720,6 +887,12 @@ internal static class Mqtt5PropertyWriter
         writer.Advance(1);
     }
 
+    /// <summary>
+    /// 写入布尔值。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="identifier">标识符。</param>
+    /// <param name="value">值。</param>
     private static void WriteBoolean(
         IBufferWriter<byte> writer,
         byte identifier,
@@ -731,6 +904,12 @@ internal static class Mqtt5PropertyWriter
         writer.Advance(2);
     }
 
+    /// <summary>
+    /// 写入字节属性。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="identifier">标识符。</param>
+    /// <param name="value">值。</param>
     private static void WriteByteProperty(
         IBufferWriter<byte> writer,
         byte identifier,
@@ -742,11 +921,22 @@ internal static class Mqtt5PropertyWriter
         writer.Advance(2);
     }
 
+    /// <summary>
+    /// 获取Availability属性长度。
+    /// </summary>
+    /// <param name="value">值。</param>
+    /// <returns>计算得到的数值。</returns>
     private static int GetAvailabilityPropertyLength(bool? value)
     {
         return value == false ? 2 : 0;
     }
 
+    /// <summary>
+    /// 写入Availability属性。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="identifier">标识符。</param>
+    /// <param name="value">值。</param>
     private static void WriteAvailabilityProperty(
         IBufferWriter<byte> writer,
         byte identifier,
@@ -758,6 +948,11 @@ internal static class Mqtt5PropertyWriter
         }
     }
 
+    /// <summary>
+    /// 写入变长字节整数。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteVariableByteInteger(IBufferWriter<byte> writer, uint value)
     {
         Span<byte> destination = writer.GetSpan(4);

@@ -4,7 +4,7 @@ using System.Buffers.Binary;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Coordinates MQTT 5 packet decoding, encoding, and packet-length inspection.
+/// MQTT 报文的统一解码与编码入口，按报文族拆成多个分部文件。
 /// </summary>
 public static partial class MqttPacketCodec
 {

@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Builds MQTT fixed-header first bytes.
+/// 按报文类型构造固定报头首字节。
 /// </summary>
 internal static class MqttPacketHeader
 {
@@ -48,6 +48,11 @@ internal static class MqttPacketHeader
         return firstByte;
     }
 
+    /// <summary>
+    /// 需要已确认标志。
+    /// </summary>
+    /// <param name="packetType">报文类型。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool RequiresAcknowledgedFlags(MqttPacketType packetType)
     {
         return packetType is MqttPacketType.PubRel

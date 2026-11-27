@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Represents an MQTT 5 DISCONNECT packet.
+/// MQTT 5 DISCONNECT 报文。
 /// </summary>
 public sealed class MqttDisconnectPacket : MqttPacket
 {

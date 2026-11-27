@@ -2,9 +2,15 @@ using System.Collections.Concurrent;
 
 namespace MqttZero.Memory;
 
+/// <summary>
+/// 有容量上限的对象池。
+/// </summary>
 internal sealed class MqttZeroBoundedObjectPool<T>
     where T : class
 {
+    /// <summary>
+    /// 默认容量。
+    /// </summary>
     public static int DefaultCapacity { get; } = Math.Clamp(
         Environment.ProcessorCount * 256,
         1_024,
@@ -12,12 +18,19 @@ internal sealed class MqttZeroBoundedObjectPool<T>
 
     private readonly ConcurrentQueue<T> _items = new();
 
+    /// <summary>
+    /// 初始化 MqttZeroBoundedObjectPool 的新实例。
+    /// </summary>
+    /// <param name="capacity">容量。</param>
     public MqttZeroBoundedObjectPool(int capacity)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         Capacity = capacity;
     }
 
+    /// <summary>
+    /// 容量。
+    /// </summary>
     public int Capacity { get; }
 
     public int Count
@@ -28,6 +41,11 @@ internal sealed class MqttZeroBoundedObjectPool<T>
         }
     }
 
+    /// <summary>
+    /// 尝试租用。
+    /// </summary>
+    /// <param name="item">项。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool TryRent(out T? item)
     {
         if (_items.TryDequeue(out item))
@@ -39,6 +57,11 @@ internal sealed class MqttZeroBoundedObjectPool<T>
         return false;
     }
 
+    /// <summary>
+    /// 归还。
+    /// </summary>
+    /// <param name="item">项。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool Return(T item)
     {
         ArgumentNullException.ThrowIfNull(item);

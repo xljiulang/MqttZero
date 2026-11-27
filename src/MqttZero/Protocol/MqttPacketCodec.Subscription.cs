@@ -4,10 +4,17 @@ using System.Buffers.Binary;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Implements MQTT subscription packet codecs.
+/// MQTT 报文的统一解码与编码入口，按报文族拆成多个分部文件。
 /// </summary>
 public static partial class MqttPacketCodec
 {
+    /// <summary>
+    /// 尝试Decode订阅。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodeSubscribe(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -64,6 +71,13 @@ public static partial class MqttPacketCodec
         return subscriptions.Count > 0;
     }
 
+    /// <summary>
+    /// 尝试Decode退订。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodeUnsubscribe(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -101,6 +115,13 @@ public static partial class MqttPacketCodec
                 (MqttUnsubscribePacket)packet);
     }
 
+    /// <summary>
+    /// 尝试DecodeSub确认。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodeSubAck(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -146,6 +167,13 @@ public static partial class MqttPacketCodec
                 userProperties);
     }
 
+    /// <summary>
+    /// 尝试DecodeUnsub确认。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="reader">读取器。</param>
+    /// <param name="packet">报文。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryDecodeUnsubAck(
         byte firstByte,
         ref SequenceReader<byte> reader,
@@ -189,6 +217,11 @@ public static partial class MqttPacketCodec
                 userProperties);
     }
 
+    /// <summary>
+    /// 编码订阅。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     private static void EncodeSubscribe(MqttSubscribePacket packet, IBufferWriter<byte> writer)
     {
         if (packet.PacketIdentifier == 0 || packet.Subscriptions.Count == 0)
@@ -238,6 +271,11 @@ public static partial class MqttPacketCodec
         }
     }
 
+    /// <summary>
+    /// 编码Sub确认。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     private static void EncodeSubAck(MqttSubAckPacket packet, IBufferWriter<byte> writer)
     {
         if (packet.PacketIdentifier == 0 || packet.ReasonCodes.IsEmpty)
@@ -278,6 +316,11 @@ public static partial class MqttPacketCodec
         writer.Advance(packet.ReasonCodes.Length);
     }
 
+    /// <summary>
+    /// 编码退订。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     private static void EncodeUnsubscribe(MqttUnsubscribePacket packet, IBufferWriter<byte> writer)
     {
         if (packet.PacketIdentifier == 0 || packet.TopicFilters.Count == 0)
@@ -315,6 +358,11 @@ public static partial class MqttPacketCodec
         }
     }
 
+    /// <summary>
+    /// 编码Unsub确认。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="writer">写入器。</param>
     private static void EncodeUnsubAck(MqttUnsubAckPacket packet, IBufferWriter<byte> writer)
     {
         if (packet.PacketIdentifier == 0 || packet.ReasonCodes.IsEmpty)
@@ -354,6 +402,13 @@ public static partial class MqttPacketCodec
         writer.Advance(packet.ReasonCodes.Length);
     }
 
+    /// <summary>
+    /// AssignSub确认属性。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="reasonString">原因字符串。</param>
+    /// <param name="userProperties">用户属性。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool AssignSubAckProperties(
         MqttSubAckPacket packet,
         string? reasonString,
@@ -364,6 +419,13 @@ public static partial class MqttPacketCodec
         return true;
     }
 
+    /// <summary>
+    /// AssignUnsub确认属性。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="reasonString">原因字符串。</param>
+    /// <param name="userProperties">用户属性。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool AssignUnsubAckProperties(
         MqttUnsubAckPacket packet,
         string? reasonString,

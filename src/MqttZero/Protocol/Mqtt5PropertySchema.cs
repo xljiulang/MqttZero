@@ -1,5 +1,8 @@
 namespace MqttZero.Protocol;
 
+/// <summary>
+/// 每种报文允许出现的 MQTT 5 属性集合。
+/// </summary>
 internal static class Mqtt5PropertySchema
 {
     private static readonly ulong ConnectProperties =
@@ -66,6 +69,12 @@ internal static class Mqtt5PropertySchema
             Mqtt5PropertyId.ReasonString,
             Mqtt5PropertyId.UserProperty);
 
+    /// <summary>
+    /// 判断是否Allowed。
+    /// </summary>
+    /// <param name="packetType">报文类型。</param>
+    /// <param name="identifier">标识符。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool IsAllowed(MqttPacketType packetType, byte identifier)
     {
         ulong properties = packetType switch
@@ -87,11 +96,21 @@ internal static class Mqtt5PropertySchema
         return identifier < 64 && (properties & (1UL << identifier)) != 0;
     }
 
+    /// <summary>
+    /// 判断是否Allowed遗嘱属性。
+    /// </summary>
+    /// <param name="identifier">标识符。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public static bool IsAllowedWillProperty(byte identifier)
     {
         return identifier < 64 && (WillProperties & (1UL << identifier)) != 0;
     }
 
+    /// <summary>
+    /// 属性Mask。
+    /// </summary>
+    /// <param name="identifiers">标识符。</param>
+    /// <returns>对应的结果。</returns>
     private static ulong PropertyMask(params ReadOnlySpan<byte> identifiers)
     {
         ulong mask = 0;

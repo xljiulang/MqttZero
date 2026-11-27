@@ -4,7 +4,7 @@ using System.IO.Pipelines;
 namespace MqttZero;
 
 /// <summary>
-/// Creates pooled MQTT payload owners.
+/// 创建池化负载所有者的工厂。
 /// </summary>
 public static class MqttZeroPayloadOwnerFactory
 {
@@ -85,8 +85,14 @@ public static class MqttZeroPayloadOwnerFactory
         }
     }
 
+    /// <summary>
+    /// 空负载持有者。
+    /// </summary>
     private sealed class EmptyPayloadOwner : MqttZeroPayloadOwner
     {
+        /// <summary>
+        /// Instance 的值。
+        /// </summary>
         public static EmptyPayloadOwner Instance { get; } = new();
 
         public override ReadOnlySequence<byte> Payload
@@ -98,18 +104,33 @@ public static class MqttZeroPayloadOwnerFactory
         }
     }
 
+    /// <summary>
+    /// 单段负载持有者。
+    /// </summary>
     private sealed class SingleSegmentPayloadOwner : MqttZeroPayloadOwner
     {
         private readonly byte[] _buffer;
 
+        /// <summary>
+        /// 初始化 SingleSegmentPayloadOwner 的新实例。
+        /// </summary>
+        /// <param name="buffer">缓冲区。</param>
+        /// <param name="payload">负载。</param>
         public SingleSegmentPayloadOwner(byte[] buffer, Memory<byte> payload)
         {
             _buffer = buffer;
             Payload = new ReadOnlySequence<byte>(payload);
         }
 
+        /// <summary>
+        /// 负载。
+        /// </summary>
         public override ReadOnlySequence<byte> Payload { get; }
 
+        /// <summary>
+        /// 释放。
+        /// </summary>
+        /// <returns>表示异步操作的任务。</returns>
         protected override ValueTask DisposeAsyncCore()
         {
             ArrayPool<byte>.Shared.Return(_buffer);
@@ -117,18 +138,33 @@ public static class MqttZeroPayloadOwnerFactory
         }
     }
 
+    /// <summary>
+    /// 多段负载持有者。
+    /// </summary>
     private sealed class MultipleSegmentPayloadOwner : MqttZeroPayloadOwner
     {
         private readonly Pipe _pipe;
 
+        /// <summary>
+        /// 初始化 MultipleSegmentPayloadOwner 的新实例。
+        /// </summary>
+        /// <param name="pipe">对应的 pipe。</param>
+        /// <param name="payload">负载。</param>
         public MultipleSegmentPayloadOwner(Pipe pipe, ReadOnlySequence<byte> payload)
         {
             _pipe = pipe;
             Payload = payload;
         }
 
+        /// <summary>
+        /// 负载。
+        /// </summary>
         public override ReadOnlySequence<byte> Payload { get; }
 
+        /// <summary>
+        /// 释放。
+        /// </summary>
+        /// <returns>表示异步操作的任务。</returns>
         protected override async ValueTask DisposeAsyncCore()
         {
             await _pipe.Reader.CompleteAsync().ConfigureAwait(false);

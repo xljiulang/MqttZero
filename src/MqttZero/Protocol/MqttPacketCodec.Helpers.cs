@@ -4,10 +4,16 @@ using System.Buffers.Binary;
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Provides shared MQTT packet codec read and write helpers.
+/// MQTT 报文的统一解码与编码入口，按报文族拆成多个分部文件。
 /// </summary>
 public static partial class MqttPacketCodec
 {
+    /// <summary>
+    /// 尝试读取属性。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <param name="properties">属性。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadProperties(
         ref SequenceReader<byte> reader,
         out ReadOnlySequence<byte> properties)
@@ -29,12 +35,24 @@ public static partial class MqttPacketCodec
         return true;
     }
 
+    /// <summary>
+    /// 尝试读取UTF-8。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <param name="value">值。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadUtf8(ref SequenceReader<byte> reader, out ReadOnlySequence<byte> value)
     {
         return TryReadBinary(ref reader, out value) &&
             MqttZeroProtocolValidator.IsValidUtf8(value);
     }
 
+    /// <summary>
+    /// 尝试读取二进制。
+    /// </summary>
+    /// <param name="reader">读取器。</param>
+    /// <param name="value">值。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryReadBinary(ref SequenceReader<byte> reader, out ReadOnlySequence<byte> value)
     {
         if (!MqttZeroWireFormat.TryReadUInt16(ref reader, out ushort length) || reader.Remaining < length)
@@ -50,6 +68,11 @@ public static partial class MqttPacketCodec
         return true;
     }
 
+    /// <summary>
+    /// 写入属性。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="properties">属性。</param>
     private static void WriteProperties(IBufferWriter<byte> writer, ReadOnlySequence<byte> properties)
     {
         int length = (int)properties.Length;
@@ -59,6 +82,11 @@ public static partial class MqttPacketCodec
         WriteSequence(writer, properties);
     }
 
+    /// <summary>
+    /// 写入UTF-8。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteUtf8(IBufferWriter<byte> writer, ReadOnlySpan<byte> value)
     {
         if (value.Length > ushort.MaxValue)
@@ -72,6 +100,11 @@ public static partial class MqttPacketCodec
         writer.Advance(value.Length);
     }
 
+    /// <summary>
+    /// 写入UTF-8。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteUtf8(IBufferWriter<byte> writer, ReadOnlySequence<byte> value)
     {
         if (value.Length > ushort.MaxValue)
@@ -83,6 +116,11 @@ public static partial class MqttPacketCodec
         WriteSequence(writer, value);
     }
 
+    /// <summary>
+    /// 写入二进制。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteBinary(IBufferWriter<byte> writer, ReadOnlySequence<byte> value)
     {
         if (value.Length > ushort.MaxValue)
@@ -94,6 +132,11 @@ public static partial class MqttPacketCodec
         WriteSequence(writer, value);
     }
 
+    /// <summary>
+    /// 写入序列。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteSequence(IBufferWriter<byte> writer, ReadOnlySequence<byte> value)
     {
         foreach (ReadOnlyMemory<byte> segment in value)
@@ -104,6 +147,11 @@ public static partial class MqttPacketCodec
         }
     }
 
+    /// <summary>
+    /// 写入字节。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteByte(IBufferWriter<byte> writer, byte value)
     {
         Span<byte> destination = writer.GetSpan(1);
@@ -111,6 +159,11 @@ public static partial class MqttPacketCodec
         writer.Advance(1);
     }
 
+    /// <summary>
+    /// 写入UInt16。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="value">值。</param>
     private static void WriteUInt16(IBufferWriter<byte> writer, ushort value)
     {
         Span<byte> destination = writer.GetSpan(2);

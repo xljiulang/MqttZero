@@ -1,7 +1,7 @@
 namespace MqttZero.Protocol;
 
 /// <summary>
-/// Represents an MQTT PINGRESP packet.
+/// MQTT PINGRESP 心跳响应报文。
 /// </summary>
 public sealed class MqttPingRespPacket : MqttPacket
 {
