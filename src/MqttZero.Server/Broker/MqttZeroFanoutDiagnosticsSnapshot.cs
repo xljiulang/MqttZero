@@ -36,4 +36,17 @@ internal sealed record MqttZeroFanoutDiagnosticsSnapshot(
     long TotalPublishWriteTicks,
     long MaxPublishWriteTicks,
     long FanoutFailureCount,
-    long ShardOwnershipViolationCount);
+    long ShardOwnershipViolationCount,
+    long ControlFrameCount,
+    long ControlFrameDirectCount,
+    long ControlFrameQueuedCount,
+    long ControlBatchCount,
+    long ControlBatchFrameSum,
+    long ControlBatchFrameMax,
+    long TotalControlWriteTicks,
+    long MaxControlWriteTicks,
+    long AckWorkCount,
+    long TotalAckWorkQueueTicks,
+    long MaxAckWorkQueueTicks,
+    long QosZeroDirectCount,
+    long QosZeroDeferredCount);

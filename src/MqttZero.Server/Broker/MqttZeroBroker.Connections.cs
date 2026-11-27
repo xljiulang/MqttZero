@@ -296,6 +296,7 @@ public sealed partial class MqttZeroBroker
                 {
                     if (CanRouteQosZeroDirectly(context, candidate))
                     {
+                        _fanoutDiagnostics.RecordQosZeroRoute(direct: true);
                         await RoutePublishLeaseFastAsync(
                             context.Session!,
                             connection,
@@ -310,6 +311,7 @@ public sealed partial class MqttZeroBroker
                         return MqttZeroInboundBufferAction.Handled;
                     }
 
+                    _fanoutDiagnostics.RecordQosZeroRoute(direct: false);
                     MqttZeroEventLoop shard =
                         TryPrepareFastPublish(
                         context,
@@ -651,6 +653,12 @@ public sealed partial class MqttZeroBroker
                 acknowledgement,
                 context.CachedAcknowledgementCompleted,
                 completion);
+            if (_fanoutDiagnostics.Enabled)
+            {
+                work.EnqueuedTimestampTicks =
+                    System.Diagnostics.Stopwatch.GetTimestamp();
+            }
+
             shardWork = MqttZeroAcknowledgementShardWork.Rent(
                 work,
                 context.CachedAcknowledgementInvocation,
@@ -682,6 +690,12 @@ public sealed partial class MqttZeroBroker
         MqttZeroAcknowledgementWork work,
         CancellationToken cancellationToken)
     {
+        if (work.EnqueuedTimestampTicks != 0)
+        {
+            _fanoutDiagnostics.RecordAcknowledgementQueue(
+                work.EnqueuedTimestampTicks);
+        }
+
         try
         {
             await ProcessAcknowledgementCoreAsync(
@@ -876,6 +890,7 @@ public sealed partial class MqttZeroBroker
             session.ShardId,
             nameof(ProcessAcknowledgementCoreAsync),
             _fanoutDiagnostics);
+        _fanoutDiagnostics.RecordAcknowledgement();
         switch (acknowledgement.PacketType)
         {
             case MqttPacketType.PubAck:

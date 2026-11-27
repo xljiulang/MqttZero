@@ -42,6 +42,19 @@ internal sealed class MqttZeroFanoutDiagnostics
     private long _totalPublishEncodeTicks;
     private long _totalPublishWriteTicks;
     private long _shardOwnershipViolationCount;
+    private long _ackWorkCount;
+    private long _controlBatchCount;
+    private long _controlBatchFrameMax;
+    private long _controlBatchFrameSum;
+    private long _controlFrameCount;
+    private long _controlFrameDirectCount;
+    private long _controlFrameQueuedCount;
+    private long _maxAckWorkQueueTicks;
+    private long _maxControlWriteTicks;
+    private long _qosZeroDeferredCount;
+    private long _qosZeroDirectCount;
+    private long _totalAckWorkQueueTicks;
+    private long _totalControlWriteTicks;
 
     public MqttZeroFanoutDiagnostics()
         : this(AppContext.TryGetSwitch(
@@ -103,7 +116,20 @@ internal sealed class MqttZeroFanoutDiagnostics
             Interlocked.Read(ref _totalPublishWriteTicks),
             Interlocked.Read(ref _maxPublishWriteTicks),
             Interlocked.Read(ref _fanoutFailureCount),
-            Interlocked.Read(ref _shardOwnershipViolationCount));
+            Interlocked.Read(ref _shardOwnershipViolationCount),
+            Interlocked.Read(ref _controlFrameCount),
+            Interlocked.Read(ref _controlFrameDirectCount),
+            Interlocked.Read(ref _controlFrameQueuedCount),
+            Interlocked.Read(ref _controlBatchCount),
+            Interlocked.Read(ref _controlBatchFrameSum),
+            Interlocked.Read(ref _controlBatchFrameMax),
+            Interlocked.Read(ref _totalControlWriteTicks),
+            Interlocked.Read(ref _maxControlWriteTicks),
+            Interlocked.Read(ref _ackWorkCount),
+            Interlocked.Read(ref _totalAckWorkQueueTicks),
+            Interlocked.Read(ref _maxAckWorkQueueTicks),
+            Interlocked.Read(ref _qosZeroDirectCount),
+            Interlocked.Read(ref _qosZeroDeferredCount));
     }
 
     public void RecordEgressDrain()
@@ -283,6 +309,81 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    public void RecordControlFrame(bool direct)
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref _controlFrameCount);
+        if (direct)
+        {
+            Interlocked.Increment(ref _controlFrameDirectCount);
+        }
+        else
+        {
+            Interlocked.Increment(ref _controlFrameQueuedCount);
+        }
+    }
+
+    public void RecordControlBatch(int frameCount, long elapsedTicks)
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref _controlBatchCount);
+        Interlocked.Add(ref _controlBatchFrameSum, frameCount);
+        InterlockedMax(ref _controlBatchFrameMax, frameCount);
+        Interlocked.Add(ref _totalControlWriteTicks, elapsedTicks);
+        InterlockedMax(ref _maxControlWriteTicks, elapsedTicks);
+    }
+
+    public void RecordAcknowledgement()
+    {
+        if (_enabled)
+        {
+            Interlocked.Increment(ref _ackWorkCount);
+        }
+    }
+
+    public void RecordAcknowledgementQueue(long queuedTimestampTicks)
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() -
+            queuedTimestampTicks;
+        if (elapsed < 0)
+        {
+            elapsed = 0;
+        }
+
+        Interlocked.Add(ref _totalAckWorkQueueTicks, elapsed);
+        InterlockedMax(ref _maxAckWorkQueueTicks, elapsed);
+    }
+
+    public void RecordQosZeroRoute(bool direct)
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        if (direct)
+        {
+            Interlocked.Increment(ref _qosZeroDirectCount);
+        }
+        else
+        {
+            Interlocked.Increment(ref _qosZeroDeferredCount);
+        }
+    }
+
     public void RecordPendingQueueDepth(int depth)
     {
         if (!_enabled)
@@ -349,6 +450,19 @@ internal sealed class MqttZeroFanoutDiagnostics
         Interlocked.Exchange(ref _maxPublishWriteTicks, 0);
         Interlocked.Exchange(ref _fanoutFailureCount, 0);
         Interlocked.Exchange(ref _shardOwnershipViolationCount, 0);
+        Interlocked.Exchange(ref _controlFrameCount, 0);
+        Interlocked.Exchange(ref _controlFrameDirectCount, 0);
+        Interlocked.Exchange(ref _controlFrameQueuedCount, 0);
+        Interlocked.Exchange(ref _controlBatchCount, 0);
+        Interlocked.Exchange(ref _controlBatchFrameSum, 0);
+        Interlocked.Exchange(ref _controlBatchFrameMax, 0);
+        Interlocked.Exchange(ref _totalControlWriteTicks, 0);
+        Interlocked.Exchange(ref _maxControlWriteTicks, 0);
+        Interlocked.Exchange(ref _ackWorkCount, 0);
+        Interlocked.Exchange(ref _totalAckWorkQueueTicks, 0);
+        Interlocked.Exchange(ref _maxAckWorkQueueTicks, 0);
+        Interlocked.Exchange(ref _qosZeroDirectCount, 0);
+        Interlocked.Exchange(ref _qosZeroDeferredCount, 0);
     }
 
     public void RecordPublish(

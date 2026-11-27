@@ -156,20 +156,25 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     internal async ValueTask<bool> PostControlAsync(
         MqttZeroEgressControlFrame frame,
         CancellationToken cancellationToken,
-        bool waitForWrite = true)
+        bool waitForWrite = true,
+        bool coalesceOnShard = false)
     {
         ArgumentNullException.ThrowIfNull(frame);
         ThrowIfStopping();
         cancellationToken.ThrowIfCancellationRequested();
+        MqttZeroFanoutDiagnostics? diagnostics = _services?.Diagnostics;
         if (_scheduler.Shard.IsCurrent &&
+            !coalesceOnShard &&
             Volatile.Read(ref _flushPending) == 0)
         {
+            diagnostics?.RecordControlFrame(direct: true);
             await ExecuteControlDirectAsync(
                 frame,
                 cancellationToken).ConfigureAwait(false);
             return false;
         }
 
+        diagnostics?.RecordControlFrame(direct: false);
         if (_scheduler.Shard.IsCurrent)
         {
             frame.MarkForActorRelease();
@@ -736,10 +741,22 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     private async ValueTask RunControlBatchAsync(
         CancellationToken cancellationToken)
     {
+        MqttZeroFanoutDiagnostics? diagnostics = _services?.Diagnostics;
+        bool measure = diagnostics is { Enabled: true };
+        long started = measure
+            ? Stopwatch.GetTimestamp()
+            : 0;
         try
         {
             await _writeControls(_controlBatch, cancellationToken)
                 .ConfigureAwait(false);
+            if (measure)
+            {
+                diagnostics!.RecordControlBatch(
+                    _controlBatch.Count,
+                    Stopwatch.GetTimestamp() - started);
+            }
+
             for (int index = 0; index < _controlBatch.Count; index++)
             {
                 MqttZeroEgressControlFrame frame = _controlBatch[index];

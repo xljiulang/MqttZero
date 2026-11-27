@@ -34,6 +34,8 @@ internal sealed class MqttZeroAcknowledgementWork
 
     public TaskCompletionSource? Completion { get; private set; }
 
+    public long EnqueuedTimestampTicks { get; set; }
+
     public static MqttZeroAcknowledgementWork Rent(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -65,6 +67,7 @@ internal sealed class MqttZeroAcknowledgementWork
         Session = null!;
         Connection = null!;
         Acknowledgement = default;
+        EnqueuedTimestampTicks = 0;
         if (completed != null && completion != null)
         {
             completed(completion);
