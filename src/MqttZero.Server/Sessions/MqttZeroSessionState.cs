@@ -20,6 +20,7 @@ internal sealed class MqttZeroSessionState
     private MqttZeroTimerNode? _willTimer;
     private MqttZeroSessionLifecycleSnapshot _lifecycle = new(null, false, 0, null, null, null);
     private MqttZeroSessionEgress? _egress;
+    private MqttZeroClientConnectionInfo? _offlineClientInfo;
 
     /// <summary>
     /// 初始化 MqttZeroSessionState 的新实例。
@@ -61,6 +62,20 @@ internal sealed class MqttZeroSessionState
     /// 客户端Id。
     /// </summary>
     public string ClientId { get; }
+
+    /// <summary>
+    /// 获取表示该会话离线身份的客户端信息，首次访问时创建并缓存。
+    /// </summary>
+    internal MqttZeroClientConnectionInfo OfflineClientInfo
+    {
+        get
+        {
+            return _offlineClientInfo ??= new MqttZeroClientConnectionInfo
+            {
+                ClientId = ClientId
+            };
+        }
+    }
 
     /// <summary>
     /// 分片Id。

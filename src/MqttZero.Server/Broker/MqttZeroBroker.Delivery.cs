@@ -418,7 +418,7 @@ public sealed partial class MqttZeroBroker
             {
                 Sender = senderConnection?.ConnectedClient,
                 ReceiverInfo = session.Connection?.ClientInfo ??
-                    CreateOfflineClientInfo(session),
+                    session.OfflineClientInfo,
                 Receiver = session.Connection?.ConnectedClient,
                 Topic = new ReadOnlySequence<byte>(lease.Topic),
                 PayloadLength = lease.PayloadSequence.Length,
@@ -541,7 +541,7 @@ public sealed partial class MqttZeroBroker
             {
                 await NotifyOverwrittenAsync(
                     session,
-                    session.Connection?.ClientInfo ?? CreateOfflineClientInfo(session),
+                    session.Connection?.ClientInfo ?? session.OfflineClientInfo,
                     evicted,
                     cancellationToken).ConfigureAwait(false);
             }
@@ -602,7 +602,7 @@ public sealed partial class MqttZeroBroker
             {
                 MqttZeroClientConnectionInfo receiver = enqueueContext?.ReceiverInfo ??
                     session.Connection?.ClientInfo ??
-                    CreateOfflineClientInfo(session);
+                    session.OfflineClientInfo;
                 MqttZeroMessageEnqueuedContext observerContext = new()
                 {
                     Sender = senderConnection?.ConnectedClient,
@@ -666,20 +666,6 @@ public sealed partial class MqttZeroBroker
 
         _fanoutDiagnostics.RecordEgressSignal();
         egress.Signal();
-    }
-
-    /// <summary>
-    /// 创建Offline客户端Info。
-    /// </summary>
-    /// <param name="session">会话。</param>
-    /// <returns>对应的结果。</returns>
-    private static MqttZeroClientConnectionInfo CreateOfflineClientInfo(
-        MqttZeroSessionState session)
-    {
-        return new MqttZeroClientConnectionInfo
-        {
-            ClientId = session.ClientId
-        };
     }
 
     /// <summary>
