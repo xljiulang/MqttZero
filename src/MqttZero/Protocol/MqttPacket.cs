@@ -6,7 +6,7 @@ namespace MqttZero.Protocol;
 internal abstract class MqttPacket
 {
     /// <summary>
-    /// Gets the MQTT control packet type.
+    /// 获取 MQTT 控制报文类型。
     /// </summary>
     public abstract MqttPacketType PacketType { get; }
 }

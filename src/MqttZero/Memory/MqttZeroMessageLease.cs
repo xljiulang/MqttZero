@@ -40,9 +40,8 @@ internal sealed class MqttZeroMessageLease : IDisposable
     public ReadOnlyMemory<byte> Properties { get; private set; }
 
     /// <summary>
-    /// Gets the payload as one contiguous block. A borrowed lease with a
-    /// multi-segment payload only exposes data through
-    /// <see cref="PayloadSequence"/> until <see cref="EnsureOwned"/> promotes it.
+    /// 获取连续的负载内存块。借用态的多段负载只能通过
+    /// <see cref="PayloadSequence"/> 读取，直到 <see cref="EnsureOwned"/> 把它提升为自有内存。
     /// </summary>
     public ReadOnlyMemory<byte> Payload
     {

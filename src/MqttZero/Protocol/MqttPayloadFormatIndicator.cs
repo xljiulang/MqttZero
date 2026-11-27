@@ -5,9 +5,9 @@ namespace MqttZero.Protocol;
 /// </summary>
 public enum MqttPayloadFormatIndicator : byte
 {
-    /// <summary>The payload uses an unspecified byte format.</summary>
+    /// <summary>负载使用未指定的字节格式。</summary>
     UnspecifiedUtf8 = 0,
 
-    /// <summary>The payload contains well-formed UTF-8 data.</summary>
+    /// <summary>负载为合法的 UTF-8 数据。</summary>
     Utf8 = 1
 }

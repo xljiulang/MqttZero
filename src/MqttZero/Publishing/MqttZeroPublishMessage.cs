@@ -9,27 +9,27 @@ namespace MqttZero.Publishing;
 public sealed class MqttZeroPublishMessage
 {
     /// <summary>
-    /// Gets the MQTT topic name.
+    /// 获取 MQTT 主题名。
     /// </summary>
     public required string Topic { get; init; }
 
     /// <summary>
-    /// Gets the payload sequence.
+    /// 获取负载序列。
     /// </summary>
     public required ReadOnlySequence<byte> Payload { get; init; }
 
     /// <summary>
-    /// Gets the requested quality of service.
+    /// 获取请求的服务质量等级。
     /// </summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; init; } = MqttQualityOfServiceLevel.AtMostOnce;
 
     /// <summary>
-    /// Gets a value indicating whether the message should be retained.
+    /// 获取消息是否应作为保留消息发布。
     /// </summary>
     public bool Retain { get; init; }
 
     /// <summary>
-    /// Gets the end-to-end MQTT 5 message properties.
+    /// 获取随消息传递的 MQTT 5 属性。
     /// </summary>
     public MqttPublishProperties Properties { get; init; } = MqttPublishProperties.Empty;
 }

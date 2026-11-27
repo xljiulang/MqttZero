@@ -8,37 +8,37 @@ namespace MqttZero.Protocol;
 public sealed class MqttPublishProperties
 {
     /// <summary>
-    /// Gets the shared empty property instance.
+    /// 获取共享的空属性实例。
     /// </summary>
     public static MqttPublishProperties Empty { get; } = new();
 
     /// <summary>
-    /// Gets the payload format indicator.
+    /// 获取负载格式指示。
     /// </summary>
     public MqttPayloadFormatIndicator? PayloadFormatIndicator { get; init; }
 
     /// <summary>
-    /// Gets the remaining message expiry interval in seconds.
+    /// 获取剩余的消息过期秒数。
     /// </summary>
     public uint? MessageExpiryInterval { get; init; }
 
     /// <summary>
-    /// Gets the content type.
+    /// 获取内容类型。
     /// </summary>
     public string? ContentType { get; init; }
 
     /// <summary>
-    /// Gets the response topic.
+    /// 获取响应主题。
     /// </summary>
     public string? ResponseTopic { get; init; }
 
     /// <summary>
-    /// Gets the opaque correlation data.
+    /// 获取不透明的关联数据。
     /// </summary>
     public ReadOnlyMemory<byte>? CorrelationData { get; init; }
 
     /// <summary>
-    /// Gets the ordered user properties. Duplicate names are preserved.
+    /// 获取有序的用户属性；重复名称会被保留。
     /// </summary>
     public IReadOnlyList<MqttUserProperty> UserProperties { get; init; } = Array.Empty<MqttUserProperty>();
 }

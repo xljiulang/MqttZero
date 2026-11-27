@@ -15,20 +15,20 @@ internal sealed class MqttSubscribePacket : MqttPacket
     }
 
     /// <summary>
-    /// Gets or sets the packet identifier.
+    /// 获取或设置报文标识符。
     /// </summary>
     public ushort PacketIdentifier { get; set; }
 
     /// <summary>
-    /// Gets or sets the subscription identifier.
+    /// 获取或设置订阅标识符。
     /// </summary>
     public uint? SubscriptionIdentifier { get; set; }
 
-    /// <summary>Gets or sets the ordered subscribe user properties.</summary>
+    /// <summary>获取或设置订阅报文携带的有序用户属性。</summary>
     public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } = Array.Empty<MqttUserProperty>();
 
     /// <summary>
-    /// Gets or sets the requested subscriptions.
+    /// 获取或设置请求的订阅列表。
     /// </summary>
     public List<MqttSubscriptionRequest> Subscriptions { get; set; } = [];
 }

@@ -8,7 +8,7 @@ namespace MqttZero.Protocol;
 public sealed class MqttUserProperty
 {
     /// <summary>
-    /// Initializes a new MQTT user property.
+    /// 初始化 MQTT 用户属性的新实例。
     /// </summary>
     /// <param name="name">The UTF-8 property name.</param>
     /// <param name="value">The UTF-8 property value.</param>
@@ -26,12 +26,12 @@ public sealed class MqttUserProperty
     }
 
     /// <summary>
-    /// Gets the property name.
+    /// 获取属性名称。
     /// </summary>
     public string Name { get; }
 
     /// <summary>
-    /// Gets the property value.
+    /// 获取属性值。
     /// </summary>
     public string Value { get; }
 

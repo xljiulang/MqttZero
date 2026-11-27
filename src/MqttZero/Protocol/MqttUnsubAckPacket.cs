@@ -17,18 +17,18 @@ internal sealed class MqttUnsubAckPacket : MqttPacket
     }
 
     /// <summary>
-    /// Gets or sets the packet identifier.
+    /// 获取或设置报文标识符。
     /// </summary>
     public ushort PacketIdentifier { get; set; }
 
-    /// <summary>Gets or sets the optional reason string.</summary>
+    /// <summary>获取或设置可选的原因字符串。</summary>
     public string? ReasonString { get; set; }
 
-    /// <summary>Gets or sets the ordered acknowledgement user properties.</summary>
+    /// <summary>获取或设置确认报文携带的有序用户属性。</summary>
     public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } = Array.Empty<MqttUserProperty>();
 
     /// <summary>
-    /// Gets or sets one reason code per unsubscribed filter.
+    /// 获取或设置每个退订过滤器对应的原因码。
     /// </summary>
     public ReadOnlyMemory<byte> ReasonCodes { get; set; }
 }

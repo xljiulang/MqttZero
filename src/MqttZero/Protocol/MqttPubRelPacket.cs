@@ -8,15 +8,15 @@ internal sealed class MqttPubRelPacket : MqttPacket
     /// <inheritdoc />
     public override MqttPacketType PacketType => MqttPacketType.PubRel;
 
-    /// <summary>Gets or sets the packet identifier.</summary>
+    /// <summary>获取或设置报文标识符。</summary>
     public ushort PacketIdentifier { get; set; }
 
-    /// <summary>Gets or sets the reason code.</summary>
+    /// <summary>获取或设置原因码。</summary>
     public MqttReasonCode ReasonCode { get; set; }
 
-    /// <summary>Gets or sets the optional reason string.</summary>
+    /// <summary>获取或设置可选的原因字符串。</summary>
     public string? ReasonString { get; set; }
 
-    /// <summary>Gets or sets the ordered acknowledgement user properties.</summary>
+    /// <summary>获取或设置确认报文携带的有序用户属性。</summary>
     public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } = Array.Empty<MqttUserProperty>();
 }

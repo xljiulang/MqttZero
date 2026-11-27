@@ -8,7 +8,7 @@ namespace MqttZero.Protocol;
 internal static class Mqtt5PropertyLayout
 {
     /// <summary>
-    /// Gets the wire shape of one MQTT 5 property identifier.
+    /// 获取一个 MQTT 5 属性标识符的线上形状。
     /// </summary>
     public static Mqtt5PropertyShape GetShape(byte identifier)
     {
@@ -52,7 +52,7 @@ internal static class Mqtt5PropertyLayout
     }
 
     /// <summary>
-    /// Skips one encoded property value from a sequence reader.
+    /// 从序列读取器跳过一段已编码的属性值。
     /// </summary>
     /// <param name="identifier">The property identifier.</param>
     /// <param name="reader">The property body reader.</param>
@@ -82,7 +82,7 @@ internal static class Mqtt5PropertyLayout
     }
 
     /// <summary>
-    /// Gets the encoded length of the first property, including its identifier.
+    /// 获取首个属性的编码长度（含标识符）。
     /// </summary>
     /// <param name="properties">The encoded properties to inspect.</param>
     /// <param name="length">The encoded property length when successful.</param>

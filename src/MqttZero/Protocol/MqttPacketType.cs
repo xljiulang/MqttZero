@@ -5,45 +5,45 @@ namespace MqttZero.Protocol;
 /// </summary>
 internal enum MqttPacketType : byte
 {
-    /// <summary>Client connection request.</summary>
+    /// <summary>客户端连接请求。</summary>
     Connect = 1,
 
-    /// <summary>Connection acknowledgement.</summary>
+    /// <summary>连接确认。</summary>
     ConnAck = 2,
 
-    /// <summary>Application message publication.</summary>
+    /// <summary>应用消息发布。</summary>
     Publish = 3,
 
-    /// <summary>QoS 1 publication acknowledgement.</summary>
+    /// <summary>QoS 1 发布确认。</summary>
     PubAck = 4,
 
-    /// <summary>QoS 2 publication received.</summary>
+    /// <summary>QoS 2 发布已收到。</summary>
     PubRec = 5,
 
-    /// <summary>QoS 2 publication release.</summary>
+    /// <summary>QoS 2 发布释放。</summary>
     PubRel = 6,
 
-    /// <summary>QoS 2 publication complete.</summary>
+    /// <summary>QoS 2 发布完成。</summary>
     PubComp = 7,
 
-    /// <summary>Topic subscription request.</summary>
+    /// <summary>主题订阅请求。</summary>
     Subscribe = 8,
 
-    /// <summary>Topic subscription acknowledgement.</summary>
+    /// <summary>主题订阅确认。</summary>
     SubAck = 9,
 
-    /// <summary>Topic unsubscription request.</summary>
+    /// <summary>主题退订请求。</summary>
     Unsubscribe = 10,
 
-    /// <summary>Topic unsubscription acknowledgement.</summary>
+    /// <summary>主题退订确认。</summary>
     UnsubAck = 11,
 
-    /// <summary>Keep-alive request.</summary>
+    /// <summary>心跳请求。</summary>
     PingReq = 12,
 
-    /// <summary>Keep-alive response.</summary>
+    /// <summary>心跳响应。</summary>
     PingResp = 13,
 
-    /// <summary>Disconnect notification.</summary>
+    /// <summary>断开连接通知。</summary>
     Disconnect = 14
 }

@@ -5,12 +5,12 @@ namespace MqttZero.Protocol;
 /// </summary>
 public enum MqttQualityOfServiceLevel : byte
 {
-    /// <summary>At most once delivery.</summary>
+    /// <summary>最多一次投递。</summary>
     AtMostOnce = 0,
 
-    /// <summary>At least once delivery.</summary>
+    /// <summary>至少一次投递。</summary>
     AtLeastOnce = 1,
 
-    /// <summary>Exactly once delivery.</summary>
+    /// <summary>恰好一次投递。</summary>
     ExactlyOnce = 2
 }

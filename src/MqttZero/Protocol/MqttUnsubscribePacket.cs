@@ -17,15 +17,15 @@ internal sealed class MqttUnsubscribePacket : MqttPacket
     }
 
     /// <summary>
-    /// Gets or sets the packet identifier.
+    /// 获取或设置报文标识符。
     /// </summary>
     public ushort PacketIdentifier { get; set; }
 
-    /// <summary>Gets or sets the ordered unsubscribe user properties.</summary>
+    /// <summary>获取或设置退订报文携带的有序用户属性。</summary>
     public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } = Array.Empty<MqttUserProperty>();
 
     /// <summary>
-    /// Gets or sets the topic filters to remove.
+    /// 获取或设置要移除的主题过滤器。
     /// </summary>
     public List<ReadOnlySequence<byte>> TopicFilters { get; set; } = [];
 }

@@ -15,21 +15,21 @@ internal sealed class MqttDisconnectPacket : MqttPacket
     }
 
     /// <summary>
-    /// Gets or sets the disconnect reason code.
+    /// 获取或设置断开连接的原因码。
     /// </summary>
     public MqttReasonCode ReasonCode { get; set; }
 
     /// <summary>
-    /// Gets or sets a session expiry override supplied by the client.
+    /// 获取或设置客户端提供的会话过期覆盖值。
     /// </summary>
     public uint? SessionExpiryInterval { get; set; }
 
-    /// <summary>Gets or sets the optional reason string.</summary>
+    /// <summary>获取或设置可选的原因字符串。</summary>
     public string? ReasonString { get; set; }
 
-    /// <summary>Gets or sets the optional server reference.</summary>
+    /// <summary>获取或设置可选的服务端引用。</summary>
     public string? ServerReference { get; set; }
 
-    /// <summary>Gets or sets the ordered disconnect user properties.</summary>
+    /// <summary>获取或设置断开报文携带的有序用户属性。</summary>
     public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } = Array.Empty<MqttUserProperty>();
 }

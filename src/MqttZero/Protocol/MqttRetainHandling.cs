@@ -5,12 +5,12 @@ namespace MqttZero.Protocol;
 /// </summary>
 public enum MqttRetainHandling : byte
 {
-    /// <summary>Send retained messages when the subscription is created.</summary>
+    /// <summary>订阅创建时发送保留消息。</summary>
     SendAtSubscribe = 0,
 
-    /// <summary>Send retained messages only when the subscription is new.</summary>
+    /// <summary>仅当订阅是新建时才发送保留消息。</summary>
     SendAtSubscribeIfNewSubscriptionOnly = 1,
 
-    /// <summary>Do not send retained messages when subscribing.</summary>
+    /// <summary>订阅时不发送保留消息。</summary>
     DoNotSendOnSubscribe = 2
 }

@@ -8,27 +8,27 @@ namespace MqttZero.Protocol;
 public sealed class MqttSubscriptionRequest
 {
     /// <summary>
-    /// Gets or sets the UTF-8 topic filter.
+    /// 获取或设置 UTF-8 主题过滤器。
     /// </summary>
     public ReadOnlySequence<byte> TopicFilter { get; set; }
 
     /// <summary>
-    /// Gets or sets the requested quality of service.
+    /// 获取或设置请求的服务质量等级。
     /// </summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether publications from this client are suppressed.
+    /// 获取或设置是否抑制该客户端自身的发布。
     /// </summary>
     public bool NoLocal { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the RETAIN flag is preserved.
+    /// 获取或设置是否保留 RETAIN 标志。
     /// </summary>
     public bool RetainAsPublished { get; set; }
 
     /// <summary>
-    /// Gets or sets the retained-message handling mode.
+    /// 获取或设置保留消息的处理方式。
     /// </summary>
     public MqttRetainHandling RetainHandling { get; set; }
 }

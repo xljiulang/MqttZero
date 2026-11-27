@@ -9,11 +9,11 @@ namespace MqttZero.Protocol;
 /// </summary>
 internal static class MqttZeroWireFormat
 {
-    /// <summary>The maximum number of bytes in a variable byte integer.</summary>
+    /// <summary>变长整数的最大字节数。</summary>
     public const int MaximumVariableByteIntegerBytes = 4;
 
     /// <summary>
-    /// Attempts to read one MQTT variable byte integer.
+    /// 尝试读取一个 MQTT 变长整数。
     /// </summary>
     /// <param name="reader">The source reader.</param>
     /// <param name="value">The decoded value when successful.</param>
@@ -47,7 +47,7 @@ internal static class MqttZeroWireFormat
     }
 
     /// <summary>
-    /// Writes one MQTT variable byte integer.
+    /// 写入一个 MQTT 变长整数。
     /// </summary>
     /// <param name="destination">The destination span.</param>
     /// <param name="value">The non-negative value to write.</param>
@@ -73,7 +73,7 @@ internal static class MqttZeroWireFormat
     }
 
     /// <summary>
-    /// Gets the encoded size of one MQTT variable byte integer.
+    /// 获取一个 MQTT 变长整数的编码长度。
     /// </summary>
     /// <param name="value">The value to measure.</param>
     /// <returns>The number of bytes needed.</returns>
@@ -99,7 +99,7 @@ internal static class MqttZeroWireFormat
     }
 
     /// <summary>
-    /// Attempts to read one big-endian 16-bit unsigned integer.
+    /// 尝试读取一个大端 16 位无符号整数。
     /// </summary>
     /// <param name="reader">The source reader.</param>
     /// <param name="value">The decoded value when successful.</param>
@@ -118,7 +118,7 @@ internal static class MqttZeroWireFormat
     }
 
     /// <summary>
-    /// Advances the reader when enough bytes remain.
+    /// 在剩余字节足够时推进读取器。
     /// </summary>
     /// <param name="reader">The source reader.</param>
     /// <param name="length">The number of bytes to skip.</param>
@@ -136,7 +136,7 @@ internal static class MqttZeroWireFormat
     }
 
     /// <summary>
-    /// Skips one length-prefixed binary value.
+    /// 跳过一段带长度前缀的二进制值。
     /// </summary>
     /// <param name="reader">The source reader.</param>
     /// <returns><see langword="true"/> when the value was skipped.</returns>

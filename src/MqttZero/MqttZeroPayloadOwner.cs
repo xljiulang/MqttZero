@@ -10,12 +10,12 @@ public abstract class MqttZeroPayloadOwner : IAsyncDisposable
     private int _disposed;
 
     /// <summary>
-    /// Gets the payload sequence owned by this instance.
+    /// 获取该实例持有的负载序列。
     /// </summary>
     public abstract ReadOnlySequence<byte> Payload { get; }
 
     /// <summary>
-    /// Releases the payload resources.
+    /// 释放负载资源。
     /// </summary>
     /// <returns>A task representing the asynchronous disposal operation.</returns>
     public ValueTask DisposeAsync()
@@ -30,7 +30,7 @@ public abstract class MqttZeroPayloadOwner : IAsyncDisposable
     }
 
     /// <summary>
-    /// Releases resources owned by a derived payload owner.
+    /// 释放派生负载持有者持有的资源。
     /// </summary>
     /// <returns>A task representing the asynchronous disposal operation.</returns>
     protected virtual ValueTask DisposeAsyncCore()

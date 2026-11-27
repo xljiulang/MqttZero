@@ -5,6 +5,6 @@ namespace MqttZero.Protocol;
 /// </summary>
 public enum MqttProtocolVersion : byte
 {
-    /// <summary>MQTT 5.0.0.</summary>
+    /// <summary>MQTT 5.0.0 协议版本。</summary>
     V500 = 5
 }

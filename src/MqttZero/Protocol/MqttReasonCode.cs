@@ -5,123 +5,123 @@ namespace MqttZero.Protocol;
 /// </summary>
 public enum MqttReasonCode : byte
 {
-    /// <summary>The operation succeeded.</summary>
+    /// <summary>操作成功。</summary>
     Success = 0x00,
 
-    /// <summary>The client disconnected normally while publishing a Will.</summary>
+    /// <summary>客户端正常断开时随连接发布遗嘱。</summary>
     DisconnectWithWill = 0x04,
 
-    /// <summary>No subscriptions matched the published message.</summary>
+    /// <summary>没有订阅匹配该发布。</summary>
     NoMatchingSubscribers = 0x10,
 
-    /// <summary>The server failed unexpectedly.</summary>
+    /// <summary>服务端发生意外故障。</summary>
     UnspecifiedError = 0x80,
 
-    /// <summary>The server encountered an implementation error.</summary>
+    /// <summary>服务端遇到实现错误。</summary>
     ImplementationSpecificError = 0x83,
 
-    /// <summary>The server is unavailable.</summary>
+    /// <summary>服务端不可用。</summary>
     ServerUnavailable = 0x88,
 
-    /// <summary>The client is banned.</summary>
+    /// <summary>客户端已被封禁。</summary>
     Banned = 0x8A,
 
-    /// <summary>The client should use another server.</summary>
+    /// <summary>客户端应改用其他服务端。</summary>
     UseAnotherServer = 0x9C,
 
-    /// <summary>The server has moved.</summary>
+    /// <summary>服务端已迁移。</summary>
     ServerMoved = 0x9D,
 
-    /// <summary>The connection rate limit was exceeded.</summary>
+    /// <summary>连接速率超限。</summary>
     ConnectionRateExceeded = 0x9F,
 
-    /// <summary>The user name or password is invalid.</summary>
+    /// <summary>用户名或密码无效。</summary>
     BadUserNameOrPassword = 0x86,
 
-    /// <summary>Additional authentication is required.</summary>
+    /// <summary>需要额外认证。</summary>
     ContinueAuthentication = 0x18,
 
-    /// <summary>The client requests re-authentication.</summary>
+    /// <summary>客户端请求重新认证。</summary>
     Reauthenticate = 0x19,
 
-    /// <summary>The packet is malformed.</summary>
+    /// <summary>报文格式错误。</summary>
     MalformedPacket = 0x81,
 
-    /// <summary>The client violated protocol rules.</summary>
+    /// <summary>客户端违反协议规则。</summary>
     ProtocolError = 0x82,
 
-    /// <summary>The requested protocol version is unsupported.</summary>
+    /// <summary>不支持请求的协议版本。</summary>
     UnsupportedProtocolVersion = 0x84,
 
-    /// <summary>The client identifier is invalid.</summary>
+    /// <summary>客户端标识无效。</summary>
     ClientIdentifierNotValid = 0x85,
 
-    /// <summary>The server is busy.</summary>
+    /// <summary>服务端忙。</summary>
     ServerBusy = 0x89,
 
-    /// <summary>The authentication method is unsupported.</summary>
+    /// <summary>不支持该认证方法。</summary>
     BadAuthenticationMethod = 0x8C,
 
-    /// <summary>Subscription granted at QoS 1.</summary>
+    /// <summary>订阅以 QoS 1 授予。</summary>
     GrantedQos1 = 0x01,
 
-    /// <summary>Subscription granted at QoS 2.</summary>
+    /// <summary>订阅以 QoS 2 授予。</summary>
     GrantedQos2 = 0x02,
 
-    /// <summary>The requested QoS is not supported.</summary>
+    /// <summary>不支持请求的服务质量等级。</summary>
     QosNotSupported = 0x9B,
 
-    /// <summary>Quota exceeded.</summary>
+    /// <summary>超出配额。</summary>
     QuotaExceeded = 0x97,
 
-    /// <summary>The operation is not authorized.</summary>
+    /// <summary>操作未获授权。</summary>
     NotAuthorized = 0x87,
 
-    /// <summary>No matching subscription existed.</summary>
+    /// <summary>不存在匹配的订阅。</summary>
     NoSubscriptionExisted = 0x11,
 
-    /// <summary>The topic filter is invalid.</summary>
+    /// <summary>主题过滤器无效。</summary>
     TopicFilterInvalid = 0x8F,
 
-    /// <summary>The topic name is invalid.</summary>
+    /// <summary>主题名无效。</summary>
     TopicNameInvalid = 0x90,
 
-    /// <summary>The packet identifier is already in use.</summary>
+    /// <summary>报文标识符已被占用。</summary>
     PacketIdentifierInUse = 0x91,
 
-    /// <summary>The packet identifier was not found.</summary>
+    /// <summary>未找到该报文标识符。</summary>
     PacketIdentifierNotFound = 0x92,
 
-    /// <summary>The receive maximum was exceeded.</summary>
+    /// <summary>超出接收上限。</summary>
     ReceiveMaximumExceeded = 0x93,
 
-    /// <summary>The topic alias is invalid.</summary>
+    /// <summary>主题别名无效。</summary>
     TopicAliasInvalid = 0x94,
 
-    /// <summary>The packet exceeds the negotiated maximum size.</summary>
+    /// <summary>报文超过协商的最大尺寸。</summary>
     PacketTooLarge = 0x95,
 
-    /// <summary>The message rate is too high.</summary>
+    /// <summary>消息速率过高。</summary>
     MessageRateTooHigh = 0x96,
 
-    /// <summary>The server is shutting down.</summary>
+    /// <summary>服务端正在关闭。</summary>
     ServerShuttingDown = 0x8B,
 
-    /// <summary>The client session was taken over by another connection.</summary>
+    /// <summary>客户端会话已被另一条连接接管。</summary>
     SessionTakenOver = 0x8E,
 
-    /// <summary>The keep-alive timeout expired.</summary>
+    /// <summary>保活超时。</summary>
     KeepAliveTimeout = 0x8D,
 
-    /// <summary>The payload format is invalid.</summary>
+    /// <summary>负载格式无效。</summary>
     PayloadFormatInvalid = 0x99,
 
-    /// <summary>Retained messages are not supported.</summary>
+    /// <summary>不支持保留消息。</summary>
     RetainNotSupported = 0x9A,
 
-    /// <summary>Shared subscriptions are not supported.</summary>
+    /// <summary>不支持共享订阅。</summary>
     SharedSubscriptionsNotSupported = 0x9E,
 
-    /// <summary>An administrative action caused the disconnect.</summary>
+    /// <summary>管理员操作导致连接被断开。</summary>
     AdministrativeAction = 0x98
 }

@@ -9,7 +9,7 @@ namespace MqttZero;
 public static class MqttZeroPayloadOwnerFactory
 {
     /// <summary>
-    /// Creates a single-segment payload in pooled memory.
+    /// 在池化内存中创建单段负载。
     /// </summary>
     /// <param name="payloadSize">The number of bytes made available to the callback.</param>
     /// <param name="payloadFactory">A callback that writes the payload.</param>
@@ -45,7 +45,7 @@ public static class MqttZeroPayloadOwnerFactory
     }
 
     /// <summary>
-    /// Creates a potentially multi-segment payload using a recyclable pipe abstraction.
+    /// 用可回收的管道抽象创建可能为多段的负载。
     /// </summary>
     /// <param name="payloadFactory">A callback that writes to the payload pipe.</param>
     /// <param name="cancellationToken">A token that can cancel payload construction.</param>

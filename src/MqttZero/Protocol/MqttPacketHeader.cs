@@ -6,7 +6,7 @@ namespace MqttZero.Protocol;
 internal static class MqttPacketHeader
 {
     /// <summary>
-    /// Gets the fixed-header first byte for a control packet type.
+    /// 获取控制报文类型的固定报头首字节。
     /// </summary>
     /// <param name="packetType">The control packet type.</param>
     /// <returns>The first fixed-header byte.</returns>
@@ -22,7 +22,7 @@ internal static class MqttPacketHeader
     }
 
     /// <summary>
-    /// Gets the fixed-header first byte for a PUBLISH packet.
+    /// 获取 PUBLISH 报文的固定报头首字节。
     /// </summary>
     /// <param name="duplicate">Whether the duplicate flag is set.</param>
     /// <param name="qualityOfServiceLevel">The quality of service level.</param>

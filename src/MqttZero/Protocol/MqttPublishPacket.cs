@@ -17,47 +17,47 @@ internal sealed class MqttPublishPacket : MqttPacket
     }
 
     /// <summary>
-    /// Gets or sets the UTF-8 topic name.
+    /// 获取或设置 UTF-8 主题名。
     /// </summary>
     public ReadOnlySequence<byte> TopicName { get; set; }
 
     /// <summary>
-    /// Gets or sets the end-to-end publish properties.
+    /// 获取或设置随发布传递的 MQTT 5 属性。
     /// </summary>
     public MqttPublishProperties Properties { get; set; } = MqttPublishProperties.Empty;
 
     /// <summary>
-    /// Gets or sets the subscription identifiers attached to this delivery.
+    /// 获取或设置挂在该投递上的订阅标识符。
     /// </summary>
     public IReadOnlyList<uint> SubscriptionIdentifiers { get; set; } = Array.Empty<uint>();
 
     /// <summary>
-    /// Gets or sets the MQTT 5 topic alias.
+    /// 获取或设置 MQTT 5 主题别名。
     /// </summary>
     public ushort? TopicAlias { get; set; }
 
     /// <summary>
-    /// Gets or sets the payload sequence.
+    /// 获取或设置负载序列。
     /// </summary>
     public ReadOnlySequence<byte> Payload { get; set; }
 
     /// <summary>
-    /// Gets or sets the delivery quality of service.
+    /// 获取或设置投递的服务质量等级。
     /// </summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; set; }
 
     /// <summary>
-    /// Gets or sets the QoS packet identifier.
+    /// 获取或设置 QoS 流程中的报文标识符。
     /// </summary>
     public ushort PacketIdentifier { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether this is a duplicate delivery.
+    /// 获取或设置是否为重复投递。
     /// </summary>
     public bool Duplicate { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the retained flag is set.
+    /// 获取或设置是否设置保留标志。
     /// </summary>
     public bool Retain { get; set; }
 

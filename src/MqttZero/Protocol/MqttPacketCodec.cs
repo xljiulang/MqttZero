@@ -9,7 +9,7 @@ namespace MqttZero.Protocol;
 internal static partial class MqttPacketCodec
 {
     /// <summary>
-    /// Attempts to decode one MQTT packet from a sequence.
+    /// 尝试从序列中解码一个 MQTT 报文。
     /// </summary>
     /// <param name="sequence">The input byte sequence.</param>
     /// <param name="packet">The decoded packet when successful.</param>
@@ -76,7 +76,7 @@ internal static partial class MqttPacketCodec
     }
 
     /// <summary>
-    /// Attempts to determine the total encoded length of the first MQTT packet.
+    /// 尝试计算序列中首个 MQTT 报文的编码总长度。
     /// </summary>
     /// <param name="sequence">The input byte sequence.</param>
     /// <param name="packetLength">The total packet length when the fixed header is available.</param>
@@ -107,7 +107,7 @@ internal static partial class MqttPacketCodec
     }
 
     /// <summary>
-    /// Encodes one MQTT packet into a buffer writer.
+    /// 把一个 MQTT 报文编码到缓冲写入器。
     /// </summary>
     /// <param name="packet">The packet to encode.</param>
     /// <param name="writer">The destination buffer writer.</param>
