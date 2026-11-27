@@ -641,21 +641,21 @@ public sealed partial class MqttZeroBroker
         CancellationToken cancellationToken)
     {
         TaskCompletionSource completion = context.BeginAcknowledgement();
-        MqttZeroAcknowledgementWork work =
-            MqttZeroAcknowledgementWork.Rent(
+        MqttZeroAcknowledgementWork? work = null;
+        MqttZeroAcknowledgementShardWork? shardWork = null;
+        try
+        {
+            work = MqttZeroAcknowledgementWork.Rent(
                 session,
                 connection,
                 acknowledgement,
                 context.CachedAcknowledgementCompleted,
                 completion);
-        MqttZeroAcknowledgementShardWork shardWork =
-            MqttZeroAcknowledgementShardWork.Rent(
+            shardWork = MqttZeroAcknowledgementShardWork.Rent(
                 work,
                 context.CachedAcknowledgementInvocation,
                 context.CachedInboundShardFailure);
-        MqttZeroEventLoop shard = ShardSet[session.ShardId];
-        try
-        {
+            MqttZeroEventLoop shard = ShardSet[session.ShardId];
             if (!shard.TryEnqueue(shardWork))
             {
                 await shard.EnqueueAsync(
@@ -665,7 +665,15 @@ public sealed partial class MqttZeroBroker
         }
         catch
         {
-            shardWork.Release();
+            if (shardWork != null)
+            {
+                shardWork.Release();
+            }
+            else if (work != null)
+            {
+                work.Release();
+            }
+
             throw;
         }
     }
