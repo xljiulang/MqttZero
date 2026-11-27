@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 
 namespace MqttZero.Server.Routing;
@@ -7,6 +8,8 @@ namespace MqttZero.Server.Routing;
 /// </summary>
 internal sealed class MqttZeroPersistentHashMapBitmapNode<TKey, TValue> :
     MqttZeroPersistentHashMapNode<TKey, TValue>
+    where TKey : notnull
+    where TValue : notnull
 {
     private readonly int _bitmap;
     private readonly MqttZeroPersistentHashMapNode<TKey, TValue>[] _children;
@@ -65,12 +68,12 @@ internal sealed class MqttZeroPersistentHashMapBitmapNode<TKey, TValue> :
         int hash,
         uint shift,
         IEqualityComparer<TKey> comparer,
-        out TValue value)
+        [MaybeNullWhen(false)] out TValue value)
     {
         int bit = GetBit(hash, shift);
         if ((_bitmap & bit) == 0)
         {
-            value = default!;
+            value = default;
             return false;
         }
 

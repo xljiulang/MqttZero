@@ -291,6 +291,7 @@ public sealed partial class MqttZeroBroker
         }
 
         MqttZeroClientConnection connection = context.Connection;
+        MqttZeroSessionState session = context.Session;
         ushort publishPacketIdentifier =
             publishView.PacketIdentifier;
         connection.MarkPacketReceived(
@@ -332,7 +333,7 @@ public sealed partial class MqttZeroBroker
                     {
                         _fanoutDiagnostics.RecordQosZeroRoute(direct: true);
                         await RoutePublishLeaseFastAsync(
-                            context.Session!,
+                            session,
                             connection,
                             candidate,
                             suppressPublisherAck: false,
@@ -389,7 +390,7 @@ public sealed partial class MqttZeroBroker
                     context.ConnectionLifetime.Token).ConfigureAwait(false);
                 MqttZeroInboundBufferAction qosOneAction =
                     await ProcessQosOnePublishDirectAsync(
-                        context.Session!,
+                        session,
                         connection,
                         candidate,
                         context.ConnectionLifetime.Token)
@@ -491,10 +492,14 @@ public sealed partial class MqttZeroBroker
         ushort inboundPacketIdentifier,
         CancellationToken cancellationToken)
     {
+        MqttZeroSessionState session = context.Session ??
+            throw new InvalidOperationException("连接受理上下文缺少会话。");
+        MqttZeroClientConnection connection = context.Connection ??
+            throw new InvalidOperationException("连接受理上下文缺少连接。");
         await OwnInboundLeaseAsync(lease, cancellationToken).ConfigureAwait(false);
         return await ProcessOwnedPublishCoreAsync(
-            context.Session!,
-            context.Connection!,
+            session,
+            connection,
             lease,
             inboundPacketIdentifier,
             releaseLease: true,

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Collections.Concurrent;
 
 namespace MqttZero.Memory;
@@ -46,7 +47,7 @@ internal sealed class MqttZeroBoundedObjectPool<T>
     /// </summary>
     /// <param name="item">项。</param>
     /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
-    public bool TryRent(out T? item)
+    public bool TryRent([NotNullWhen(true)] out T? item)
     {
         if (_items.TryDequeue(out item))
         {

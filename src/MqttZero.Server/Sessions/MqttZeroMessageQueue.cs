@@ -463,6 +463,7 @@ internal sealed class MqttZeroMessageQueue
     /// </summary>
     internal struct Enumerator
     {
+        private MqttZeroQueuedMessage? _current;
         private MqttZeroQueuedMessage? _next;
 
         /// <summary>
@@ -471,14 +472,21 @@ internal sealed class MqttZeroMessageQueue
         /// <param name="head">对应的 head。</param>
         public Enumerator(MqttZeroQueuedMessage? head)
         {
+            _current = null;
             _next = head;
-            Current = null!;
         }
 
         /// <summary>
-        /// 当前。
+        /// 获取当前元素；尚未调用 <see cref="MoveNext"/> 或已结束时访问会抛出异常。
         /// </summary>
-        public MqttZeroQueuedMessage Current { get; private set; }
+        public MqttZeroQueuedMessage Current
+        {
+            get
+            {
+                return _current ?? throw new InvalidOperationException(
+                    "枚举尚未开始或已经结束。");
+            }
+        }
 
         /// <summary>
         /// Move下一个。
@@ -491,8 +499,9 @@ internal sealed class MqttZeroMessageQueue
                 return false;
             }
 
-            Current = _next;
-            _next = Current.QueueNext;
+            MqttZeroQueuedMessage current = _next;
+            _current = current;
+            _next = current.QueueNext;
             return true;
         }
     }

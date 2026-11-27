@@ -354,7 +354,7 @@ internal sealed class MqttZeroRouteEpoch
         MqttZeroRouteTrieNode child = node.TryGetExactChild(
             level,
             out MqttZeroRouteTrieNode? existing)
-                ? existing!
+                ? existing
                 : MqttZeroRouteTrieNode.Empty;
         MqttZeroRouteTrieNode? childReplacement = UpdateNode(
             child,

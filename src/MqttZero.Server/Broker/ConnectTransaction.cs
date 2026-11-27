@@ -22,6 +22,8 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 internal sealed class ConnectTransaction
 {
+    private MqttZeroSessionState? _session;
+
     /// <summary>
     /// 初始化 ConnectTransaction 的新实例。
     /// </summary>
@@ -120,9 +122,20 @@ internal sealed class ConnectTransaction
     public MqttZeroClientConnectionInfo ClientInfo { get; }
 
     /// <summary>
-    /// 会话。
+    /// 获取或设置本次事务创建的会话；提交前访问会抛出异常。
     /// </summary>
-    public MqttZeroSessionState Session { get; set; } = null!;
+    public MqttZeroSessionState Session
+    {
+        get
+        {
+            return _session ?? throw new InvalidOperationException(
+                "连接事务的会话尚未创建。");
+        }
+        set
+        {
+            _session = value;
+        }
+    }
 
     /// <summary>
     /// 会话Present。

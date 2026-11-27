@@ -331,7 +331,7 @@ internal sealed class MqttZeroMessageLease : IDisposable
     private static MqttZeroMessageLease RentLease()
     {
         return LeasePool.TryRent(out MqttZeroMessageLease? lease)
-            ? lease!
+            ? lease
             : new MqttZeroMessageLease();
     }
 

@@ -1,9 +1,12 @@
+using System.Diagnostics.CodeAnalysis;
 namespace MqttZero.Server.Routing;
 
 /// <summary>
 /// 持久化哈希映射的节点抽象。
 /// </summary>
 internal abstract class MqttZeroPersistentHashMapNode<TKey, TValue>
+    where TKey : notnull
+    where TValue : notnull
 {
     /// <summary>
     /// 数量。
@@ -24,7 +27,7 @@ internal abstract class MqttZeroPersistentHashMapNode<TKey, TValue>
         int hash,
         uint shift,
         IEqualityComparer<TKey> comparer,
-        out TValue value);
+        [MaybeNullWhen(false)] out TValue value);
 
     /// <summary>
     /// 设置。

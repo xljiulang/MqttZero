@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Collections;
 
 namespace MqttZero.Server.Sessions;
@@ -7,6 +8,7 @@ namespace MqttZero.Server.Sessions;
 /// </summary>
 internal sealed class MqttZeroSessionMessageMap<T> :
     IEnumerable<KeyValuePair<ushort, T>>
+    where T : notnull
 {
     private readonly Dictionary<ushort, T> _items = [];
     private int _count;
@@ -99,9 +101,9 @@ internal sealed class MqttZeroSessionMessageMap<T> :
     /// <param name="key">键。</param>
     /// <param name="value">值。</param>
     /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
-    public bool TryGetValue(ushort key, out T value)
+    public bool TryGetValue(ushort key, [MaybeNullWhen(false)] out T value)
     {
-        return _items.TryGetValue(key, out value!);
+        return _items.TryGetValue(key, out value);
     }
 
     /// <summary>
@@ -126,9 +128,9 @@ internal sealed class MqttZeroSessionMessageMap<T> :
     /// <param name="key">键。</param>
     /// <param name="value">值。</param>
     /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
-    public bool Remove(ushort key, out T value)
+    public bool Remove(ushort key, [MaybeNullWhen(false)] out T value)
     {
-        if (!_items.Remove(key, out value!))
+        if (!_items.Remove(key, out value))
         {
             return false;
         }

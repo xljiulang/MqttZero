@@ -846,16 +846,14 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     {
         MqttZeroFanoutDiagnostics? diagnostics = _services?.Diagnostics;
         bool measure = diagnostics is { Enabled: true };
-        long started = measure
-            ? Stopwatch.GetTimestamp()
-            : 0;
+        long started = measure ? Stopwatch.GetTimestamp() : 0;
         try
         {
             await _writeControls(_controlBatch, cancellationToken)
                 .ConfigureAwait(false);
-            if (measure)
+            if (diagnostics is { Enabled: true } enabled)
             {
-                diagnostics!.RecordControlBatch(
+                enabled.RecordControlBatch(
                     _controlBatch.Count,
                     Stopwatch.GetTimestamp() - started);
             }

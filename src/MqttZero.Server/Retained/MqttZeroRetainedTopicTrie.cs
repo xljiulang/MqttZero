@@ -265,7 +265,7 @@ internal sealed class MqttZeroRetainedTopicTrie
         MqttZeroRetainedTopicNode child = node.TryGetExactChild(
             level,
             out MqttZeroRetainedTopicNode? existing)
-                ? existing!
+                ? existing
                 : MqttZeroRetainedTopicNode.Empty;
         MqttZeroRetainedTopicNode replacement = SetNode(
             child,

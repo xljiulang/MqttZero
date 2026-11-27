@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 namespace MqttZero.Server.Routing;
 
 /// <summary>
@@ -5,6 +6,8 @@ namespace MqttZero.Server.Routing;
 /// </summary>
 internal sealed class MqttZeroPersistentHashMapCollisionNode<TKey, TValue> :
     MqttZeroPersistentHashMapNode<TKey, TValue>
+    where TKey : notnull
+    where TValue : notnull
 {
     private readonly MqttZeroPersistentHashMapEntry<TKey, TValue>[] _entries;
     private readonly int _hash;
@@ -59,7 +62,7 @@ internal sealed class MqttZeroPersistentHashMapCollisionNode<TKey, TValue> :
         int hash,
         uint shift,
         IEqualityComparer<TKey> comparer,
-        out TValue value)
+        [MaybeNullWhen(false)] out TValue value)
     {
         if (_hash == hash)
         {
@@ -75,7 +78,7 @@ internal sealed class MqttZeroPersistentHashMapCollisionNode<TKey, TValue> :
             }
         }
 
-        value = default!;
+        value = default;
         return false;
     }
 

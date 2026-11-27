@@ -12,6 +12,8 @@ internal sealed class MqttZeroAcknowledgementWork
 {
     private static readonly MqttZeroBoundedObjectPool<MqttZeroAcknowledgementWork> Pool = new(MqttZeroBoundedObjectPool<MqttZeroAcknowledgementWork>.DefaultCapacity);
     private Action<TaskCompletionSource>? _completed;
+    private MqttZeroClientConnection? _connection;
+    private MqttZeroSessionState? _session;
 
     /// <summary>
     /// 初始化 MqttZeroAcknowledgementWork 的新实例。
@@ -37,14 +39,28 @@ internal sealed class MqttZeroAcknowledgementWork
     public MqttZeroAcknowledgementView Acknowledgement { get; private set; }
 
     /// <summary>
-    /// 连接。
+    /// 获取处理该确认的连接；尚未租用时访问会抛出异常。
     /// </summary>
-    public MqttZeroClientConnection Connection { get; private set; } = null!;
+    public MqttZeroClientConnection Connection
+    {
+        get
+        {
+            return _connection ?? throw new InvalidOperationException(
+                "确认工作项的连接尚未初始化。");
+        }
+    }
 
     /// <summary>
-    /// 会话。
+    /// 获取处理该确认的会话；尚未租用时访问会抛出异常。
     /// </summary>
-    public MqttZeroSessionState Session { get; private set; } = null!;
+    public MqttZeroSessionState Session
+    {
+        get
+        {
+            return _session ?? throw new InvalidOperationException(
+                "确认工作项的会话尚未初始化。");
+        }
+    }
 
     /// <summary>
     /// Completion 的值。
@@ -79,8 +95,8 @@ internal sealed class MqttZeroAcknowledgementWork
             work = new MqttZeroAcknowledgementWork();
         }
 
-        work.Session = session;
-        work.Connection = connection;
+        work._session = session;
+        work._connection = connection;
         work.Acknowledgement = acknowledgement;
         work._completed = completed;
         work.Completion = completion;
@@ -96,8 +112,8 @@ internal sealed class MqttZeroAcknowledgementWork
         TaskCompletionSource? completion = Completion;
         _completed = null;
         Completion = null;
-        Session = null!;
-        Connection = null!;
+        _session = null;
+        _connection = null;
         Acknowledgement = default;
         EnqueuedTimestampTicks = 0;
         if (completed != null && completion != null)

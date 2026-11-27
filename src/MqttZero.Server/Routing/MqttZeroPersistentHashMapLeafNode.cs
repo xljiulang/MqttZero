@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 namespace MqttZero.Server.Routing;
 
 /// <summary>
@@ -5,6 +6,8 @@ namespace MqttZero.Server.Routing;
 /// </summary>
 internal sealed class MqttZeroPersistentHashMapLeafNode<TKey, TValue> :
     MqttZeroPersistentHashMapNode<TKey, TValue>
+    where TKey : notnull
+    where TValue : notnull
 {
     /// <summary>
     /// 初始化 MqttZeroPersistentHashMapLeafNode 的新实例。
@@ -62,7 +65,7 @@ internal sealed class MqttZeroPersistentHashMapLeafNode<TKey, TValue> :
         int hash,
         uint shift,
         IEqualityComparer<TKey> comparer,
-        out TValue value)
+        [MaybeNullWhen(false)] out TValue value)
     {
         if (Hash == hash && comparer.Equals(Key, key))
         {
@@ -70,7 +73,7 @@ internal sealed class MqttZeroPersistentHashMapLeafNode<TKey, TValue> :
             return true;
         }
 
-        value = default!;
+        value = default;
         return false;
     }
 

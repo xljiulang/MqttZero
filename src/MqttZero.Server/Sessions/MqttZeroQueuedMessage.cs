@@ -11,7 +11,7 @@ internal sealed class MqttZeroQueuedMessage
 {
     private static readonly MqttZeroBoundedObjectPool<MqttZeroQueuedMessage> MessagePool = new(MqttZeroBoundedObjectPool<MqttZeroQueuedMessage>.DefaultCapacity);
 
-    private MqttZeroMessageLease _lease = null!;
+    private MqttZeroMessageLease? _lease;
     private bool _isHeld;
     private uint[] _subscriptionIdentifierBuffer = [];
 
@@ -75,7 +75,8 @@ internal sealed class MqttZeroQueuedMessage
     {
         get
         {
-            return _lease;
+            return _lease ?? throw new InvalidOperationException(
+                "队列消息的租约尚未初始化。");
         }
     }
 
@@ -86,7 +87,7 @@ internal sealed class MqttZeroQueuedMessage
     {
         get
         {
-            return _lease.Topic;
+            return Lease.Topic;
         }
     }
 
@@ -97,7 +98,7 @@ internal sealed class MqttZeroQueuedMessage
     {
         get
         {
-            return _lease.Payload;
+            return Lease.Payload;
         }
     }
 
@@ -108,7 +109,7 @@ internal sealed class MqttZeroQueuedMessage
     {
         get
         {
-            return _lease.Properties;
+            return Lease.Properties;
         }
     }
 
@@ -412,14 +413,14 @@ internal sealed class MqttZeroQueuedMessage
     public MqttZeroPublishView CreateView(bool duplicate)
     {
         return new MqttZeroPublishView(
-            _lease.TopicSequence,
-            _lease.PropertiesSequence,
-            _lease.PayloadSequence,
+            Lease.TopicSequence,
+            Lease.PropertiesSequence,
+            Lease.PayloadSequence,
             QualityOfServiceLevel,
             PacketIdentifier,
             duplicate,
             Retain,
-            _lease.MessageExpiryInterval,
+            Lease.MessageExpiryInterval,
             null,
             SubscriptionIdentifiers,
             null);
@@ -439,8 +440,8 @@ internal sealed class MqttZeroQueuedMessage
             _subscriptionIdentifierBuffer = [];
         }
 
-        _lease.Release();
-        _lease = null!;
+        _lease?.Release();
+        _lease = null;
         SubscriptionIdentifiers = ReadOnlyMemory<uint>.Empty;
         ExpiresAt = null;
         PacketIdentifier = 0;

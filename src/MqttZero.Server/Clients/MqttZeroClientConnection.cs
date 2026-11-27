@@ -169,7 +169,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     public bool RequestResponseInformation { get; }
 
     /// <summary>
-    /// 客户端Info。
+    /// 获取或设置客户端信息；由连接受理流程在握手时赋值，测试可直接构造连接。
     /// </summary>
     public MqttZeroClientConnectionInfo ClientInfo { get; set; } = null!;
 
@@ -190,7 +190,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     public bool IsConnectedClientCounted { get; set; }
 
     /// <summary>
-    /// Connected客户端。
+    /// 获取或设置已连接客户端句柄；由连接受理流程在握手时赋值，测试可直接构造连接。
     /// </summary>
     public MqttZeroConnectedClient ConnectedClient { get; set; } = null!;
 

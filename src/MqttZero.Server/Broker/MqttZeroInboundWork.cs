@@ -11,6 +11,8 @@ internal sealed class MqttZeroInboundWork
 {
     private static readonly MqttZeroBoundedObjectPool<MqttZeroInboundWork> Pool = new(MqttZeroBoundedObjectPool<MqttZeroInboundWork>.DefaultCapacity);
     private Action<TaskCompletionSource>? _completed;
+    private MqttZeroMessageLease? _lease;
+    private MqttZeroSessionState? _sender;
 
     /// <summary>
     /// 初始化 MqttZeroInboundWork 的新实例。
@@ -31,14 +33,28 @@ internal sealed class MqttZeroInboundWork
     }
 
     /// <summary>
-    /// 租约。
+    /// 获取入站消息租约；尚未租用或已释放时访问会抛出异常。
     /// </summary>
-    public MqttZeroMessageLease Lease { get; private set; } = null!;
+    public MqttZeroMessageLease Lease
+    {
+        get
+        {
+            return _lease ?? throw new InvalidOperationException(
+                "入站工作项的消息租约尚未初始化。");
+        }
+    }
 
     /// <summary>
-    /// Sender 的值。
+    /// 获取发布者会话；尚未租用或已释放时访问会抛出异常。
     /// </summary>
-    public MqttZeroSessionState Sender { get; private set; } = null!;
+    public MqttZeroSessionState Sender
+    {
+        get
+        {
+            return _sender ?? throw new InvalidOperationException(
+                "入站工作项的发布者会话尚未初始化。");
+        }
+    }
 
     /// <summary>
     /// Sender连接。
@@ -85,8 +101,8 @@ internal sealed class MqttZeroInboundWork
         }
 
         lease.Retain();
-        work.Lease = lease;
-        work.Sender = sender;
+        work._lease = lease;
+        work._sender = sender;
         work.SenderConnection = senderConnection;
         work.MessageId = messageId;
         work._completed = completed;
@@ -104,9 +120,9 @@ internal sealed class MqttZeroInboundWork
         TaskCompletionSource? completion = Completion;
         _completed = null;
         Completion = null;
-        Lease.Release();
-        Lease = null!;
-        Sender = null!;
+        _lease?.Release();
+        _lease = null;
+        _sender = null;
         SenderConnection = null;
         MessageId = 0;
         if (completed != null && completion != null)

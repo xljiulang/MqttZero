@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace MqttZero.Server.Routing;
@@ -7,6 +8,7 @@ namespace MqttZero.Server.Routing;
 /// </summary>
 internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
     where TKey : notnull
+    where TValue : notnull
 {
     private const int FrameCapacity = 16;
 
@@ -75,11 +77,11 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
     /// <param name="key">键。</param>
     /// <param name="value">值。</param>
     /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
-    public bool TryGetValue(TKey key, out TValue value)
+    public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
     {
         if (_root == null)
         {
-            value = default!;
+            value = default;
             return false;
         }
 
@@ -211,8 +213,12 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
             while (_stackCount > 0)
             {
                 int frame = _stackCount - 1;
-                MqttZeroPersistentHashMapNode<TKey, TValue> node =
-                    _nodes[frame]!;
+                if (_nodes[frame] is not { } node)
+                {
+                    _stackCount--;
+                    continue;
+                }
+
                 int index = _indexes[frame];
                 if (node is MqttZeroPersistentHashMapLeafNode<TKey, TValue> leaf)
                 {
