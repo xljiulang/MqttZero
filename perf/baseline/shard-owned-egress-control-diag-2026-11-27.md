@@ -94,4 +94,5 @@ DISCONNECT 先到达，客户端拿不到 PUBREC。`MaxAwaitingRelIsIndependentF
 - QoS 2 尾延迟已回到门禁内，但 20 s 窗口下吞吐仍有 −4%；合并前需在同一窗口复测 QoS 1 / 100 / 64 KiB 与
   QoS 0 / 100 / 32 B 两个保护格。
 - `AckWorkQueueTicks` 目前恒为 0，若继续追查 ACK 排队，应给同步分片调用补时间戳，而不是相信该字段。
-- 测量口径（`DrainRatio`、延迟档 `max-pending`、QoS 0 绝对 p99 预算）仍未实施，属独立分支。
+- 测量口径（`DrainRatio`、延迟档 `max-pending`、QoS 0 绝对 p99 预算）已在同一分支的
+  `6820982` 落地，并用于 `shard-owned-egress-final2-2026-11-27.md` 的最终判定。
