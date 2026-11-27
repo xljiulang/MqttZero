@@ -76,6 +76,17 @@ internal sealed class MqttZeroRouteEpoch
             : this;
     }
 
+    /// <summary>
+    /// Matches a topic against this epoch and collects delivery candidates.
+    /// </summary>
+    /// <param name="topic">The published topic.</param>
+    /// <param name="sender">The publishing session, or null for server-originated messages.</param>
+    /// <param name="match">The match accumulator.</param>
+    /// <remarks>
+    /// Test and benchmark only. Production routing uses
+    /// <see cref="MqttZeroRoutePlanner"/> with <see cref="MqttZeroRoutePlanBuffer"/>,
+    /// which plans per-shard batches directly.
+    /// </remarks>
     public void Match(
         ReadOnlySpan<byte> topic,
         MqttZeroSessionState? sender,

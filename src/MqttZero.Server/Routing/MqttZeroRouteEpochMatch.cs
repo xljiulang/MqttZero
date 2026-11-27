@@ -2,6 +2,13 @@ using MqttZero.Server.Sessions;
 
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// Accumulates the delivery candidates of one topic match.
+/// </summary>
+/// <remarks>
+/// Test and benchmark only. Production routing collects candidates inside
+/// <see cref="MqttZeroRoutePlanBuffer"/>.
+/// </remarks>
 internal ref struct MqttZeroRouteEpochMatch
 {
     private readonly List<MqttZeroDeliveryCandidate> _deliveries;

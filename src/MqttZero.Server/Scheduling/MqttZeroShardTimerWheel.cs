@@ -176,6 +176,14 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Captures the bucket distribution of this wheel.
+    /// </summary>
+    /// <remarks>
+    /// Must be called on the owning shard because it walks the bucket lists that
+    /// <see cref="TickAsync"/> and the stop clear mutate. Cross-thread diagnostics
+    /// must be routed through a shard work item instead of calling this directly.
+    /// </remarks>
     internal MqttZeroShardTimerSnapshot GetSnapshot()
     {
         int[] levelCounts = new int[Levels];
