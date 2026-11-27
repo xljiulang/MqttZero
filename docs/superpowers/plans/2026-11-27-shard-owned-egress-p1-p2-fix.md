@@ -37,3 +37,22 @@
 - `MqttZero.BrokerBenchmarks.Tests`：71/71。
 - `perf/verify-allocation.ps1`：23/23，热路径分配哨兵通过。
 - 未跑同机 A/B；分支是否可合并仍取决于下一轮吞吐 ≥0.95×、p99 ≤1.05× 的门禁。
+
+## 二次复审修复（A/B 之前）
+
+二次审查在 `afb6a21` 上发现 4 个由本轮改动引入的问题与 4 项遗留卫生问题，已全部处理：
+
+| 项 | 改动 | 验证 |
+|---|---|---|
+| A1 PUBACK 移交每包分配 | `MqttZeroControlPostWork` 改为有界池，`PoolCountForTest` 纳入 `MqttZeroObjectPoolSnapshot.ControlPostWorkCount`、内存快照、基准 PROBE 与 `CountObjects` | `ControlPostWorkPoolTests`：2000 次租用/释放后池计数保持稳态、快照计数与池一致 |
+| A2 未执行 work 滞留控制帧 | `ExecuteAsync` 交接后清空帧引用；`Release` 对残留帧 `Fail` 并归还帧池 | 同文件用例断言帧被 `Fail` 且 `RetainedCount` 回到 1 |
+| A3 QoS0 每包取锁 | `MqttZeroPendingDrain` 增加 `volatile` 计数镜像，`Count` 无锁读（可能偏高，只会延后直连） | `PendingDrainTests` 7/7（含新增可见性用例） |
+| A4 Begin 与 Rent 不配对 | `EnqueueAcknowledgementAsync` 的两次 Rent 移入 `try`，异常时按 shardWork/work 顺序释放并完成 token | 防御性改动，无稳定注入手段，提交信息已注明 |
+| B1 生产死代码 | `MqttZeroRouteEpoch.Match`、`MqttZeroRouteEpochMatch`、`MqttZeroDeliveryCandidate` 加 `<remarks>` 标注"仅测试与基准使用" | 构建与 `SourceConventionTests` 通过 |
+| B2 注册表死 API | 删除 `MqttZeroSharedGroupCursors.GetNext/GetCursor`，测试改用 `Resolve(key).NextOffset(...)`/`.Value` | `SharedGroupCursorTests` 11/11（轮询序列仍为 `[0,1,2,0,1]`） |
+| B3 Timer 快照跨线程 | `MqttZeroShardTimerWheel.GetSnapshot` 的备注要求必须在所属分片调用；不加运行时断言 | 注释 |
+| B4 注册表修剪与旧 epoch | 保持现状，沿用前文说明 | — |
+
+验证：`dotnet build -c Release` 0 警告 0 错误、`MqttZero.Tests` 798/798、
+`MqttZero.BrokerBenchmarks.Tests` 71/71、`dotnet format` 通过、
+`perf/verify-allocation.ps1` 23/23。仍未跑 A/B；本轮结束后进入 6 格同机 A/B。
