@@ -64,7 +64,7 @@ public sealed class BenchmarkLoadRunnerProgressTests
 
     private sealed class SimulatedMqttState
     {
-        public long ReceivedMessages;
+        public long _receivedMessages;
     }
 
     private sealed class SimulatedMqttClient : IBenchmarkMqttClient
@@ -95,7 +95,7 @@ public sealed class BenchmarkLoadRunnerProgressTests
             get
             {
                 return _isSubscriber
-                    ? Interlocked.Read(ref _state.ReceivedMessages)
+                    ? Interlocked.Read(ref _state._receivedMessages)
                     : 0;
             }
         }
@@ -126,7 +126,7 @@ public sealed class BenchmarkLoadRunnerProgressTests
             uint? messageExpiryInterval = null)
         {
             await Task.Delay(1, cancellationToken);
-            Interlocked.Increment(ref _state.ReceivedMessages);
+            Interlocked.Increment(ref _state._receivedMessages);
         }
 
         public ValueTask SubscribeAsync(
