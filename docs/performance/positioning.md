@@ -77,6 +77,15 @@ establish leadership over MQTTnet, and no such claim is made.
 
 ## MQTTnet Comparison Status
 
+The final external comparison client is now eMQTT-Bench `0.6.4`. The Linux
+runner records end-to-end throughput, a throttled QoE latency profile, broker
+and client CPU, peak RSS, peak PSS and thread count. Results from the current
+two-vCPU development host are development evidence only.
+
+The benchmark-only Raw client remains the internal diagnostic client for
+microsecond latency, sequence integrity and paused-reader backpressure. It is
+not used as the final independent-client comparison.
+
 Three same-machine comparisons used 8 logical cores:
 
 - `perf/baseline/compare-8core-2026-11-26.md` (MQTTnet client): all three cells

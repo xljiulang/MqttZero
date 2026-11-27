@@ -1,5 +1,13 @@
 # MQTTZero Performance Baselines
 
+## Current Comparison Client
+
+MQTTZero/MQTTnet performance comparisons now use eMQTT-Bench `0.6.4` through
+`eng/emqtt-bench`. Reports include broker CPU and memory collected from Linux
+`/proc`. The current two-vCPU development host is suitable only for development
+evidence. Historical MQTTnet Client and Raw Client reports remain as dated
+evidence and must not be mixed with eMQTT-Bench numbers.
+
 `0.3.0-alpha.1`、`0.4.0-alpha.1` 与 `0.4.1-alpha.1` 均使用 BenchmarkDotNet 采集，不作为跨硬件容量承诺。0.4 仅进行目录和 namespace 重构，保留 0.3 结果用于对照。
 
 ## 环境

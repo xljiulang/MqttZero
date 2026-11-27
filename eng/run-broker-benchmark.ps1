@@ -1,6 +1,4 @@
 param(
-    [ValidateSet('mqttnet', 'raw')]
-    [string] $Client = 'mqttnet',
     [string] $OutputPath = 'artifacts/broker-baseline.json',
     [int] $StartPort = 30000,
     [string] $Qos = '0,1',
@@ -31,18 +29,11 @@ $outputDirectory = Split-Path -Parent $resolvedOutputPath
 New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
 Remove-Item -LiteralPath $resolvedOutputPath -Force -ErrorAction SilentlyContinue
 
-if ($Client -eq 'raw' -and $Qos.Split(',') -contains '2')
-{
-    $Qos = '0,1'
-    Write-Output 'Raw client selected; QoS 2 is excluded from the diagnostic matrix.'
-}
-
 & dotnet run `
     -c Release `
     --no-build `
     --project $benchmarkProject `
     -- compare `
-    --client $Client `
     --qos $Qos `
     --subscribers $Subscribers `
     --payload $PayloadSizes `

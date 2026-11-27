@@ -2,6 +2,28 @@
 
 该基准用于比较 MQTTZero 与 MQTTnet 完整 TCP Broker，不再使用“MQTTnet codec + topic matcher”作为端到端基线。
 
+## 当前最终口径：eMQTT-Bench
+
+最终跨 Broker 性能对比使用 eMQTT-Bench `0.6.4`。工具、Linux runner、
+资源采样和矩阵说明位于 `eng/emqtt-bench/README.md`。
+
+- 两个 Broker 使用同一 Runtime-carrying Linux x64 Benchmark 程序启动。
+- 每个单元格分别启动 Broker 和 eMQTT-Bench，按交替顺序执行三轮。
+- 吞吐档使用不限速发布；尾延迟档使用 500 条消息、50 条预热和 20 ms
+  发布间隔，QoE 延迟样本覆盖率必须达到 99%。
+- eMQTT-Bench 0.6.4 的 QoS 0 在 `-I 0/1` 下会完成发布但订阅端无投递，
+  因此 QoS 0 吞吐格固定使用 `-I 2`；QoS 1/2 吞吐格保持不限速。
+- eMQTT-Bench 0.6.4 已在 worker loop 中统一计数 QoS 0，不再重复累计
+  publish 成功路径；完整性仍只以订阅端实际接收数计算，不采用客户端
+  attempted/sent 数替代 Broker 投递量。
+- 资源结果同时报告 Broker 和客户端进程的 CPU、峰值 RSS、峰值 PSS、
+  Private Dirty 和线程数。
+- MQTTZero `MEMORYPROBE` 数据只用于附加诊断，不能进入跨 Broker 公平排名。
+- 当前 2 vCPU 腾讯开发机只产生开发级证据，不能作为容量声明。
+
+下述 MQTTnet Client 和 Raw Client 数据保留为历史证据。Raw Client 仍是内部
+微秒级延迟、顺序完整性、暂停读取和背压诊断工具，但不再是最终第三方客户端。
+
 ## 公平性口径
 
 - Broker 在独立子进程中启动；客户端负载生成器不与被测 Broker 共享进程。

@@ -51,8 +51,6 @@ if (mode == "serve")
 else if (mode == "load")
 {
     int port = GetInt(arguments, "port", 1883);
-    BenchmarkClientKind clientKind = BenchmarkClientSelection.Parse(
-        GetValue(arguments, "client", "mqttnet"));
     BenchmarkRunOptions options = new(
         GetInt(arguments, "subscribers", 10),
         GetInt(arguments, "publishers", 1),
@@ -63,20 +61,19 @@ else if (mode == "load")
         GetInt(arguments, "max-pending", 1024),
         GetInt(arguments, "message-expiry", 0),
         GetInt(arguments, "subscriber-delay-us", 0));
-    EnsureClientSupportsExpiry(clientKind, options);
+    EnsureRawBenchmarkClientSupportsOptions(options);
     TimeSpan drainTimeout = GetDrainTimeout(arguments);
     BrokerBenchmarkResult result = await BenchmarkLoadRunner.RunAsync(
         port,
         options,
         new BenchmarkMqttClientFactory(
-            clientKind,
             port,
             receiveDelay: GetReceiveDelay(options)),
         CancellationToken.None,
         update => WriteProgress(
             1,
             1,
-            clientKind.ToString(),
+            "raw",
             options.Qos,
             options.Subscribers,
             options.PayloadSize,
@@ -282,14 +279,11 @@ static async Task CompareAsync(
         arguments,
         "fragmentation",
         true);
-    BenchmarkClientKind clientKind = BenchmarkClientSelection.Parse(
-        GetValue(arguments, "client", "mqttnet"));
     bool enforceRankingComparison = GetBool(
         arguments,
         "comparison-gate",
         true);
-    if (clientKind == BenchmarkClientKind.Raw &&
-        qosLevels.Contains(2))
+    if (qosLevels.Contains(2))
     {
         throw new ArgumentException(
             "The raw benchmark client supports QoS 0 and QoS 1 only.");
@@ -339,7 +333,7 @@ static async Task CompareAsync(
                 maxPendingMessages,
                 messageExpirySeconds,
                 subscriberDelayMicroseconds);
-            EnsureClientSupportsExpiry(clientKind, options);
+            EnsureRawBenchmarkClientSupportsOptions(options);
             BrokerBenchmarkResult result;
             try
             {
@@ -347,7 +341,6 @@ static async Task CompareAsync(
                     runPort,
                     options,
                     new BenchmarkMqttClientFactory(
-                        clientKind,
                         runPort,
                         receiveDelay: GetReceiveDelay(options)),
                     CancellationToken.None,
@@ -587,10 +580,7 @@ static async Task RunAbAsync(
             "The benchmark payload must hold the delivery envelope.");
     }
 
-    BenchmarkClientKind clientKind = BenchmarkClientSelection.Parse(
-        GetValue(arguments, "client", "mqttnet"));
-    if (clientKind == BenchmarkClientKind.Raw &&
-        qos == 2)
+    if (qos == 2)
     {
         throw new ArgumentException(
             "The raw benchmark client supports QoS 0 and QoS 1 only.");
@@ -653,13 +643,12 @@ static async Task RunAbAsync(
                     maxPendingMessages,
                     GetInt(arguments, "message-expiry", 0),
                     GetInt(arguments, "subscriber-delay-us", 0));
-                EnsureClientSupportsExpiry(clientKind, options);
+                EnsureRawBenchmarkClientSupportsOptions(options);
                 BrokerBenchmarkResult result =
                     await BenchmarkLoadRunner.RunAsync(
                         port,
                         options,
                         new BenchmarkMqttClientFactory(
-                            clientKind,
                             port,
                             receiveDelay: GetReceiveDelay(options)),
                         CancellationToken.None,
@@ -2067,12 +2056,16 @@ static TimeSpan GetReceiveDelay(BenchmarkRunOptions options)
         options.SubscriberDelayMicroseconds);
 }
 
-static void EnsureClientSupportsExpiry(
-    BenchmarkClientKind clientKind,
+static void EnsureRawBenchmarkClientSupportsOptions(
     BenchmarkRunOptions options)
 {
-    if (clientKind == BenchmarkClientKind.Raw &&
-        options.MessageExpirySeconds > 0)
+    if (options.Qos == 2)
+    {
+        throw new ArgumentException(
+            "The raw benchmark client supports QoS 0 and QoS 1 only.");
+    }
+
+    if (options.MessageExpirySeconds > 0)
     {
         throw new ArgumentException(
             "The raw benchmark client does not support message expiry.");

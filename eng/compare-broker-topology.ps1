@@ -41,7 +41,6 @@ foreach ($shards in $EventLoopShards)
             --no-build `
             --project $project `
             -- compare `
-            --client mqttnet `
             --qos 0 `
             --subscribers 100 `
             --payload 8192 `

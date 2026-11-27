@@ -13,16 +13,11 @@ $benchmarkProject = Join-Path `
 
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
 
-$mqttNetOutput = Join-Path $outputRoot 'mqttnet-client.json'
-$rawOutput = Join-Path $outputRoot 'raw-client.json'
-Remove-Item -LiteralPath $mqttNetOutput -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $rawOutput -Force -ErrorAction SilentlyContinue
+$outputPath = Join-Path $outputRoot 'raw-client.json'
+Remove-Item -LiteralPath $outputPath -Force -ErrorAction SilentlyContinue
 
 function Invoke-BenchmarkSmoke {
     param(
-        [Parameter(Mandatory)]
-        [string] $Client,
-
         [Parameter(Mandatory)]
         [int] $Port,
 
@@ -35,7 +30,6 @@ function Invoke-BenchmarkSmoke {
         --no-build `
         --project $benchmarkProject `
         -- compare `
-        --client $Client `
         --qos 0,1 `
         --subscribers 1 `
         --payload 32,8192 `
@@ -50,10 +44,9 @@ function Invoke-BenchmarkSmoke {
     if ($LASTEXITCODE -ne 0)
     {
         Write-BenchmarkFailureAnnotations `
-            -Client $Client `
             -OutputPath $OutputPath
         throw (
-            "Benchmark smoke for $Client exited with code " +
+            "Benchmark smoke exited with code " +
             "$LASTEXITCODE. Inspect $OutputPath.")
     }
 
@@ -96,7 +89,6 @@ function Invoke-BenchmarkSmoke {
         if ($failures -ne 0)
         {
             Write-BenchmarkFailureAnnotations `
-                -Client $Client `
                 -OutputPath $OutputPath
             Write-Output (
                 "::error title=Benchmark smoke::" +
@@ -105,14 +97,11 @@ function Invoke-BenchmarkSmoke {
         }
     }
 
-    Write-Output "Benchmark smoke passed for $Client."
+    Write-Output 'Benchmark smoke passed.'
 }
 
 function Write-BenchmarkFailureAnnotations {
     param(
-        [Parameter(Mandatory)]
-        [string] $Client,
-
         [Parameter(Mandatory)]
         [string] $OutputPath
     )
@@ -121,7 +110,7 @@ function Write-BenchmarkFailureAnnotations {
     {
         Write-Output (
             "::error title=Benchmark smoke::" +
-            "$Client did not write $OutputPath.")
+            "Benchmark smoke did not write $OutputPath.")
         return
     }
 
@@ -130,7 +119,7 @@ function Write-BenchmarkFailureAnnotations {
     {
         Write-Output (
             "::error title=Benchmark smoke::" +
-            "$Client output has no Results.")
+            "Benchmark smoke output has no Results.")
         return
     }
 
@@ -148,7 +137,7 @@ function Write-BenchmarkFailureAnnotations {
 
         Write-Output (
             "::error title=Benchmark delivery::" +
-            "$Client broker=$($comparison.Broker) " +
+            "broker=$($comparison.Broker) " +
             "qos=$($comparison.Qos) " +
             "payload=$($comparison.PayloadSize) " +
             "failed=$($result.FailedOperations) " +
@@ -167,7 +156,7 @@ function Write-BenchmarkFailureAnnotations {
     {
         Write-Output (
             "::error title=Benchmark gate::" +
-            "$Client comparison gate failed.")
+            "Benchmark comparison gate failed.")
     }
 
     foreach ($summary in $document.Gate.Summaries)
@@ -179,7 +168,7 @@ function Write-BenchmarkFailureAnnotations {
 
         Write-Output (
             "::error title=Benchmark gate::" +
-            "$Client qos=$($summary.Qos) " +
+            "qos=$($summary.Qos) " +
             "payload=$($summary.PayloadSize) " +
             "throughput-ratio=$($summary.ThroughputRatio.ToString('F3')) " +
             "p99-ratio=$($summary.P99Ratio.ToString('F3')) " +
@@ -189,13 +178,8 @@ function Write-BenchmarkFailureAnnotations {
 
 try {
     Invoke-BenchmarkSmoke `
-        -Client 'mqttnet' `
         -Port $StartPort `
-        -OutputPath $mqttNetOutput
-    Invoke-BenchmarkSmoke `
-        -Client 'raw' `
-        -Port ($StartPort + 1000) `
-        -OutputPath $rawOutput
+        -OutputPath $outputPath
 }
 catch {
     Write-Output "::error title=Benchmark smoke::$($_.Exception.Message)"

@@ -119,6 +119,11 @@ pwsh -NoProfile -File ./eng/verify-memory-stability.ps1 `
 
 ## 测量口径
 
+跨 MQTTZero/MQTTnet 的最终性能结果改由 `eng/emqtt-bench/run-matrix.sh`
+生成。`load`、`compare` 和 `ab` 仍使用完整保留的 Raw 诊断客户端，用于
+微秒级直方图、顺序/重复/缺失校验和暂停读取背压；这些内部结果不得与
+eMQTT-Bench 的第三方客户端结果混为同一统计口径。
+
 A/B 单元格先算 `DrainRatio = 排空时间 / (测量时间 + 排空时间)`（每轮写入
 `BrokerBenchmarkResult.DrainRatio`）。四轮中位数超过 `0.10` 时，该单元格改用
 `PublishWindowThroughputPerSecond` 判定并在报告里记录 `ThroughputMetric = publish-window`，
