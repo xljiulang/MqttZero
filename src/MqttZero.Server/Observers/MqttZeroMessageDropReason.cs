@@ -5,14 +5,14 @@ namespace MqttZero.Server.Observers;
 /// </summary>
 public enum MqttZeroMessageDropReason
 {
-    /// <summary>No subscription matched.</summary>
+    /// <summary>没有订阅匹配。</summary>
     NoMatchingSubscribers,
-    /// <summary>The message expired.</summary>
+    /// <summary>消息已过期。</summary>
     Expired,
-    /// <summary>Offline QoS 0 storage is disabled.</summary>
+    /// <summary>离线 QoS 0 存储已关闭。</summary>
     OfflineClient,
-    /// <summary>An interceptor rejected the delivery.</summary>
+    /// <summary>拦截器拒绝了该投递。</summary>
     InterceptorRejected,
-    /// <summary>The PUBLISH exceeds the receiver maximum packet size.</summary>
+    /// <summary>PUBLISH 超过接收者的最大报文大小。</summary>
     PacketTooLarge
 }

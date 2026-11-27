@@ -13,7 +13,7 @@ public sealed class MqttZeroClientSnapshot
     /// </summary>
     public required string ClientId { get; init; }
 
-    /// <summary>Gets the user name.</summary>
+    /// <summary>获取用户名。</summary>
     public string? UserName { get; init; }
 
     /// <summary>
@@ -31,7 +31,7 @@ public sealed class MqttZeroClientSnapshot
     /// </summary>
     public bool IsWebSocket { get; init; }
 
-    /// <summary>Gets the MQTT protocol version.</summary>
+    /// <summary>获取 MQTT 协议版本。</summary>
     public MqttProtocolVersion ProtocolVersion { get; init; }
 
     /// <summary>
@@ -39,6 +39,6 @@ public sealed class MqttZeroClientSnapshot
     /// </summary>
     public int SubscriptionCount { get; init; }
 
-    /// <summary>Gets current connection statistics.</summary>
+    /// <summary>获取当前连接统计。</summary>
     public MqttZeroClientStatistics Statistics { get; init; } = new();
 }

@@ -8,10 +8,10 @@ namespace MqttZero.Server.Observers;
 /// </summary>
 public sealed class MqttZeroClientDisconnectedContext
 {
-    /// <summary>Gets the client information.</summary>
+    /// <summary>获取客户端信息。</summary>
     public required MqttZeroClientConnectionInfo Client { get; init; }
-    /// <summary>Gets the disconnect type.</summary>
+    /// <summary>获取断开类型。</summary>
     public MqttZeroDisconnectType DisconnectType { get; init; }
-    /// <summary>Gets the MQTT reason code.</summary>
+    /// <summary>获取 MQTT 原因码。</summary>
     public MqttReasonCode? ReasonCode { get; init; }
 }

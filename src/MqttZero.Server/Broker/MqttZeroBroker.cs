@@ -161,7 +161,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         }
     }
 
-    /// <summary>Initializes a broker and its extension pipeline.</summary>
+    /// <summary>初始化 Broker 及其扩展管线。</summary>
     /// <param name="options">The broker options accessor.</param>
     /// <param name="timeProvider">The time provider.</param>
     /// <param name="logger">The broker logger.</param>

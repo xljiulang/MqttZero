@@ -7,11 +7,11 @@ namespace MqttZero.Server.Observers;
 /// </summary>
 public interface IMqttZeroConnectionObserver
 {
-    /// <summary>Called after a client is connected.</summary>
+    /// <summary>客户端连接建立后调用。</summary>
     ValueTask OnConnectedAsync(
         MqttZeroClientConnectedContext context,
         CancellationToken cancellationToken);
-    /// <summary>Called after a client connection ends.</summary>
+    /// <summary>客户端连接结束后调用。</summary>
     ValueTask OnDisconnectedAsync(
         MqttZeroClientDisconnectedContext context,
         CancellationToken cancellationToken);

@@ -5,12 +5,12 @@ namespace MqttZero.Server.Storage;
 /// </summary>
 public interface IMqttZeroSessionStore
 {
-    /// <summary>Gets whether persistence is enabled.</summary>
+    /// <summary>获取是否启用持久化。</summary>
     bool IsEnabled { get; }
-    /// <summary>Loads all persisted sessions.</summary>
+    /// <summary>加载全部持久化会话。</summary>
     ValueTask<IReadOnlyList<MqttZeroPersistedSession>> LoadAllAsync(CancellationToken cancellationToken);
-    /// <summary>Saves one session.</summary>
+    /// <summary>保存一个会话。</summary>
     ValueTask SaveAsync(MqttZeroPersistedSession session, CancellationToken cancellationToken);
-    /// <summary>Deletes one session.</summary>
+    /// <summary>删除一个会话。</summary>
     ValueTask DeleteAsync(string clientId, CancellationToken cancellationToken);
 }

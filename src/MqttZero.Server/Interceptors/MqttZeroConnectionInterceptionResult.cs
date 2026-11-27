@@ -5,10 +5,10 @@ namespace MqttZero.Server.Interceptors;
 /// </summary>
 public enum MqttZeroConnectionInterceptionResult
 {
-    /// <summary>Continue processing.</summary>
+    /// <summary>继续处理。</summary>
     Continue,
-    /// <summary>Reject with a CONNACK reason.</summary>
+    /// <summary>用 CONNACK 原因码拒绝。</summary>
     Reject,
-    /// <summary>Close without a CONNACK.</summary>
+    /// <summary>不发送 CONNACK 直接关闭。</summary>
     Drop
 }

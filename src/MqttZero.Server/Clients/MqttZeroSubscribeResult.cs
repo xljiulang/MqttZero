@@ -7,10 +7,10 @@ namespace MqttZero.Server.Clients;
 /// </summary>
 public sealed class MqttZeroSubscribeResult
 {
-    /// <summary>Gets the topic filter.</summary>
+    /// <summary>获取主题过滤器。</summary>
     public required string TopicFilter { get; init; }
-    /// <summary>Gets the granted QoS.</summary>
+    /// <summary>获取授予的服务质量等级。</summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; init; }
-    /// <summary>Gets the result reason code.</summary>
+    /// <summary>获取结果原因码。</summary>
     public MqttReasonCode ReasonCode { get; init; }
 }

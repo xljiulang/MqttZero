@@ -18,7 +18,7 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 public sealed partial class MqttZeroBroker
 {
-    /// <summary>Tries to get the connected client handle for a client identifier.</summary>
+    /// <summary>尝试按客户端标识获取已连接客户端句柄。</summary>
     public bool TryGetClient(
         string clientId,
         out MqttZeroConnectedClient? client)

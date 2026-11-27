@@ -37,13 +37,13 @@ public sealed class MqttZeroPublishContext
     /// </summary>
     public bool Retain { get; set; }
 
-    /// <summary>Gets the originating connected client, or null for server-originated messages.</summary>
+    /// <summary>获取消息来源客户端；服务端发起的消息为 null。</summary>
     public MqttZeroConnectedClient? Sender { get; internal set; }
 
-    /// <summary>Gets or sets the result reason code.</summary>
+    /// <summary>获取或设置结果原因码。</summary>
     public MqttReasonCode ResultReasonCode { get; set; } = MqttReasonCode.Success;
 
-    /// <summary>Gets or sets an optional result reason string.</summary>
+    /// <summary>获取或设置可选的结果原因字符串。</summary>
     public string? ReasonString { get; set; }
 
     /// <summary>

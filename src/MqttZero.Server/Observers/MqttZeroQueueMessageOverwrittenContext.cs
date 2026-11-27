@@ -8,10 +8,10 @@ namespace MqttZero.Server.Observers;
 /// </summary>
 public sealed class MqttZeroQueueMessageOverwrittenContext
 {
-    /// <summary>Gets the receiver information.</summary>
+    /// <summary>获取接收者信息。</summary>
     public required MqttZeroClientConnectionInfo ReceiverInfo { get; init; }
-    /// <summary>Gets the connected receiver when online.</summary>
+    /// <summary>获取在线的接收者。</summary>
     public MqttZeroConnectedClient? Receiver { get; init; }
-    /// <summary>Gets the overwritten topic.</summary>
+    /// <summary>获取被覆盖的主题。</summary>
     public required ReadOnlySequence<byte> Topic { get; init; }
 }

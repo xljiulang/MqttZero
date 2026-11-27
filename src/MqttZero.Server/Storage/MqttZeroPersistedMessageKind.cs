@@ -5,13 +5,13 @@ namespace MqttZero.Server.Storage;
 /// </summary>
 public enum MqttZeroPersistedMessageKind
 {
-    /// <summary>Queued for future delivery.</summary>
+    /// <summary>已入队等待后续投递。</summary>
     Queued,
-    /// <summary>Outbound QoS 1/2 in flight.</summary>
+    /// <summary>出站 QoS 1/2 在途。</summary>
     Outbound,
-    /// <summary>Inbound QoS 2 awaiting PUBREL.</summary>
+    /// <summary>入站 QoS 2 等待 PUBREL。</summary>
     InboundQos2,
 
-    /// <summary>Accepted inbound QoS 1 awaiting background routing.</summary>
+    /// <summary>已受理的入站 QoS 1，等待后台路由。</summary>
     InboundDispatch
 }

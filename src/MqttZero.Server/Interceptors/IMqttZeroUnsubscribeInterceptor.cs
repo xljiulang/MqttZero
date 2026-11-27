@@ -5,7 +5,7 @@ namespace MqttZero.Server.Interceptors;
 /// </summary>
 public interface IMqttZeroUnsubscribeInterceptor
 {
-    /// <summary>Intercepts one unsubscribe filter.</summary>
+    /// <summary>拦截一个退订过滤器。</summary>
     ValueTask<MqttZeroInterceptionResult> InterceptAsync(
         MqttZeroUnsubscribeContext context,
         CancellationToken cancellationToken);

@@ -7,14 +7,14 @@ namespace MqttZero.Server.Storage;
 /// </summary>
 public sealed class MqttZeroPersistedSubscription
 {
-    /// <summary>Gets the UTF-8 topic filter.</summary>
+    /// <summary>获取 UTF-8 主题过滤器。</summary>
     public required ReadOnlyMemory<byte> TopicFilter { get; init; }
-    /// <summary>Gets the granted QoS.</summary>
+    /// <summary>获取授予的服务质量等级。</summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; init; }
-    /// <summary>Gets whether local messages are suppressed.</summary>
+    /// <summary>获取是否抑制本客户端自身的消息。</summary>
     public bool NoLocal { get; init; }
-    /// <summary>Gets whether RETAIN is preserved.</summary>
+    /// <summary>获取是否保留 RETAIN 标志。</summary>
     public bool RetainAsPublished { get; init; }
-    /// <summary>Gets the subscription identifier.</summary>
+    /// <summary>获取订阅标识符。</summary>
     public uint? SubscriptionIdentifier { get; init; }
 }

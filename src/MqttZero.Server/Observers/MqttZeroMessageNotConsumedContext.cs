@@ -8,10 +8,10 @@ namespace MqttZero.Server.Observers;
 /// </summary>
 public sealed class MqttZeroMessageNotConsumedContext
 {
-    /// <summary>Gets the connected sender.</summary>
+    /// <summary>获取已连接的发送者。</summary>
     public MqttZeroConnectedClient? Sender { get; init; }
-    /// <summary>Gets the topic.</summary>
+    /// <summary>获取主题。</summary>
     public required ReadOnlySequence<byte> Topic { get; init; }
-    /// <summary>Gets the payload length.</summary>
+    /// <summary>获取负载长度。</summary>
     public long PayloadLength { get; init; }
 }

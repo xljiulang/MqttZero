@@ -9,18 +9,18 @@ namespace MqttZero.Server.Clients;
 /// </summary>
 public sealed class MqttZeroClientConnectionInfo
 {
-    /// <summary>Gets the client identifier.</summary>
+    /// <summary>获取客户端标识。</summary>
     public required string ClientId { get; init; }
-    /// <summary>Gets the user name.</summary>
+    /// <summary>获取用户名。</summary>
     public string? UserName { get; init; }
-    /// <summary>Gets the remote endpoint.</summary>
+    /// <summary>获取远端地址。</summary>
     public EndPoint? RemoteEndPoint { get; init; }
-    /// <summary>Gets whether the connection uses TLS.</summary>
+    /// <summary>获取连接是否使用 TLS。</summary>
     public bool IsSecure { get; init; }
-    /// <summary>Gets whether the connection uses WebSocket.</summary>
+    /// <summary>获取连接是否使用 WebSocket。</summary>
     public bool IsWebSocket { get; init; }
-    /// <summary>Gets the MQTT protocol version.</summary>
+    /// <summary>获取 MQTT 协议版本。</summary>
     public MqttProtocolVersion ProtocolVersion { get; init; }
-    /// <summary>Gets the client certificate.</summary>
+    /// <summary>获取客户端证书。</summary>
     public X509Certificate2? ClientCertificate { get; init; }
 }

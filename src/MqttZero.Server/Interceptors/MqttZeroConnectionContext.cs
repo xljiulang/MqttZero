@@ -9,16 +9,16 @@ namespace MqttZero.Server.Interceptors;
 /// </summary>
 public sealed class MqttZeroConnectionContext
 {
-    /// <summary>Gets the resolved client information.</summary>
+    /// <summary>获取解析后的客户端信息。</summary>
     public required MqttZeroClientConnectionInfo Client { get; init; }
 
-    /// <summary>Gets the immutable CONNECT request snapshot.</summary>
+    /// <summary>获取不可变的 CONNECT 请求快照。</summary>
     public required MqttZeroConnectRequest Request { get; init; }
 
-    /// <summary>Gets the raw password sequence.</summary>
+    /// <summary>获取原始密码序列。</summary>
     public ReadOnlySequence<byte> Password => Request.Password;
-    /// <summary>Gets or sets the rejection reason code.</summary>
+    /// <summary>获取或设置拒绝原因码。</summary>
     public MqttReasonCode RejectReasonCode { get; set; } = MqttReasonCode.NotAuthorized;
-    /// <summary>Gets or sets the optional rejection reason string.</summary>
+    /// <summary>获取或设置可选的拒绝原因字符串。</summary>
     public string? ReasonString { get; set; }
 }

@@ -9,12 +9,12 @@ namespace MqttZero.Server.Interceptors;
 /// </summary>
 public sealed class MqttZeroUnsubscribeContext
 {
-    /// <summary>Gets the connected client.</summary>
+    /// <summary>获取已连接客户端。</summary>
     public required MqttZeroConnectedClient ConnectedClient { get; init; }
-    /// <summary>Gets the topic filter.</summary>
+    /// <summary>获取主题过滤器。</summary>
     public required ReadOnlySequence<byte> TopicFilter { get; init; }
-    /// <summary>Gets or sets the denial reason code.</summary>
+    /// <summary>获取或设置拒绝原因码。</summary>
     public MqttReasonCode ReasonCode { get; set; } = MqttReasonCode.NotAuthorized;
-    /// <summary>Gets or sets an optional reason string.</summary>
+    /// <summary>获取或设置可选的原因字符串。</summary>
     public string? ReasonString { get; set; }
 }

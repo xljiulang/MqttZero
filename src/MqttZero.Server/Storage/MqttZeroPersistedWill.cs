@@ -7,18 +7,18 @@ namespace MqttZero.Server.Storage;
 /// </summary>
 public sealed class MqttZeroPersistedWill
 {
-    /// <summary>Gets the will topic.</summary>
+    /// <summary>获取遗嘱主题。</summary>
     public required ReadOnlyMemory<byte> Topic { get; init; }
-    /// <summary>Gets the will payload.</summary>
+    /// <summary>获取遗嘱负载。</summary>
     public required ReadOnlyMemory<byte> Payload { get; init; }
-    /// <summary>Gets the will properties.</summary>
+    /// <summary>获取遗嘱属性。</summary>
     public ReadOnlyMemory<byte> Properties { get; init; }
-    /// <summary>Gets the will QoS.</summary>
+    /// <summary>获取遗嘱的服务质量等级。</summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; init; }
-    /// <summary>Gets whether RETAIN is set.</summary>
+    /// <summary>获取是否设置 RETAIN 标志。</summary>
     public bool Retain { get; init; }
-    /// <summary>Gets the will delay in seconds.</summary>
+    /// <summary>获取遗嘱延迟秒数。</summary>
     public uint DelayInterval { get; init; }
-    /// <summary>Gets the will message expiry in seconds.</summary>
+    /// <summary>获取遗嘱消息的过期秒数。</summary>
     public uint MessageExpiryInterval { get; init; }
 }

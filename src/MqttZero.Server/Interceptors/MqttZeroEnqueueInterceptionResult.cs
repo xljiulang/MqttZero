@@ -5,10 +5,10 @@ namespace MqttZero.Server.Interceptors;
 /// </summary>
 public enum MqttZeroEnqueueInterceptionResult
 {
-    /// <summary>Enqueue or send the delivery.</summary>
+    /// <summary>入队或直接发送该投递。</summary>
     Enqueue,
-    /// <summary>Drop this receiver delivery.</summary>
+    /// <summary>丢弃发给该接收者的投递。</summary>
     Drop,
-    /// <summary>Close the sender connection.</summary>
+    /// <summary>关闭发送方连接。</summary>
     CloseSenderConnection
 }

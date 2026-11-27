@@ -5,22 +5,22 @@ namespace MqttZero.Server.Storage;
 /// </summary>
 public interface IMqttZeroMessageStore
 {
-    /// <summary>Gets whether persistence is enabled.</summary>
+    /// <summary>获取是否启用持久化。</summary>
     bool IsEnabled { get; }
-    /// <summary>Loads all persisted messages.</summary>
+    /// <summary>加载全部持久化消息。</summary>
     ValueTask<IReadOnlyList<MqttZeroPersistedMessage>> LoadAllAsync(CancellationToken cancellationToken);
-    /// <summary>Saves a queued message.</summary>
+    /// <summary>保存一条排队消息。</summary>
     ValueTask SaveQueuedAsync(MqttZeroPersistedMessage message, CancellationToken cancellationToken);
-    /// <summary>Saves an outbound in-flight message.</summary>
+    /// <summary>保存一条出站在途消息。</summary>
     ValueTask SaveOutboundAsync(MqttZeroPersistedMessage message, CancellationToken cancellationToken);
-    /// <summary>Saves an inbound QoS 2 message.</summary>
+    /// <summary>保存一条入站 QoS 2 消息。</summary>
     ValueTask SaveInboundQos2Async(MqttZeroPersistedMessage message, CancellationToken cancellationToken);
-    /// <summary>Saves an accepted inbound dispatch message.</summary>
+    /// <summary>保存一条已受理的入站待分发消息。</summary>
     ValueTask SaveInboundDispatchAsync(MqttZeroPersistedMessage message, CancellationToken cancellationToken)
     {
         return SaveQueuedAsync(message, cancellationToken);
     }
-    /// <summary>Deletes an accepted inbound dispatch message.</summary>
+    /// <summary>删除一条已受理的入站待分发消息。</summary>
     ValueTask DeleteInboundDispatchAsync(
         string clientId,
         long messageId,
@@ -28,19 +28,19 @@ public interface IMqttZeroMessageStore
     {
         return DeleteMessageAsync(clientId, messageId, cancellationToken);
     }
-    /// <summary>Atomically promotes one queued message to outbound in-flight state.</summary>
+    /// <summary>把一条排队消息原子地提升为出站在途状态。</summary>
     ValueTask TransitionQueuedToOutboundAsync(
         string clientId,
         long messageId,
         MqttZeroPersistedMessage message,
         CancellationToken cancellationToken);
-    /// <summary>Deletes a queued or outbound message.</summary>
+    /// <summary>删除一条排队或在途消息。</summary>
     ValueTask DeleteMessageAsync(string clientId, long messageId, CancellationToken cancellationToken);
-    /// <summary>Deletes an inbound QoS 2 message.</summary>
+    /// <summary>删除一条入站 QoS 2 消息。</summary>
     ValueTask DeleteInboundQos2Async(string clientId, ushort packetIdentifier, CancellationToken cancellationToken);
-    /// <summary>Deletes all messages owned by one client.</summary>
+    /// <summary>删除某个客户端拥有的全部消息。</summary>
     ValueTask DeleteByClientAsync(string clientId, CancellationToken cancellationToken);
-    /// <summary>Atomically replaces one queued message.</summary>
+    /// <summary>原子地替换一条排队消息。</summary>
     ValueTask ReplaceQueuedAsync(
         string clientId,
         long replacedMessageId,

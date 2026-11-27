@@ -5,16 +5,16 @@ namespace MqttZero.Server.Observers;
 /// </summary>
 public enum MqttZeroDisconnectType
 {
-    /// <summary>The client sent DISCONNECT.</summary>
+    /// <summary>客户端发送了 DISCONNECT。</summary>
     ClientRequest,
-    /// <summary>The transport was lost.</summary>
+    /// <summary>传输层断开。</summary>
     ConnectionLost,
-    /// <summary>The keep-alive expired.</summary>
+    /// <summary>保活超时。</summary>
     KeepAliveTimeout,
-    /// <summary>Another connection took over the session.</summary>
+    /// <summary>另一条连接接管了该会话。</summary>
     SessionTakenOver,
-    /// <summary>The broker stopped.</summary>
+    /// <summary>Broker 已停止运行。</summary>
     ServerShutdown,
-    /// <summary>The protocol or broker pipeline failed.</summary>
+    /// <summary>协议或 Broker 管线发生故障。</summary>
     ProtocolError
 }

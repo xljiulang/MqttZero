@@ -7,14 +7,14 @@ namespace MqttZero.Server.Storage;
 /// </summary>
 public sealed class MqttZeroPersistedRetainedMessage
 {
-    /// <summary>Gets the topic.</summary>
+    /// <summary>获取主题。</summary>
     public required ReadOnlyMemory<byte> Topic { get; init; }
-    /// <summary>Gets the properties.</summary>
+    /// <summary>获取属性。</summary>
     public ReadOnlyMemory<byte> Properties { get; init; }
-    /// <summary>Gets the payload.</summary>
+    /// <summary>获取负载。</summary>
     public ReadOnlyMemory<byte> Payload { get; init; }
-    /// <summary>Gets the QoS.</summary>
+    /// <summary>获取服务质量等级。</summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; init; }
-    /// <summary>Gets the expiration time.</summary>
+    /// <summary>获取过期时间。</summary>
     public DateTimeOffset? ExpiresAt { get; init; }
 }

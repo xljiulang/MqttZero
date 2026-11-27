@@ -5,7 +5,7 @@ namespace MqttZero.Server.Interceptors;
 /// </summary>
 public interface IMqttZeroConnectionInterceptor
 {
-    /// <summary>Intercepts one CONNECT request.</summary>
+    /// <summary>拦截一个 CONNECT 请求。</summary>
     ValueTask<MqttZeroConnectionInterceptionResult> InterceptAsync(
         MqttZeroConnectionContext context,
         CancellationToken cancellationToken);

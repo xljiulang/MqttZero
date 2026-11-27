@@ -5,14 +5,14 @@ namespace MqttZero.Server.Storage;
 /// </summary>
 public interface IMqttZeroRetainedMessageStore
 {
-    /// <summary>Gets whether persistence is enabled.</summary>
+    /// <summary>获取是否启用持久化。</summary>
     bool IsEnabled { get; }
-    /// <summary>Loads all retained messages.</summary>
+    /// <summary>加载全部保留消息。</summary>
     ValueTask<IReadOnlyList<MqttZeroPersistedRetainedMessage>> LoadAllAsync(CancellationToken cancellationToken);
-    /// <summary>Saves one retained message.</summary>
+    /// <summary>保存一条保留消息。</summary>
     ValueTask SaveAsync(MqttZeroPersistedRetainedMessage message, CancellationToken cancellationToken);
-    /// <summary>Deletes one retained message.</summary>
+    /// <summary>删除一条保留消息。</summary>
     ValueTask DeleteAsync(string topic, CancellationToken cancellationToken);
-    /// <summary>Deletes all retained messages.</summary>
+    /// <summary>删除全部保留消息。</summary>
     ValueTask ClearAsync(CancellationToken cancellationToken);
 }

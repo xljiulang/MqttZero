@@ -5,12 +5,12 @@ namespace MqttZero.Server.Storage;
 /// </summary>
 public enum MqttZeroPersistedDeliveryState
 {
-    /// <summary>Queued for delivery.</summary>
+    /// <summary>已入队等待投递。</summary>
     Queued,
-    /// <summary>Awaiting PUBACK.</summary>
+    /// <summary>等待 PUBACK。</summary>
     AwaitPubAck,
-    /// <summary>Awaiting PUBREC.</summary>
+    /// <summary>等待 PUBREC。</summary>
     AwaitPubRec,
-    /// <summary>Awaiting PUBCOMP.</summary>
+    /// <summary>等待 PUBCOMP。</summary>
     AwaitPubComp
 }

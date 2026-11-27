@@ -5,12 +5,12 @@ namespace MqttZero.Server.Observers;
 /// </summary>
 public interface IMqttZeroDeliveryObserver
 {
-    /// <summary>Called after a delivery is queued or made inflight.</summary>
+    /// <summary>投递入队或转为在途后调用。</summary>
     ValueTask OnMessageEnqueuedAsync(MqttZeroMessageEnqueuedContext context, CancellationToken cancellationToken);
-    /// <summary>Called when a delivery is dropped.</summary>
+    /// <summary>投递被丢弃时调用。</summary>
     ValueTask OnMessageDroppedAsync(MqttZeroMessageDroppedContext context, CancellationToken cancellationToken);
-    /// <summary>Called before a queued message is overwritten.</summary>
+    /// <summary>排队消息被覆盖前调用。</summary>
     ValueTask OnQueueMessageOverwrittenAsync(MqttZeroQueueMessageOverwrittenContext context, CancellationToken cancellationToken);
-    /// <summary>Called when no subscriber consumes a publish.</summary>
+    /// <summary>没有订阅者消费该发布时调用。</summary>
     ValueTask OnMessageNotConsumedAsync(MqttZeroMessageNotConsumedContext context, CancellationToken cancellationToken);
 }

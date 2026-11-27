@@ -10,18 +10,18 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 public enum MqttZeroBrokerState
 {
-    /// <summary>The broker has not been started.</summary>
+    /// <summary>Broker 尚未启动。</summary>
     Created,
 
-    /// <summary>The broker is starting.</summary>
+    /// <summary>Broker 正在启动。</summary>
     Starting,
 
-    /// <summary>The broker is accepting connections.</summary>
+    /// <summary>Broker 正在受理连接。</summary>
     Running,
 
-    /// <summary>The broker is stopping.</summary>
+    /// <summary>Broker 正在停止。</summary>
     Stopping,
 
-    /// <summary>The broker has stopped.</summary>
+    /// <summary>Broker 已停止。</summary>
     Stopped
 }

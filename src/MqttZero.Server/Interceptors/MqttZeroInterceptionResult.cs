@@ -6,12 +6,12 @@ namespace MqttZero.Server.Interceptors;
 /// </summary>
 public enum MqttZeroInterceptionResult
 {
-    /// <summary>Continue processing.</summary>
+    /// <summary>继续处理。</summary>
     Continue,
 
-    /// <summary>Consume the current operation without further broker processing.</summary>
+    /// <summary>消费当前操作，不再进入 Broker 流程。</summary>
     Consume,
 
-    /// <summary>Close the current client connection.</summary>
+    /// <summary>关闭当前客户端连接。</summary>
     CloseConnection
 }

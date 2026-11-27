@@ -30,7 +30,7 @@ public sealed class MqttZeroConnectedClient
         _connection = connection;
     }
 
-    /// <summary>Gets the client information.</summary>
+    /// <summary>获取客户端信息。</summary>
     public MqttZeroClientConnectionInfo ClientInfo
     {
         get
@@ -39,7 +39,7 @@ public sealed class MqttZeroConnectedClient
         }
     }
 
-    /// <summary>Gets session-scoped application items.</summary>
+    /// <summary>获取会话级的应用数据。</summary>
     public IDictionary<object, object?> Items
     {
         get
@@ -48,7 +48,7 @@ public sealed class MqttZeroConnectedClient
         }
     }
 
-    /// <summary>Gets whether this handle is still attached.</summary>
+    /// <summary>获取该句柄是否仍然有效。</summary>
     public bool IsConnected
     {
         get
@@ -57,7 +57,7 @@ public sealed class MqttZeroConnectedClient
         }
     }
 
-    /// <summary>Gets current connection statistics.</summary>
+    /// <summary>获取当前连接统计。</summary>
     public MqttZeroClientStatistics Statistics
     {
         get
@@ -66,7 +66,7 @@ public sealed class MqttZeroConnectedClient
         }
     }
 
-    /// <summary>Subscribes this client to the requested topic filters.</summary>
+    /// <summary>让该客户端订阅请求的主题过滤器。</summary>
     public ValueTask<IReadOnlyList<MqttZeroSubscribeResult>> SubscribeAsync(
         IReadOnlyList<MqttSubscriptionRequest> subscriptions,
         uint? subscriptionIdentifier = null,
@@ -80,7 +80,7 @@ public sealed class MqttZeroConnectedClient
             cancellationToken);
     }
 
-    /// <summary>Unsubscribes this client from the requested topic filters.</summary>
+    /// <summary>让该客户端退订指定的主题过滤器。</summary>
     public ValueTask<IReadOnlyList<MqttZeroUnsubscribeResult>> UnsubscribeAsync(
         IReadOnlyList<string> topicFilters,
         CancellationToken cancellationToken = default)
@@ -92,7 +92,7 @@ public sealed class MqttZeroConnectedClient
             cancellationToken);
     }
 
-    /// <summary>Sends one PUBLISH packet only to this client.</summary>
+    /// <summary>只向该客户端发送一条 PUBLISH 报文。</summary>
     public ValueTask<bool> TrySendPublishAsync(
         MqttZeroPublishMessage message,
         CancellationToken cancellationToken = default)
@@ -104,7 +104,7 @@ public sealed class MqttZeroConnectedClient
             cancellationToken);
     }
 
-    /// <summary>Disconnects this client.</summary>
+    /// <summary>断开该客户端。</summary>
     public ValueTask<bool> DisconnectAsync(
         MqttReasonCode reasonCode = MqttReasonCode.Success,
         CancellationToken cancellationToken = default)
@@ -116,7 +116,7 @@ public sealed class MqttZeroConnectedClient
             cancellationToken);
     }
 
-    /// <summary>Gets a point-in-time client snapshot.</summary>
+    /// <summary>获取客户端某一时刻的快照。</summary>
     public MqttZeroClientSnapshot GetSnapshot()
     {
         return MqttZeroBroker.CreateClientSnapshot(_session, _connection);

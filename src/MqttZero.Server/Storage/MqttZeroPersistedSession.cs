@@ -5,16 +5,16 @@ namespace MqttZero.Server.Storage;
 /// </summary>
 public sealed class MqttZeroPersistedSession
 {
-    /// <summary>Gets the client identifier.</summary>
+    /// <summary>获取客户端标识。</summary>
     public required string ClientId { get; init; }
-    /// <summary>Gets the Clean Start flag.</summary>
+    /// <summary>获取清理会话标志。</summary>
     public bool CleanStart { get; init; }
-    /// <summary>Gets the expiry interval in seconds.</summary>
+    /// <summary>获取过期时间（秒）。</summary>
     public uint ExpiryInterval { get; init; }
-    /// <summary>Gets the disconnected timestamp.</summary>
+    /// <summary>获取断开时间戳。</summary>
     public DateTimeOffset? DisconnectedAt { get; init; }
-    /// <summary>Gets the will message.</summary>
+    /// <summary>获取遗嘱消息。</summary>
     public MqttZeroPersistedWill? Will { get; init; }
-    /// <summary>Gets the subscriptions.</summary>
+    /// <summary>获取订阅集合。</summary>
     public IReadOnlyList<MqttZeroPersistedSubscription> Subscriptions { get; init; } = [];
 }

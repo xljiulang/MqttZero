@@ -7,8 +7,8 @@ namespace MqttZero.Server.Observers;
 /// </summary>
 public sealed class MqttZeroClientConnectedContext
 {
-    /// <summary>Gets the connected client control handle.</summary>
+    /// <summary>获取已连接客户端的操作句柄。</summary>
     public required MqttZeroConnectedClient ConnectedClient { get; init; }
-    /// <summary>Gets whether a persistent session was resumed.</summary>
+    /// <summary>获取是否恢复了持久会话。</summary>
     public bool SessionPresent { get; init; }
 }
