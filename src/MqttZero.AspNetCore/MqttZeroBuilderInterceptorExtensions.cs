@@ -7,12 +7,12 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace MqttZero.AspNetCore;
 
 /// <summary>
-/// Registers MQTTZero pipeline extensions.
+/// 注册 MQTTZero 的管线扩展。
 /// </summary>
 public static class MqttZeroBuilderInterceptorExtensions
 {
     /// <summary>
-    /// Registers an MQTT publish interceptor.
+    /// 注册 MQTT 发布拦截器。
     /// </summary>
     /// <typeparam name="TInterceptor">The interceptor implementation.</typeparam>
     /// <param name="builder">The MQTTZero builder.</param>
@@ -28,7 +28,7 @@ public static class MqttZeroBuilderInterceptorExtensions
         return builder;
     }
 
-    /// <summary>Registers a CONNECT interceptor.</summary>
+    /// <summary>注册 CONNECT 拦截器。</summary>
     public static IMqttZeroBuilder AddConnectionInterceptor<T>(this IMqttZeroBuilder builder)
         where T : class, IMqttZeroConnectionInterceptor
     {
@@ -36,7 +36,7 @@ public static class MqttZeroBuilderInterceptorExtensions
         return builder;
     }
 
-    /// <summary>Registers a subscribe interceptor.</summary>
+    /// <summary>注册订阅拦截器。</summary>
     public static IMqttZeroBuilder AddSubscribeInterceptor<T>(this IMqttZeroBuilder builder)
         where T : class, IMqttZeroSubscribeInterceptor
     {
@@ -44,7 +44,7 @@ public static class MqttZeroBuilderInterceptorExtensions
         return builder;
     }
 
-    /// <summary>Registers an unsubscribe interceptor.</summary>
+    /// <summary>注册退订拦截器。</summary>
     public static IMqttZeroBuilder AddUnsubscribeInterceptor<T>(this IMqttZeroBuilder builder)
         where T : class, IMqttZeroUnsubscribeInterceptor
     {
@@ -52,7 +52,7 @@ public static class MqttZeroBuilderInterceptorExtensions
         return builder;
     }
 
-    /// <summary>Registers an enqueue interceptor.</summary>
+    /// <summary>注册入队拦截器。</summary>
     public static IMqttZeroBuilder AddEnqueueInterceptor<T>(this IMqttZeroBuilder builder)
         where T : class, IMqttZeroEnqueueInterceptor
     {
@@ -60,7 +60,7 @@ public static class MqttZeroBuilderInterceptorExtensions
         return builder;
     }
 
-    /// <summary>Registers a connection observer.</summary>
+    /// <summary>注册连接观察者。</summary>
     public static IMqttZeroBuilder AddConnectionObserver<T>(this IMqttZeroBuilder builder)
         where T : class, IMqttZeroConnectionObserver
     {
@@ -68,7 +68,7 @@ public static class MqttZeroBuilderInterceptorExtensions
         return builder;
     }
 
-    /// <summary>Registers a delivery observer.</summary>
+    /// <summary>注册投递观察者。</summary>
     public static IMqttZeroBuilder AddDeliveryObserver<T>(this IMqttZeroBuilder builder)
         where T : class, IMqttZeroDeliveryObserver
     {

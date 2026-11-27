@@ -12,7 +12,7 @@ public sealed class MqttZeroHealthCheck : IHealthCheck
     private readonly IMqttZeroBroker _broker;
 
     /// <summary>
-    /// Initializes a new health check.
+    /// 初始化健康检查的新实例。
     /// </summary>
     /// <param name="broker">The MQTTZero broker.</param>
     public MqttZeroHealthCheck(IMqttZeroBroker broker)

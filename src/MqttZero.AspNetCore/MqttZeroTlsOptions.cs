@@ -10,27 +10,27 @@ namespace MqttZero.AspNetCore;
 public sealed class MqttZeroTlsOptions
 {
     /// <summary>
-    /// Gets or sets the server certificate used for TLS handshakes.
+    /// 获取或设置 TLS 握手使用的服务端证书。
     /// </summary>
     public X509Certificate2? ServerCertificate { get; set; }
 
     /// <summary>
-    /// Gets or sets the enabled TLS protocol versions.
+    /// 获取或设置启用的 TLS 协议版本。
     /// </summary>
     public SslProtocols SslProtocols { get; set; } = SslProtocols.None;
 
     /// <summary>
-    /// Gets or sets the client certificate requirement.
+    /// 获取或设置客户端证书要求。
     /// </summary>
     public ClientCertificateMode ClientCertificateMode { get; set; } = ClientCertificateMode.NoCertificate;
 
     /// <summary>
-    /// Gets or sets whether certificate revocation is checked.
+    /// 获取或设置是否检查证书吊销。
     /// </summary>
     public bool CheckCertificateRevocation { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets an additional callback for Kestrel HTTPS options.
+    /// 获取或设置 Kestrel HTTPS 选项的附加回调。
     /// </summary>
     public Action<HttpsConnectionAdapterOptions>? Configure { get; set; }
 

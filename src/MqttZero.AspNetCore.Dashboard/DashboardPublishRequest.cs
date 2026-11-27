@@ -8,22 +8,22 @@ namespace MqttZero.AspNetCore.Dashboard;
 public sealed class DashboardPublishRequest
 {
     /// <summary>
-    /// Gets or sets the MQTT topic.
+    /// 获取或设置 MQTT 主题。
     /// </summary>
     public string Topic { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the UTF-8 payload text.
+    /// 获取或设置 UTF-8 负载文本。
     /// </summary>
     public string Payload { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the requested QoS level.
+    /// 获取或设置请求的服务质量等级。
     /// </summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the message is retained.
+    /// 获取或设置消息是否作为保留消息发布。
     /// </summary>
     public bool Retain { get; set; }
 }

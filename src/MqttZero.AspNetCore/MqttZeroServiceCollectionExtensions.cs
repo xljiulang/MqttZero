@@ -12,7 +12,7 @@ namespace MqttZero.AspNetCore;
 public static class MqttZeroServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds the MQTTZero broker and Kestrel hosting services.
+    /// 注册 MQTTZero Broker 与 Kestrel 宿主服务。
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configure">An optional broker configuration callback.</param>

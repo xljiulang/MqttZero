@@ -12,7 +12,7 @@ namespace MqttZero.AspNetCore;
 public static class MqttZeroListenOptionsExtensions
 {
     /// <summary>
-    /// Uses the MQTTZero connection handler for a Kestrel listener.
+    /// 让 Kestrel 监听使用 MQTTZero 的连接处理程序。
     /// </summary>
     /// <param name="listenOptions">The Kestrel listener options.</param>
     /// <param name="configure">An optional endpoint configuration callback.</param>

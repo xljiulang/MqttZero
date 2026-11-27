@@ -10,7 +10,7 @@ namespace MqttZero.AspNetCore;
 public interface IMqttZeroBuilder
 {
     /// <summary>
-    /// Gets the service collection used by the builder.
+    /// 获取构建器使用的服务集合。
     /// </summary>
     IServiceCollection Services { get; }
 }

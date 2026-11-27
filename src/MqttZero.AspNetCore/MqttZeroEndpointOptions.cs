@@ -6,17 +6,17 @@ namespace MqttZero.AspNetCore;
 public sealed class MqttZeroEndpointOptions
 {
     /// <summary>
-    /// Gets the accepted socket options.
+    /// 获取已受理套接字的选项。
     /// </summary>
     public MqttZeroAcceptedSocketOptions AcceptedSockets { get; } = new();
 
     /// <summary>
-    /// Gets or sets the static TLS configuration. A null value disables MQTTZero TLS setup.
+    /// 获取或设置静态 TLS 配置；为空表示不启用 MQTTZero 的 TLS 配置。
     /// </summary>
     public MqttZeroTlsOptions? Tls { get; set; }
 
     /// <summary>
-    /// Gets or sets a per-connection packet fragmentation selector. A null value allows fragmentation.
+    /// 获取或设置按连接决定报文分片的回调；为空表示允许分片。
     /// </summary>
     public Func<MqttZeroTransportInfo, bool>? AllowPacketFragmentationSelector { get; set; }
 

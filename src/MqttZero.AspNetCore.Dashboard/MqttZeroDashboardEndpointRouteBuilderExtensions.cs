@@ -17,7 +17,7 @@ namespace MqttZero.AspNetCore.Dashboard;
 public static class MqttZeroDashboardEndpointRouteBuilderExtensions
 {
     /// <summary>
-    /// Maps the dashboard UI and API endpoints under a route prefix.
+    /// 在指定路由前缀下映射管理后台的界面与 API 端点。
     /// </summary>
     /// <param name="endpoints">The endpoint route builder.</param>
     /// <param name="prefix">The route prefix, for example <c>/mqttzero</c>.</param>

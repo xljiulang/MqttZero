@@ -8,22 +8,22 @@ namespace MqttZero.AspNetCore.Dashboard;
 public sealed class MqttZeroDashboardOptions
 {
     /// <summary>
-    /// Gets or sets the authorization policy required for read-only dashboard access.
+    /// 获取或设置只读看板访问所需的授权策略。
     /// </summary>
     public string ReadAuthorizationPolicy { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the authorization policy required for management operations.
+    /// 获取或设置管理操作所需的授权策略。
     /// </summary>
     public string OperateAuthorizationPolicy { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the default page size for list APIs.
+    /// 获取或设置列表 API 的默认分页大小。
     /// </summary>
     public int DefaultPageSize { get; set; } = 50;
 
     /// <summary>
-    /// Gets or sets the maximum page size for list APIs.
+    /// 获取或设置列表 API 的最大分页大小。
     /// </summary>
     public int MaxPageSize { get; set; } = 200;
 }

@@ -10,7 +10,7 @@ namespace MqttZero.AspNetCore.Dashboard;
 public static class MqttZeroDashboardServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds the optional management dashboard services.
+    /// 注册可选的管理后台服务。
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configure">An optional dashboard configuration callback.</param>

@@ -6,7 +6,7 @@ namespace MqttZero.AspNetCore;
 public sealed class MqttZeroWebSocketOptions
 {
     /// <summary>
-    /// Gets or sets a per-connection packet fragmentation selector. A null value disables fragmentation.
+    /// 获取或设置按连接决定报文分片的回调；为空表示禁止分片。
     /// </summary>
     public Func<MqttZeroTransportInfo, bool>? AllowPacketFragmentationSelector { get; set; }
 

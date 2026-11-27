@@ -9,47 +9,47 @@ namespace MqttZero.AspNetCore;
 public sealed class MqttZeroAcceptedSocketOptions
 {
     /// <summary>
-    /// Gets or sets whether TCP no-delay is enabled. A null value preserves the host setting.
+    /// 获取或设置 TCP no-delay 是否启用；为空时沿用宿主设置。
     /// </summary>
     public bool? NoDelay { get; set; }
 
     /// <summary>
-    /// Gets or sets whether TCP keep-alive is enabled. A null value preserves the host setting.
+    /// 获取或设置 TCP 保活是否启用；为空时沿用宿主设置。
     /// </summary>
     public bool? KeepAlive { get; set; }
 
     /// <summary>
-    /// Gets or sets the TCP keep-alive idle time.
+    /// 获取或设置 TCP 保活空闲时间。
     /// </summary>
     public TimeSpan? KeepAliveTime { get; set; }
 
     /// <summary>
-    /// Gets or sets the TCP keep-alive probe interval.
+    /// 获取或设置 TCP 保活探测间隔。
     /// </summary>
     public TimeSpan? KeepAliveInterval { get; set; }
 
     /// <summary>
-    /// Gets or sets the number of TCP keep-alive probes.
+    /// 获取或设置 TCP 保活探测次数。
     /// </summary>
     public int? KeepAliveRetryCount { get; set; }
 
     /// <summary>
-    /// Gets or sets the accepted socket linger state.
+    /// 获取或设置已受理套接字的 linger 状态。
     /// </summary>
     public LingerOption? LingerState { get; set; }
 
     /// <summary>
-    /// Gets or sets whether an IPv6 accepted socket operates in dual mode.
+    /// 获取或设置 IPv6 已受理套接字是否启用双栈模式。
     /// </summary>
     public bool? DualMode { get; set; }
 
     /// <summary>
-    /// Gets or sets whether address reuse is enabled on accepted sockets.
+    /// 获取或设置已受理套接字是否允许地址复用。
     /// </summary>
     public bool? AcceptedReuseAddress { get; set; }
 
     /// <summary>
-    /// Gets or sets an additional callback that runs after the standard options are applied.
+    /// 获取或设置在应用标准选项之后执行的回调。
     /// </summary>
     public Action<Socket, EndPoint?>? Configure { get; set; }
 

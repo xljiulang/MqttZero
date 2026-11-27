@@ -11,7 +11,7 @@ namespace MqttZero.AspNetCore;
 public static class MqttZeroHealthChecksBuilderExtensions
 {
     /// <summary>
-    /// Adds a readiness check for the MQTTZero broker.
+    /// 注册 MQTTZero Broker 的就绪健康检查。
     /// </summary>
     /// <param name="builder">The health checks builder.</param>
     /// <param name="name">The health check name.</param>

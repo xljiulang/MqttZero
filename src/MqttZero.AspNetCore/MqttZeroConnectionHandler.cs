@@ -23,7 +23,7 @@ public sealed class MqttZeroConnectionHandler : ConnectionHandler
     private readonly MqttZeroBroker _broker;
 
     /// <summary>
-    /// Initializes a new connection handler.
+    /// 初始化连接处理程序的新实例。
     /// </summary>
     /// <param name="broker">The MQTTZero broker.</param>
     /// <param name="applicationLifetime">The host application lifetime.</param>

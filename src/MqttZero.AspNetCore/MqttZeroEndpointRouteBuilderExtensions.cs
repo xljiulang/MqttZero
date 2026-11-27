@@ -12,7 +12,7 @@ namespace MqttZero.AspNetCore;
 public static class MqttZeroEndpointRouteBuilderExtensions
 {
     /// <summary>
-    /// Maps an MQTT-over-WebSocket endpoint.
+    /// 映射 MQTT over WebSocket 端点。
     /// </summary>
     /// <param name="endpoints">The endpoint route builder.</param>
     /// <param name="pattern">The endpoint route pattern.</param>

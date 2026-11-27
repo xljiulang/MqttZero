@@ -8,17 +8,17 @@ namespace MqttZero.AspNetCore;
 public sealed class MqttZeroTransportInfo
 {
     /// <summary>
-    /// Gets the remote endpoint.
+    /// 获取远端地址。
     /// </summary>
     public EndPoint? RemoteEndPoint { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether the connection uses TLS.
+    /// 获取连接是否使用 TLS。
     /// </summary>
     public bool IsSecure { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether the connection uses WebSocket.
+    /// 获取连接是否使用 WebSocket。
     /// </summary>
     public bool IsWebSocket { get; init; }
 }
