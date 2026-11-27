@@ -1,8 +1,10 @@
 # 架构与当前状态
 
+> 上级索引：[文档目录](../README.md)
+
 本文件说明 MQTTZero 的运行时结构、内存所有权与当前已知状态，供二次开发和运维评估使用。
 面向决策者的概述见仓库根 `README.md`；性能口径与对比见
-`docs/performance-positioning.md` 与 `perf/baseline/`。
+[`../performance/positioning.md`](../performance/positioning.md) 与 `perf/baseline/`。
 
 ## 运行时结构
 
@@ -71,21 +73,22 @@ Kestrel 监听（TCP / TLS / WebSocket）
 | 通用 Connection Writer / 强制公平调度 / 自适应 Direct-Backlog / 复用 Flush awaiter | 均未通过门禁，已移除；保留诊断与基准口径修正 | `perf/baseline/egress-closure-final-2026-11-26.md` |
 | 全局 Packet Writer 池 | 顺序与 128 并发下均无收益，不引入 | `perf/baseline/packet-writer-pool-0.5.0-alpha.1.md` |
 | 实验性 `SocketAsyncEventArgs` 传输 | p99 略好但吞吐更低，未同时改善，已删除；Kestrel 仍是唯一生产传输 | `perf/baseline/broker-transport-ab-2026-11-25.md` |
-| 大载荷高扇出吞吐与尾延迟 | 相对 MQTTnet 仍有差距，未纳入发布门禁声明 | `docs/performance-positioning.md` |
-| Session Egress + 每 Shard 时间轮 + Session 去锁 | 正确性、分配和供应链门禁通过；同日同机开发矩阵回退超过 5%，性能门禁阻断 | `perf/baseline/shard-owned-egress-timers-2026-11-26.md` |
+| 大载荷高扇出吞吐与尾延迟 | 相对 MQTTnet 仍有差距，未纳入发布门禁声明 | [`../performance/positioning.md`](../performance/positioning.md) |
+| Session Egress + 每 Shard 时间轮 + Session 去锁 | 20 s 窗口同机 A/B 通过，已合并 `master` | `perf/baseline/shard-owned-egress-final2-2026-11-27.md` |
 
-## 当前阻断项
+## 当前状态
 
-- 当前分支的架构闭环已完成，但同日同机开发矩阵中 MQTTZero 吞吐回退超过 `5%`。
-- MQTTnet 对照在本次运行中也有明显漂移，尚不能把全部原始回退归因于单一代码变更。
-- 下一步必须用交替 A/B、相同 Broker/client 进程和分阶段诊断区分机器热状态、Benchmark
-  漂移与 Shard Egress/时间轮实现成本。
-- 调查和性能门禁通过前，该分支不合并、不发布，也不作性能领先声明。
+- Shard 所有权架构已合并 `master`；20 s 窗口的最终 A/B 见
+  `perf/baseline/shard-owned-egress-final2-2026-11-27.md`。
+- QoS 2 的出站握手确认（PUBREL / PUBCOMP）改为经 egress 队列写出，诊断与结论见
+  `perf/baseline/shard-owned-egress-control-diag-2026-11-27.md`。
+- 尚未关闭：单订阅 64 KiB 的交付 p99 绝对值仍由订阅端积压主导，只能以比值判定；
+  大载荷高扇出相对 MQTTnet 的领先仍不成立。
 
 ## 相关文档
 
-- `docs/mqtt5-properties.md`：报文与属性端到端矩阵。
-- `docs/performance-positioning.md`：性能定位、发布门禁与已知差距。
-- `docs/performance-ab-harness.md`：同机 A/B 基准口径与命令。
+- [`../protocol/mqtt5-properties.md`](../protocol/mqtt5-properties.md)：报文与属性端到端矩阵。
+- [`../performance/positioning.md`](../performance/positioning.md)：性能定位、发布门禁与已知差距。
+- [`../performance/ab-harness.md`](../performance/ab-harness.md)：同机 A/B 基准口径与命令。
 - `perf/baseline/README.md`：所有历史基准记录索引。
 - `CONTRIBUTING.md`：代码规范、测试与提交流程。

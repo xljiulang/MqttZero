@@ -1,18 +1,19 @@
 # MQTTZero Sharded Actor Broker 性能重构计划
 
+> 上级索引：[文档目录](../README.md)
+
 ## 状态
 
-- 状态：Phase 2、5、6、8 的架构闭环已在实验分支完成；正确性、分配、构建和
-  供应链门禁通过；同日同机性能回归门禁未通过，因此分支被阻断，不能合并或发布。
-- 当前分支：`refactor/shard-owned-egress-timers`
+- 状态：Phase 2、5、6、8 的架构闭环已完成；正确性、分配、构建和供应链门禁通过；
+  20 s 窗口同机 A/B 达标，已合并 `master`（`66ff7c8`）。
+- 当前分支：`master`
 - 目标框架：`net10.0`
-- 记录日期：2026-11-26
+- 记录日期：2026-11-27
 - 当前证据：
-  `perf/baseline/shard-owned-egress-timers-2026-11-26.md`、
-  `perf/baseline/shard-owned-egress-ab-investigation-2026-11-26.md`
-- 下一步：QoS0/QoS1 热路径已解耦并恢复吞吐/分配，但 QoS0 尾延迟、QoS0/100/8 KiB
-  吞吐和 QoS2 尾延迟仍未过门禁。需要先用更长窗口复核这些单元格；门禁通过前不合并
-  `master`，不提升版本。
+  `perf/baseline/shard-owned-egress-final2-2026-11-27.md`、
+  `perf/baseline/shard-owned-egress-control-diag-2026-11-27.md`
+- 下一步：单订阅 64 KiB 的交付 p99 绝对值仍由订阅端积压主导，只能按比值判定；
+  大载荷高扇出相对 MQTTnet 的领先仍未成立。
 
 > 本文保留总体架构设计和历史任务追踪。当前可执行顺序、前置门禁和停止条件
 > 以上述跨 Shard PUBLISH 根因为准；下方未勾选历史项不应在没有新证据和新计划授权时直接恢复执行。

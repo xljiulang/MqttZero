@@ -20,7 +20,8 @@
 2. 实现最小改动使测试通过。
 3. 运行相关测试和完整解决方案构建。
 4. 运行 `SourceConventionTests`。
-5. 更新实现计划或 README 中受影响的行为说明。
+5. 更新实现计划或 README 中受影响的行为说明；移动或新增文档后运行
+   `pwsh -NoProfile -File ./eng/verify-doc-links.ps1`（可选校验，缺链接即返回非零）。
 6. 热路径改动必须运行 `perf/verify-allocation.ps1`；性能结论必须附同机 Release 基准结果。
 
 ```powershell
@@ -29,6 +30,7 @@ dotnet test tests/MqttZero.Tests/MqttZero.Tests.csproj -c Release
 dotnet test tests/MqttZero.Dashboard.Tests/MqttZero.Dashboard.Tests.csproj -c Release
 ./eng/verify-coverage.ps1
 ./perf/verify-allocation.ps1
+./eng/verify-doc-links.ps1
 ```
 
 覆盖率门禁按生产程序集执行：

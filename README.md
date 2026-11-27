@@ -85,7 +85,7 @@ dotnet run --project samples/MqttZero.Sample
 设备报文进入 Kestrel 后，由连接读循环在所属分片上解码与路由；会话按 Client ID 稳定映射到
 分片，路由读取不可变快照，出站消息经每连接的 Egress Actor 组批编码后写入 `PipeWriter`。
 消息本体由引用计数的 `MqttZeroMessageLease` 共享，底层字节来自有预算的
-`MqttZeroBufferPool`。完整说明见 [`docs/architecture.md`](docs/architecture.md)。
+`MqttZeroBufferPool`。完整说明见 [`docs/architecture/runtime.md`](docs/architecture/runtime.md)。
 
 ### 关键配置
 
@@ -135,7 +135,8 @@ await broker.PublishAsync(new MqttZeroPublishMessage
 
 `ReadOnlySequence<byte>`、PipeWriter 工厂与 Stream 通过同名扩展方法发布；Stream 由调用方拥有，
 内容会在发布前收集到池化多段 Payload 并校验最大包大小。消息属性会随路由、Retained 回放、
-Will、离线队列与 QoS 1/2 重发保留，完整矩阵见 `docs/mqtt5-properties.md`。
+Will、离线队列与 QoS 1/2 重发保留，完整矩阵见
+[`docs/protocol/mqtt5-properties.md`](docs/protocol/mqtt5-properties.md)。
 
 “按 Topic 路由”和“向单个客户端发送”是两件事：前者用 `IMqttZeroBroker.PublishAsync`，
 经过订阅匹配、Retained 与离线队列；后者用 `MqttZeroConnectedClient.SendPublishAsync`，
@@ -191,7 +192,7 @@ dotnet run -c Release --project benchmarks/MqttZero.Benchmarks -- --filter '*' -
 
 零分配口径只覆盖预热后的单线程同步 Broker 核心热路径；Kestrel/TLS/WebSocket、连接建立、
 订阅变更、Retained 更新、管理 API、日志、异常、Observer 与异步拦截器续接允许分配。
-端到端对比与门禁口径见 [`docs/performance-positioning.md`](docs/performance-positioning.md)
+端到端对比与门禁口径见 [`docs/performance/positioning.md`](docs/performance/positioning.md)
 与 [`perf/baseline/README.md`](perf/baseline/README.md)。
 
 ### 构建与测试
@@ -219,14 +220,15 @@ npm run build
 - 不支持 MQTT 5 增强认证（AUTH）、自动出站 Topic Alias、MQTT 3.1.1、集群与桥接，也不提供客户端 SDK。
 - 只提供持久化接口与内存实现：默认 Noop Store 下会话、Will、QoS 1/2 队列与 QoS 2 握手状态
   在进程重启后丢失；Dashboard 的 Live Events 尚未实现。
-- Egress 发送闭环、每分片时间轮与分片去锁仍是后续工作，见
-  [`docs/architecture.md`](docs/architecture.md)。
+- Egress 发送闭环仍在收敛中；每分片时间轮与分片去锁已完成，见
+  [`docs/architecture/runtime.md`](docs/architecture/runtime.md)。
 
 ### 文档索引
 
-- [`docs/architecture.md`](docs/architecture.md)：运行时结构、内存所有权、已否决方案与未完成项。
-- [`docs/mqtt5-properties.md`](docs/mqtt5-properties.md)：报文与属性的端到端矩阵。
-- [`docs/performance-positioning.md`](docs/performance-positioning.md)：性能定位与发布门禁。
-- [`docs/performance-ab-harness.md`](docs/performance-ab-harness.md)：同机 A/B 基准口径。
+- [`docs/README.md`](docs/README.md)：文档目录（架构 / 协议 / 性能 / 历史记录）。
+- [`docs/architecture/runtime.md`](docs/architecture/runtime.md)：运行时结构、内存所有权、已否决方案与未完成项。
+- [`docs/protocol/mqtt5-properties.md`](docs/protocol/mqtt5-properties.md)：报文与属性的端到端矩阵。
+- [`docs/performance/positioning.md`](docs/performance/positioning.md)：性能定位与发布门禁。
+- [`docs/performance/ab-harness.md`](docs/performance/ab-harness.md)：同机 A/B 基准口径。
 - [`perf/baseline/README.md`](perf/baseline/README.md)：历史基准记录索引。
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)：代码规范与开发流程。
