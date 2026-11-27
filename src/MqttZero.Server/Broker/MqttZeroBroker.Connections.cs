@@ -294,7 +294,7 @@ public sealed partial class MqttZeroBroker
                     context.ConnectionLifetime.Token).ConfigureAwait(false);
                 try
                 {
-                    if (CanRouteQosZeroDirectly(candidate))
+                    if (CanRouteQosZeroDirectly(context, candidate))
                     {
                         await RoutePublishLeaseFastAsync(
                             context.Session!,
@@ -569,15 +569,23 @@ public sealed partial class MqttZeroBroker
         return ShardSet[session.ShardId];
     }
 
-    private bool CanRouteQosZeroDirectly(MqttZeroMessageLease lease)
+    private bool CanRouteQosZeroDirectly(
+        AcceptedConnectionContext context,
+        MqttZeroMessageLease lease)
     {
-        return !lease.RetainFlag &&
-            !_sessionStore.IsEnabled &&
-            !_messageStore.IsEnabled &&
-            !_retainedMessageStore.IsEnabled &&
-            _publishInterceptors.Length == 0 &&
-            _enqueueInterceptors.Length == 0 &&
-            _deliveryObservers.Length == 0;
+        bool anyStoreEnabled =
+            _sessionStore.IsEnabled ||
+            _messageStore.IsEnabled ||
+            _retainedMessageStore.IsEnabled;
+        bool anyExtensionRegistered =
+            _publishInterceptors.Length != 0 ||
+            _enqueueInterceptors.Length != 0 ||
+            _deliveryObservers.Length != 0;
+        return MqttZeroQosZeroDirectRouting.CanRoute(
+            context.PendingPublishCount,
+            lease.RetainFlag,
+            anyStoreEnabled,
+            anyExtensionRegistered);
     }
 
     private async ValueTask ProcessQueuedFastPublishAsync(
