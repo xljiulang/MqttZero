@@ -1,0 +1,51 @@
+{
+  "mode": "throughput",
+  "repetitions": 3,
+  "developmentEvidenceOnly": true,
+  "gatePassed": false,
+  "cells": [
+    {
+      "qos": 1,
+      "subscribers": 100,
+      "payloadBytes": 8192,
+      "mode": "throughput",
+      "deliveryThroughputRatio": 0.9955938999593614,
+      "p99Ratio": 1.0599167822468794,
+      "gatePassed": false,
+      "brokers": {
+        "mqttzero": {
+          "runCount": 3,
+          "complete": true,
+          "latencyComplete": true,
+          "publishRatePerSecond": 565.6788435750468,
+          "deliveryRatePerSecond": 16988.943019617887,
+          "latencyP50Milliseconds": 1862,
+          "latencyP95Milliseconds": 3665,
+          "latencyP99Milliseconds": 3821,
+          "brokerCpuMilliseconds": 3230.0,
+          "brokerAveragePercentOfOneCore": 55.72594234958863,
+          "brokerPeakResidentBytes": 152035328.0,
+          "brokerPeakPssBytes": 142683136.0,
+          "brokerPeakThreadCount": 23.0,
+          "clientCpuMilliseconds": 6000.0
+        },
+        "mqttnet": {
+          "runCount": 3,
+          "complete": true,
+          "latencyComplete": true,
+          "publishRatePerSecond": 705.3809210464539,
+          "deliveryRatePerSecond": 17064.129280333425,
+          "latencyP50Milliseconds": 1758,
+          "latencyP95Milliseconds": 3458,
+          "latencyP99Milliseconds": 3605,
+          "brokerCpuMilliseconds": 2500.0,
+          "brokerAveragePercentOfOneCore": 44.02965263254658,
+          "brokerPeakResidentBytes": 165801984.0,
+          "brokerPeakPssBytes": 156567552.0,
+          "brokerPeakThreadCount": 24.0,
+          "clientCpuMilliseconds": 5670.0
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+mode	qos	subscribers	payload	message_count	warmup_messages	repetition	broker	port	attempt	summary
+throughput	1	100	8192	1000	100	1	mqttzero	19021	1	/home/ubuntu/mqttzero-dev/artifacts/emqtt-bench-v2/acceptance-q1-100-8k/qos1-subs100-payload8192/repetition-1/mqttzero/attempt-1/summary.json
+throughput	1	100	8192	1000	100	1	mqttnet	19022	1	/home/ubuntu/mqttzero-dev/artifacts/emqtt-bench-v2/acceptance-q1-100-8k/qos1-subs100-payload8192/repetition-1/mqttnet/attempt-1/summary.json
+throughput	1	100	8192	1000	100	2	mqttnet	19023	1	/home/ubuntu/mqttzero-dev/artifacts/emqtt-bench-v2/acceptance-q1-100-8k/qos1-subs100-payload8192/repetition-2/mqttnet/attempt-1/summary.json
+throughput	1	100	8192	1000	100	2	mqttzero	19024	1	/home/ubuntu/mqttzero-dev/artifacts/emqtt-bench-v2/acceptance-q1-100-8k/qos1-subs100-payload8192/repetition-2/mqttzero/attempt-1/summary.json
+throughput	1	100	8192	1000	100	3	mqttzero	19025	1	/home/ubuntu/mqttzero-dev/artifacts/emqtt-bench-v2/acceptance-q1-100-8k/qos1-subs100-payload8192/repetition-3/mqttzero/attempt-1/summary.json
+throughput	1	100	8192	1000	100	3	mqttnet	19026	1	/home/ubuntu/mqttzero-dev/artifacts/emqtt-bench-v2/acceptance-q1-100-8k/qos1-subs100-payload8192/repetition-3/mqttnet/attempt-1/summary.json

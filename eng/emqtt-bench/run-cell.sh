@@ -16,7 +16,7 @@ warmup_messages=$7
 output_dir=$8
 
 root=${MQTTZERO_DEV_ROOT:-/home/ubuntu/mqttzero-dev}
-runtime_dir=${MQTTZERO_BROKER_DIR:-"$root/artifacts/broker-linux-x64/56e5faa/runtime"}
+runtime_dir=${MQTTZERO_BROKER_DIR:-"$root/artifacts/broker-linux-x64/current/runtime"}
 emqtt_bin=${EMQTT_BENCH_BIN:-"$root/tools/emqtt-bench/0.6.4/bin/emqtt_bench"}
 connect_rate=${CONNECT_RATE:-100}
 subscriber_settle_seconds=${SUBSCRIBER_SETTLE_SECONDS:-1}
@@ -332,8 +332,13 @@ if [[ "$broker" == "mqttzero" && "$enable_internal_memory_probe" == "1" ]]; then
 fi
 
 cd "$runtime_dir"
-./MqttZero.BrokerBenchmarks "${broker_arguments[@]}" \
-    >"$broker_log" 2>&1 &
+if [[ -x ./MqttZero.BrokerBenchmarks ]]; then
+    ./MqttZero.BrokerBenchmarks "${broker_arguments[@]}" \
+        >"$broker_log" 2>&1 &
+else
+    dotnet ./MqttZero.BrokerBenchmarks.dll "${broker_arguments[@]}" \
+        >"$broker_log" 2>&1 &
+fi
 broker_pid=$!
 broker_sampler_pid=$(start_sampler "$broker_pid" "$broker_samples")
 wait_for_ready

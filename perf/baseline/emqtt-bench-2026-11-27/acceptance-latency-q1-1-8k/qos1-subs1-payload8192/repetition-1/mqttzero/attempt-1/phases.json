@@ -1,0 +1,16 @@
+{
+  "BrokerStartNs": 1795793681128735433,
+  "BrokerReadyNs": 1795793681446525546,
+  "SubscriberStartNs": 1795793681447344641,
+  "SubscriberConnectedNs": 1795793684761344712,
+  "WarmupPublisherStartNs": 1795793684762264017,
+  "WarmupPublishStartNs": 1795793685973996283,
+  "WarmupPublishCompleteNs": 1795793687018409087,
+  "WarmupDrainedNs": 1795793687792785560,
+  "MeasurementPublisherStartNs": 1795793702800454683,
+  "MeasurementStartNs": 1795793703939663246,
+  "PublishCompleteNs": 1795793713953747039,
+  "MeasurementDrainedNs": 1795793714725246565,
+  "QoeFlushCompleteNs": 1795793729729298771,
+  "StopNs": 1795793737649437443
+}

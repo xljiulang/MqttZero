@@ -7,7 +7,8 @@
 最终跨 Broker 性能对比使用 eMQTT-Bench `0.6.4`。工具、Linux runner、
 资源采样和矩阵说明位于 `eng/emqtt-bench/README.md`。
 
-- 两个 Broker 使用同一 Runtime-carrying Linux x64 Benchmark 程序启动。
+- 两个 Broker 使用同一 Linux x64 Benchmark 程序启动；优先使用
+  framework-dependent 发布和服务器 .NET 10 Runtime。
 - 每个单元格分别启动 Broker 和 eMQTT-Bench，按交替顺序执行三轮。
 - 吞吐档使用不限速发布；尾延迟档使用 500 条消息、50 条预热和 20 ms
   发布间隔，QoE 延迟样本覆盖率必须达到 99%。

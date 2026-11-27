@@ -7,7 +7,8 @@ the Tencent Linux development machine.
 ## Requirements
 
 - eMQTT-Bench `0.6.4`
-- A runtime-carrying Linux x64 broker publish
+- A framework-dependent Linux x64 broker publish, or a runtime-carrying publish
+- .NET 10 runtime when using the framework-dependent publish
 - Linux `/proc`
 - Python 3.10 or later
 
@@ -15,7 +16,7 @@ The default remote paths are:
 
 ```text
 /home/ubuntu/mqttzero-dev/tools/emqtt-bench/0.6.4/bin/emqtt_bench
-/home/ubuntu/mqttzero-dev/artifacts/broker-linux-x64/56e5faa/runtime
+/home/ubuntu/mqttzero-dev/artifacts/broker-linux-x64/current/runtime
 ```
 
 Override them with `EMQTT_BENCH_BIN`, `MQTTZERO_BROKER_DIR` and
