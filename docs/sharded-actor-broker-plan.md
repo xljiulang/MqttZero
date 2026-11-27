@@ -218,6 +218,35 @@
 - [ ] 只对实际通过三次中位数验证的单元格和指标发布性能声明。
 - [ ] 完成性能调查后才允许合并 `master` 或提升版本。
 
+## Phase 9：下一阶段架构提案（未启动）
+
+> 状态：未启动。本节只固定提案与准入条件，不代表已排期。Phase 9 的任何代码
+> 都不得与当前 QoS 2 尾延迟修复、测量口径修正共用一个分支或一次 A/B。
+
+评审（`docs/superpowers/reviews/2026-11-27-shard-owned-egress-architecture-review.md`）
+提出四项，当前状态如下：
+
+| 提案 | 状态 | 说明 |
+|---|---|---|
+| Control/Data Fair Egress | 已完成 | `MqttZeroEgressFairness`（每轮控制帧硬预算 64）已进入生产路径 |
+| Shard-Owned Timer Diagnostics | 降级为约束 | `MqttZeroShardTimerWheel.GetSnapshot` 只允许在所属 Shard 调用；当前无生产调用者，等 Dashboard 或内存探针真正需要时再做 |
+| 单目标 Fast Fanout | 待立项 | 目前没有 `TotalDeliveryCount == 1` 的快捷路径，仍走完整的 per-shard batch 加统一完成信号 |
+| 连接级 Publish Sequencer | 待立项 | 当前由 `MqttZeroQosZeroDirectRouting` 的 `pendingPublishCount == 0` 闸门做最小安全替代 |
+
+准入条件与判定格：
+
+| 提案 | 前置条件 | 判定格 | 分支策略 |
+|---|---|---|---|
+| 单目标 Fast Fanout | 测量口径修正落地（`DrainRatio`、延迟档 `max-pending`） | QoS 1 / 1 / 64 KiB、QoS 0 / 1 / 32 B | 独立分支、独立 A/B |
+| Publish Sequencer | 同上；且必须在同一次提交内删除 `pendingPublishCount == 0` 闸门 | QoS 0 / 1 / 32 B、QoS 1 / 1 / 64 KiB、混合 QoS 顺序矩阵 | 独立分支、独立 A/B |
+
+硬性约定：
+
+- 两项都改 QoS 0 最热路径，必须一次只改一项，各跑一次同机 A/B，不合并成一次提交。
+- Sequencer 是现有闸门的替代实现，不允许两套顺序规则并存。
+- 两项都必须先补 `perf/verify-allocation.ps1` 的零分配断言和顺序用例，再进 A/B。
+- 未达到吞吐 `>= 0.95x`、p99 `<= 1.05x` 的提案按既有规则删除，不留实验开关。
+
 ## 测试计划
 
 ### Shard
