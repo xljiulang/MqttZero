@@ -98,10 +98,10 @@ public sealed partial class MqttZeroBroker
     }
 
     /// <summary>
-    /// Stops the broker and closes active connections.
+    /// 停止 Broker：停定时器、断开连接、排空分片并释放资源。
     /// </summary>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns>A task representing shutdown.</returns>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask StopAsync(CancellationToken cancellationToken = default)
     {
         await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -114,116 +114,159 @@ public sealed partial class MqttZeroBroker
 
             Volatile.Write(ref _stopping, 1);
             Volatile.Write(ref _state, (int)MqttZeroBrokerState.Stopping);
-            MqttZeroShardSet? activeShards =
-                Volatile.Read(ref _shardSet);
-            if (activeShards != null)
-            {
-                await activeShards.StopTimersAsync().ConfigureAwait(false);
-            }
-
-            CancellationTokenSource[] acceptedConnections;
-            lock (_sessionGate)
-            {
-                acceptedConnections = _acceptedConnections.Values.ToArray();
-            }
-
-            foreach (CancellationTokenSource accepted in acceptedConnections)
-            {
-                try
-                {
-                    await accepted.CancelAsync().ConfigureAwait(false);
-                }
-                catch (ObjectDisposedException)
-                {
-                }
-            }
-
-            foreach (MqttZeroSessionState session in _sessions.Values)
-            {
-                MqttZeroClientConnection? connection =
-                    session.Connection;
-                MqttZeroSessionEgress? pump =
-                    session.TakeEgress();
-
-                if (pump != null)
-                {
-                    connection?.Abort();
-                    await StopEgressAsync(pump).ConfigureAwait(false);
-                }
-
-                if (connection == null ||
-                    connection.IsClosed)
-                {
-                    continue;
-                }
-
-                try
-                {
-                    await connection.CloseAsync(MqttReasonCode.ServerShuttingDown, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                catch (Exception) when (cancellationToken.IsCancellationRequested)
-                {
-                }
-            }
-
-            Task drained = _connectionsDrained.Task;
-            if (Volatile.Read(ref _activeConnectionCount) > 0)
-            {
-                try
-                {
-                    await drained.WaitAsync(cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    AbortConnectionsForShutdown();
-                    await WaitForConnectionsToDrainAsync(drained).ConfigureAwait(false);
-                }
-            }
-
-            MqttZeroShardSet? shardSet = _shardSet;
-            if (shardSet != null)
-            {
-                foreach (MqttZeroSessionState session in _sessions.Values)
-                {
-                    MqttZeroSessionEgress? pump =
-                        session.TakeEgress();
-                    await StopEgressAsync(pump).ConfigureAwait(false);
-                }
-
-                await ReleaseAllSessionMessagesOnShardsAsync(
-                    cancellationToken).ConfigureAwait(false);
-                await shardSet.DisposeAsync().ConfigureAwait(false);
-                _shardSet = null;
-            }
-
-            _fanoutDispatcher = null;
-            MqttZeroRoutePlanBufferPool? qosZeroPlanBuffers =
-                _qosZeroPlanBuffers;
-            _qosZeroPlanBuffers = null;
-            qosZeroPlanBuffers?.Dispose();
-            MqttZeroRoutePlannerLanes? routePlannerLanes =
-                _routePlannerLanes;
-            _routePlannerLanes = null;
-            routePlannerLanes?.Dispose();
-
-            foreach (string topic in _retainedMessages.Keys)
-            {
-                MqttZeroRetainedMessage? removed =
-                    RemoveRetainedMessageCore(topic);
-                removed?.Release();
-            }
-
-            _sessions.Clear();
-            _sessionShardMap = null;
-            _routeEpochs.ResetToEmpty();
-            _sharedGroupCursors.PruneTo([]);
-            Volatile.Write(ref _state, (int)MqttZeroBrokerState.Stopped);
+            await StopTimersAsync().ConfigureAwait(false);
+            await CancelAcceptedConnectionsAsync().ConfigureAwait(false);
+            await CloseActiveSessionsAsync(cancellationToken).ConfigureAwait(false);
+            await WaitForConnectionDrainAsync(cancellationToken).ConfigureAwait(false);
+            await DisposeSchedulingAsync(cancellationToken).ConfigureAwait(false);
+            ReleaseRetainedAndSessions();
         }
         finally
         {
             _lifecycleGate.Release();
         }
+    }
+
+    /// <summary>
+    /// 停止所有分片上的时间轮。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
+    private async ValueTask StopTimersAsync()
+    {
+        MqttZeroShardSet? activeShards = Volatile.Read(ref _shardSet);
+        if (activeShards != null)
+        {
+            await activeShards.StopTimersAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// 取消所有已受理但尚未完成 CONNECT 的连接。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
+    private async ValueTask CancelAcceptedConnectionsAsync()
+    {
+        CancellationTokenSource[] acceptedConnections;
+        lock (_sessionGate)
+        {
+            acceptedConnections = _acceptedConnections.Values.ToArray();
+        }
+
+        foreach (CancellationTokenSource accepted in acceptedConnections)
+        {
+            try
+            {
+                await accepted.CancelAsync().ConfigureAwait(false);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    /// <summary>
+    /// 停止每个会话的出站并关闭其连接。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
+    private async ValueTask CloseActiveSessionsAsync(CancellationToken cancellationToken)
+    {
+        foreach (MqttZeroSessionState session in _sessions.Values)
+        {
+            MqttZeroClientConnection? connection = session.Connection;
+            MqttZeroSessionEgress? pump = session.TakeEgress();
+            if (pump != null)
+            {
+                connection?.Abort();
+                await StopEgressAsync(pump).ConfigureAwait(false);
+            }
+
+            if (connection == null || connection.IsClosed)
+            {
+                continue;
+            }
+
+            try
+            {
+                await connection.CloseAsync(MqttReasonCode.ServerShuttingDown, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+        }
+    }
+
+    /// <summary>
+    /// 等待所有连接读循环退出；取消失败时强制断开再等待。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
+    private async ValueTask WaitForConnectionDrainAsync(CancellationToken cancellationToken)
+    {
+        Task drained = _connectionsDrained.Task;
+        if (Volatile.Read(ref _activeConnectionCount) <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await drained.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            AbortConnectionsForShutdown();
+            await WaitForConnectionsToDrainAsync(drained).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// 排空分片、释放调度器与路由缓冲区。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
+    private async ValueTask DisposeSchedulingAsync(CancellationToken cancellationToken)
+    {
+        MqttZeroShardSet? shardSet = _shardSet;
+        if (shardSet != null)
+        {
+            foreach (MqttZeroSessionState session in _sessions.Values)
+            {
+                MqttZeroSessionEgress? pump = session.TakeEgress();
+                await StopEgressAsync(pump).ConfigureAwait(false);
+            }
+
+            await ReleaseAllSessionMessagesOnShardsAsync(cancellationToken).ConfigureAwait(false);
+            await shardSet.DisposeAsync().ConfigureAwait(false);
+            _shardSet = null;
+        }
+
+        _fanoutDispatcher = null;
+        MqttZeroRoutePlanBufferPool? qosZeroPlanBuffers = _qosZeroPlanBuffers;
+        _qosZeroPlanBuffers = null;
+        qosZeroPlanBuffers?.Dispose();
+        MqttZeroRoutePlannerLanes? routePlannerLanes = _routePlannerLanes;
+        _routePlannerLanes = null;
+        routePlannerLanes?.Dispose();
+    }
+
+    /// <summary>
+    /// 释放保留消息、清空会话索引与路由快照，并把状态置为已停止。
+    /// </summary>
+    private void ReleaseRetainedAndSessions()
+    {
+        foreach (string topic in _retainedMessages.Keys)
+        {
+            MqttZeroRetainedMessage? removed = RemoveRetainedMessageCore(topic);
+            removed?.Release();
+        }
+
+        _sessions.Clear();
+        _sessionShardMap = null;
+        _routeEpochs.ResetToEmpty();
+        _sharedGroupCursors.PruneTo([]);
+        Volatile.Write(ref _state, (int)MqttZeroBrokerState.Stopped);
     }
 
     /// <summary>
