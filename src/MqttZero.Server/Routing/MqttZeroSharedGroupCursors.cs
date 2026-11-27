@@ -16,19 +16,14 @@ internal sealed class MqttZeroSharedGroupCursors
         }
     }
 
-    public int GetNext(MqttZeroSharedGroupKey key, int count)
-    {
-        return GetOrAddCursor(key).NextOffset(count);
-    }
-
+    /// <summary>
+    /// Gets or creates the cursor instance of one shared group.
+    /// </summary>
+    /// <param name="key">The shared group key.</param>
+    /// <returns>The cursor owned by the shared group.</returns>
     public MqttZeroSharedGroupCursor Resolve(MqttZeroSharedGroupKey key)
     {
         return GetOrAddCursor(key);
-    }
-
-    public int GetCursor(MqttZeroSharedGroupKey key)
-    {
-        return GetOrAddCursor(key).Value;
     }
 
     private MqttZeroSharedGroupCursor GetOrAddCursor(

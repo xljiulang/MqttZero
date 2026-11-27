@@ -43,13 +43,15 @@ public sealed class SharedGroupCursorTests
         MqttZeroSharedGroupKey workersOther =
             new("workers"u8, "jobs/+"u8);
 
-        Assert.Equal(0, cursors.GetNext(workersJobs, 2));
-        Assert.Equal(1, cursors.GetNext(workersJobs, 2));
-        Assert.Equal(0, cursors.GetNext(auditJobs, 2));
-        Assert.Equal(0, cursors.GetNext(workersOther, 2));
-        Assert.Equal(2, cursors.GetCursor(workersJobs));
-        Assert.Equal(1, cursors.GetCursor(auditJobs));
-        Assert.Equal(1, cursors.GetCursor(workersOther));
+        MqttZeroSharedGroupCursor workersJobsCursor =
+            cursors.Resolve(workersJobs);
+        Assert.Equal(0, workersJobsCursor.NextOffset(2));
+        Assert.Equal(1, workersJobsCursor.NextOffset(2));
+        Assert.Equal(0, cursors.Resolve(auditJobs).NextOffset(2));
+        Assert.Equal(0, cursors.Resolve(workersOther).NextOffset(2));
+        Assert.Equal(2, workersJobsCursor.Value);
+        Assert.Equal(1, cursors.Resolve(auditJobs).Value);
+        Assert.Equal(1, cursors.Resolve(workersOther).Value);
     }
 
     [Fact]
@@ -109,14 +111,15 @@ public sealed class SharedGroupCursorTests
     {
         MqttZeroSharedGroupCursors cursors = new();
         MqttZeroSharedGroupKey key = new("workers"u8, "jobs/#"u8);
+        MqttZeroSharedGroupCursor cursor = cursors.Resolve(key);
 
         int[] offsets =
         [
-            cursors.GetNext(key, 3),
-            cursors.GetNext(key, 3),
-            cursors.GetNext(key, 3),
-            cursors.GetNext(key, 3),
-            cursors.GetNext(key, 3)
+            cursor.NextOffset(3),
+            cursor.NextOffset(3),
+            cursor.NextOffset(3),
+            cursor.NextOffset(3),
+            cursor.NextOffset(3)
         ];
 
         Assert.Equal([0, 1, 2, 0, 1], offsets);
@@ -141,14 +144,14 @@ public sealed class SharedGroupCursorTests
 
         Assert.Equal(
             0,
-            cursors.GetNext(new MqttZeroSharedGroupKey(
+            cursors.Resolve(new MqttZeroSharedGroupKey(
                 "workers"u8,
-                "jobs/#"u8), 2));
+                "jobs/#"u8)).NextOffset(2));
         Assert.Equal(
             0,
-            cursors.GetNext(new MqttZeroSharedGroupKey(
+            cursors.Resolve(new MqttZeroSharedGroupKey(
                 "audit"u8,
-                "jobs/#"u8), 2));
+                "jobs/#"u8)).NextOffset(2));
 
         Assert.Equal(2, cursors.Count);
     }
@@ -162,14 +165,15 @@ public sealed class SharedGroupCursorTests
         MqttZeroSharedGroupKey removed =
             new("audit"u8, "jobs/#"u8);
 
-        Assert.Equal(0, cursors.GetNext(active, 2));
-        Assert.Equal(1, cursors.GetNext(active, 2));
-        Assert.Equal(0, cursors.GetNext(removed, 2));
+        MqttZeroSharedGroupCursor activeCursor = cursors.Resolve(active);
+        Assert.Equal(0, activeCursor.NextOffset(2));
+        Assert.Equal(1, activeCursor.NextOffset(2));
+        Assert.Equal(0, cursors.Resolve(removed).NextOffset(2));
 
         cursors.PruneTo([active]);
 
         Assert.Equal(1, cursors.Count);
-        Assert.Equal(2, cursors.GetCursor(active));
+        Assert.Equal(2, activeCursor.Value);
     }
 
     [Fact]
@@ -209,13 +213,13 @@ public sealed class SharedGroupCursorTests
                 Encoding.UTF8.GetBytes($"group-{index}"),
                 "jobs/#"u8);
             active = key;
-            _ = cursors.GetNext(key, 2);
+            _ = cursors.Resolve(key).NextOffset(2);
         }
 
         Assert.Equal(1_000, cursors.Count);
         cursors.PruneTo([active]);
         Assert.Equal(1, cursors.Count);
-        Assert.Equal(1, cursors.GetCursor(active));
+        Assert.Equal(1, cursors.Resolve(active).Value);
     }
 
     [Fact]
