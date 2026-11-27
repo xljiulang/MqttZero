@@ -164,6 +164,28 @@
   allocation profile and restores the primary throughput cells. The branch
   remains blocked by QoS0 tail latency, QoS0 / 100 / 8 KiB throughput and
   several QoS2 tail cells. Evidence: `shard-command-hotpath-2026-11-27.md`.
+- The control-frame attribution round explained the remaining QoS 2 tail.
+  QoS 2 wrote 100% of its control frames directly on the Shard, one batched
+  frame per flush, and each flush could block the Shard for 6–9 ms. Routing
+  the PUBREL and PUBCOMP handshake frames through the egress queue changed the
+  cell from a 20–41% p99 regression to `-4.0%` throughput at a `1.007` p99
+  ratio. PUBACK and PUBREC cannot be queued: a queued PUBREC is overtaken by
+  the following DISCONNECT. Evidence:
+  `shard-owned-egress-control-diag-2026-11-27.md`.
+- The alternating same-machine verdict now passes every planned cell. Against
+  `master@ec8ba3f`, QoS 1 / 100 / 64 KiB gained 1.5% at a `0.835`
+  delivery-p99 ratio, QoS 2 / 100 / 8 KiB gained 3.4% at `0.885`,
+  QoS 0 / 100 / 32 B stayed flat at `1.000`, and QoS 0 / 100 / 8 KiB gained
+  9.0% at `0.888`. QoS 1 / 1 / 64 KiB is decidable only with
+  `--max-pending 8`, where five rounds give `0.961`. The branch was merged and
+  the ordinary release gate is green. Evidence:
+  `shard-owned-egress-final2-2026-11-27.md`.
+- The MQTTnet comparison was repeated on 2026-11-27 and now records
+  `DeliveryLatencyP50/P95/P99/MaxMicroseconds`, which the 2026-11-26 JSON
+  lacks. Two cells are at or above parity (`1.040`, `1.029`) and
+  QoS 1 / 100 / 64 KiB is still behind (`0.896`). MQTTnet's own absolute
+  throughput moved 16–46 percent between the two days, so the samples cannot be
+  compared across dates. Evidence: `compare-8core-2026-11-27.md`.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`

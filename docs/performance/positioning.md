@@ -36,9 +36,10 @@ Known gaps include large-payload high-fanout throughput and tail latency. Those
 cells are recorded in `perf/baseline` and are not implied by the general
 zero-allocation claim.
 
-## Current Shard-Owned Egress Status
+## Shard-Owned Egress Status
 
-The `refactor/shard-owned-egress-timers` branch implements:
+The design described above is now part of `master`. The
+`refactor/shard-owned-egress-timers` branch delivered:
 
 - one `MqttZeroSessionEgress` as the sole outbound owner for each Session;
 - one four-level hierarchical timer wheel per Shard;
@@ -46,44 +47,64 @@ The `refactor/shard-owned-egress-timers` branch implements:
 - removal of Session `SyncRoot`, mutation locks and mutation leases.
 
 Correctness, allocation, Release build, formatting, supply-chain and NuGet
-consumer gates pass. The branch is nevertheless blocked by the ordinary release
-gate: on the same machine and date, several MQTTZero development-matrix cells
-retained less than 95 percent of the preceding baseline throughput.
+consumer gates pass. The merge was held for a while by sub-95-percent retained
+throughput on several development-matrix cells. The regression came from the
+cross-Shard command allocation on the session mutation path and from per-frame
+control flushing; both were repaired before the merge. The earlier
+investigation is recorded in
+`perf/baseline/shard-owned-egress-ab-investigation-2026-11-26.md` and
+`perf/baseline/shard-owned-egress-control-diag-2026-11-27.md`.
 
-Alternating same-machine A/B has now isolated the dominant regression to
-`d14f433 refactor: move session mutations onto owning shards`. Every network
-PUBLISH crossing to its Session Shard creates a new
-`MqttZeroShardInvocation<T>`, `TaskCompletionSource<T>` and async execution
-state, adding about 2.2 MiB per 1,000 QoS 0 publishes at 100 subscribers.
-`d424810 -> d14f433` retains `0.862x` throughput for QoS 0 / 1 / 32 B and
-`0.819x` for QoS 0 / 100 / 32 B over five alternating rounds.
+The final alternating same-machine verdict (`master@ec8ba3f` versus
+`refactor/shard-owned-egress-timers@6820982`, three rounds, 5 s warm-up and
+20 s measurement) is recorded in
+`perf/baseline/shard-owned-egress-final2-2026-11-27.md`:
 
-The later `6eca005` de-lock commit is neutral, and direct five-round testing
-did not confirm `ec8ba3f` as a throughput cause. Master-only q0/1/32-B drift is
-small and not independently attributed to a single commit.
+| Cell | Throughput | Delivery p99 ratio | Verdict |
+|---|---:|---:|---|
+| QoS 1 / 100 / 64 KiB | +1.5% | 0.835 | pass |
+| QoS 2 / 100 / 8 KiB | +3.4% | 0.885 | pass |
+| QoS 0 / 100 / 32 B | 0.0% | 1.000 | pass |
+| QoS 0 / 100 / 8 KiB | +9.0% | 0.888 | pass |
 
-The follow-up hotpath repair restores QoS0/QoS1 throughput and per-message
-allocation parity with `d424810`, including QoS1 / 100 / 64 KiB. It does not
-pass the full gate: QoS0 tails, QoS0 / 100 / 8 KiB throughput and several QoS2
-tails remain outside the five-percent limits.
+QoS 1 / 1 / 64 KiB only becomes decidable after the in-flight window is reduced
+to eight: the end-to-end five-round ratio is `0.961`. The earlier `1.243` came
+from a three-round sample whose own baseline was noisy; the per-round ratio
+median over eight rounds is `0.999`.
 
-The branch is not merged, no package version was raised and no performance
-leadership claim is made. Evidence and raw results are recorded in
-`perf/baseline/shard-owned-egress-timers-2026-11-26.md` and
-`perf/baseline/shard-owned-egress-ab-investigation-2026-11-26.md`.
+The merge closed the regression against MQTTZero's own baseline. It did not
+establish leadership over MQTTnet, and no such claim is made.
+
+## MQTTnet Comparison Status
+
+The last two same-machine comparisons used the MQTTnet client on 8 logical
+cores:
+
+- `perf/baseline/compare-8core-2026-11-26.md`: all three cells below the strict
+  gate (`0.973`, `0.866`, `0.865`).
+- `perf/baseline/compare-8core-2026-11-27.md`: two cells at or above parity
+  (`1.040`, `1.029`) and QoS 1 / 100 / 64 KiB still behind (`0.896`).
+
+MQTTnet's own absolute throughput moved 16–46 percent between those two days on
+an unchanged MQTTnet build, so neither sample supports a cross-date comparison.
+Two samples also cannot satisfy the three-repetition leadership gate. Treat
+both records as dated, same-machine evidence only.
 
 ## Next Performance Step
 
-The next step is to repair the identified cross-Shard command path:
+No further refactoring is planned on the shard or egress scheduling paths. The
+remaining gaps need new evidence first:
 
-1. Validate the remaining QoS0 and QoS2 tail cells with longer end-to-end
-   measurement windows before changing their scheduling again.
-2. Keep QoS1 and the pooled QoS0/PUBACK paths unchanged unless a repeatable
+1. QoS 1 / 100 / 64 KiB is the only cell behind MQTTnet in both samples.
+   Re-measure it on a quiet machine with more repetitions before changing code.
+2. Keep the pooled QoS0 and PUBACK paths unchanged unless a repeatable
    exception is found.
 3. Do not pipeline QoS2 PUBLISH unless the full PUBREC/PUBREL persistence and
    ordering suite remains green.
-4. Re-run the debug matrix and strict p99 matrix before reopening the release
-   gate.
+4. Do not reopen Fast Fanout or the Publish Sequencer until routing or fanout
+   is measured as the bottleneck. The recorded diagnostics point at control
+   frame batching and per-message allocation instead (see
+   `docs/performance/hot-path-audit.md`).
 
 Development regression checks may use two repetitions to keep iteration cost
 bounded. Final performance claims and published comparison matrices still
@@ -98,5 +119,8 @@ named metrics.
 
 ## Current Decision
 
-The branch remains ineligible for integration. QoS0/QoS1 recovery is
-significant, but the complete performance gate is still blocked.
+The Shard-owned egress work is merged and the ordinary release gate is green.
+The branch is no longer blocked and no compatibility shim is planned.
+Performance claims stay limited to the four passing cells of the final A/B.
+The QoS 1 / 100 / 64 KiB gap against MQTTnet is tracked in
+`perf/baseline/compare-8core-2026-11-27.md`.
