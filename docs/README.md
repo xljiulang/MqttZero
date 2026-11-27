@@ -17,6 +17,7 @@
 - [`performance/ab-harness.md`](performance/ab-harness.md)：同机 A/B、交付完整性与内存探针的使用方法。
 - [`performance/branch-convergence.md`](performance/branch-convergence.md)：性能分支的收敛与归因记录。
 - [`performance/mqttnet-fork-audit.md`](performance/mqttnet-fork-audit.md)：MQTTnet fork 优化项与 MQTTZero 的逐条对照。
+- [`performance/hot-path-audit.md`](performance/hot-path-audit.md)：热路径方法的分配与重复计算审计结论。
 - [`../perf/baseline/README.md`](../perf/baseline/README.md)：历史基准与 A/B 原始记录索引。
 
 ## 历史计划与评审
