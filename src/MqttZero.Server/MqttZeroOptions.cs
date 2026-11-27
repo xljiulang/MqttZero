@@ -6,120 +6,117 @@ namespace MqttZero.Server;
 public sealed class MqttZeroOptions
 {
     /// <summary>
-    /// Gets or sets the maximum number of active accepted connections.
+    /// 获取或设置同时受理的活跃连接上限。
     /// </summary>
     public int MaxActiveConnections { get; set; } = 20_000;
 
     /// <summary>
-    /// Gets or sets the maximum number of stored sessions.
+    /// 获取或设置保存的会话数量上限。
     /// </summary>
     public int MaxSessions { get; set; } = 20_000;
 
     /// <summary>
-    /// Gets or sets the number of event loop shards. Zero resolves to the
-    /// logical processor count.
+    /// 获取或设置事件循环分片数量。取 0 时按逻辑处理器数量解析。
     /// </summary>
     public int EventLoopShardCount { get; set; }
 
     /// <summary>
-    /// Gets or sets the maximum subscriptions allowed for one session.
+    /// 获取或设置单个会话允许的最大订阅数。
     /// </summary>
     public int MaxSubscriptionsPerSession { get; set; } = 1_000;
 
     /// <summary>
-    /// Gets or sets the maximum number of unacknowledged outbound QoS 1/2 messages.
+    /// 获取或设置单个会话未确认的出站 QoS 1/2 消息上限。
     /// </summary>
     public int MaxInflight { get; set; } = 32;
 
     /// <summary>
-    /// Gets or sets the maximum encoded bytes selected for one outbound data batch.
+    /// 获取或设置单次出站数据批次的编码字节上限。
     /// </summary>
     public int OutboundBatchBytes { get; set; } = 512 * 1024;
 
     /// <summary>
-    /// Gets or sets the maximum number of messages selected for one outbound data batch.
+    /// 获取或设置单次出站数据批次的消息条数上限。
     /// </summary>
     public int OutboundBatchMessages { get; set; } = 128;
 
     /// <summary>
-    /// Gets or sets the maximum data selection and encoding duration for one batch.
-    /// Network flush time is not included.
+    /// 获取或设置单次批次的选批与编码时间上限；不含网络 flush 时间。
     /// </summary>
     public TimeSpan OutboundBatchDuration { get; set; } = TimeSpan.FromMicroseconds(500);
 
     /// <summary>
-    /// Gets or sets the maximum number of inbound QoS 2 messages awaiting PUBREL.
+    /// 获取或设置入站 QoS 2 中等待 PUBREL 的消息上限。
     /// </summary>
     public int MaxAwaitingRel { get; set; } = 100;
 
     /// <summary>
-    /// Gets or sets the maximum number of queued messages for one session.
+    /// 获取或设置单个会话的排队消息上限。
     /// </summary>
     public int MaxMessageQueueLength { get; set; } = 1_000;
 
     /// <summary>
-    /// Gets or sets a value indicating whether QoS 0 messages are queued while congested or offline.
+    /// 获取或设置拥塞或离线时是否把 QoS 0 消息入队。
     /// </summary>
     public bool StoreQos0InQueue { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets the maximum accepted MQTT packet size.
+    /// 获取或设置可接受的 MQTT 报文最大字节数。
     /// </summary>
     public int MaxPacketSize { get; set; } = 1024 * 1024;
 
     /// <summary>
-    /// Gets or sets the maximum pooled bytes available to the broker.
+    /// 获取或设置 Broker 可用的池化字节上限。
     /// </summary>
     public long MaxBufferedBytes { get; set; } = 512L * 1024 * 1024;
 
     /// <summary>
-    /// Gets or sets the maximum number of retained messages. Zero means no count limit.
+    /// 获取或设置保留消息数量上限；取 0 表示不限数量。
     /// </summary>
     public int MaxRetainedMessages { get; set; }
 
     /// <summary>
-    /// Gets or sets the maximum total retained payload bytes.
+    /// 获取或设置保留消息的负载字节总上限。
     /// </summary>
     public long MaxRetainedBytes { get; set; } = 256L * 1024 * 1024;
 
     /// <summary>
-    /// Gets or sets the time allowed for the MQTT CONNECT packet.
+    /// 获取或设置等待 MQTT CONNECT 报文的超时时间。
     /// </summary>
     public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(15);
 
     /// <summary>
-    /// Gets or sets the time allowed for an incomplete MQTT packet body.
+    /// 获取或设置等待不完整 MQTT 报文体的超时时间。
     /// </summary>
     public TimeSpan IncompletePacketTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    /// Gets or sets the maximum session expiry interval accepted from clients.
-    /// A null value applies no broker-side cap.
+    /// 获取或设置接受客户端声明的最大会话过期时间；为空表示 Broker 侧不做上限。
     /// </summary>
     public TimeSpan? MaxSessionExpiryInterval { get; set; }
 
     /// <summary>
-    /// Gets or sets the interval used for keep-alive and session maintenance.
+    /// 获取或设置保活与会话维护的检查间隔。
     /// </summary>
     public TimeSpan KeepAliveCheckInterval { get; set; } = TimeSpan.FromMilliseconds(500);
 
     /// <summary>
-    /// Gets or sets a value indicating whether clients reading a payload may exceed keep-alive.
+    /// 获取或设置正在读取负载的客户端是否允许超过保活期限。
     /// </summary>
     public bool DisconnectClientWhenReadingPayload { get; set; }
 
     /// <summary>
-    /// Gets or sets the maximum topic alias advertised to clients.
+    /// 获取或设置向客户端宣告的主题别名上限。
     /// </summary>
     public ushort TopicAliasMaximum { get; set; } = ushort.MaxValue;
 
     /// <summary>
-    /// Gets or sets optional response information returned when requested by a client.
+    /// 获取或设置客户端请求时返回的可选响应信息。
     /// </summary>
     public string? ResponseInformation { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether new connections are accepted.
+    /// 获取或设置是否受理新连接。
     /// </summary>
     public bool AcceptNewConnections { get; set; } = true;
 }
