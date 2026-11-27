@@ -16,7 +16,7 @@ using System.Text;
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Implements broker management and server-originated publishing.
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
 /// </summary>
 public sealed partial class MqttZeroBroker
 {
@@ -194,6 +194,13 @@ public sealed partial class MqttZeroBroker
             cancellationToken);
     }
 
+    /// <summary>
+    /// 断开客户端。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<bool> DisconnectClientCoreAsync(
         MqttZeroSessionState session,
         MqttReasonCode reasonCode,

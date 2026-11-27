@@ -12,10 +12,16 @@ using System.Text;
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Implements retained message storage and removal.
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
 /// </summary>
 public sealed partial class MqttZeroBroker
 {
+    /// <summary>
+    /// 存储保留消息。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask StoreRetainedMessageAsync(
         MqttZeroMessageLease lease,
         CancellationToken cancellationToken)
@@ -107,6 +113,12 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 存储保留消息In内存。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask StoreRetainedMessageInMemoryAsync(
         MqttZeroMessageLease lease,
         CancellationToken cancellationToken)
@@ -141,6 +153,13 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 存储保留消息In内存。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="topicKey">主题键。</param>
+    /// <param name="expiresAt">对应的 expiresAt。</param>
+    /// <returns>对应的结果。</returns>
     private MqttZeroRetainedMessage? StoreRetainedMessageInMemoryCore(
         MqttZeroMessageLease lease,
         string topicKey,
@@ -192,6 +211,11 @@ public sealed partial class MqttZeroBroker
         return replaced;
     }
 
+    /// <summary>
+    /// 校验保留容量。
+    /// </summary>
+    /// <param name="topicKey">主题键。</param>
+    /// <param name="replacementBytes">replacement字节数。</param>
     private void ValidateRetainedCapacity(string topicKey, long replacementBytes)
     {
         lock (_retainedGate)
@@ -212,6 +236,12 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 移除保留消息。
+    /// </summary>
+    /// <param name="topicKey">主题键。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RemoveRetainedMessageAsync(
         string topicKey,
         CancellationToken cancellationToken)
@@ -236,6 +266,11 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 移除保留消息。
+    /// </summary>
+    /// <param name="topicKey">主题键。</param>
+    /// <returns>对应的结果。</returns>
     private MqttZeroRetainedMessage? RemoveRetainedMessageCore(
         string topicKey)
     {
@@ -256,6 +291,11 @@ public sealed partial class MqttZeroBroker
         return removed;
     }
 
+    /// <summary>
+    /// 匹配保留消息。
+    /// </summary>
+    /// <param name="filter">过滤器。</param>
+    /// <param name="results">结果。</param>
     private void MatchRetainedMessages(
         ReadOnlySpan<byte> filter,
         List<MqttZeroRetainedMessage> results)
@@ -272,6 +312,10 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 释放保留消息。
+    /// </summary>
+    /// <param name="messages">消息。</param>
     private static void ReleaseRetainedMessages(
         List<MqttZeroRetainedMessage> messages)
     {

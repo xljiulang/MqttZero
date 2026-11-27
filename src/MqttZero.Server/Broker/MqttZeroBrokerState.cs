@@ -6,7 +6,7 @@ using MqttZero.Server.Sessions;
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Describes the MQTTZero broker lifecycle state.
+/// Broker 生命周期状态。
 /// </summary>
 public enum MqttZeroBrokerState
 {

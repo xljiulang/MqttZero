@@ -5,6 +5,9 @@ using System.Threading.Tasks.Sources;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// 一次发布对应的扇出操作与完成信号。
+/// </summary>
 internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
 {
     private static readonly MqttZeroBoundedObjectPool<MqttZeroFanoutOperation>
@@ -36,6 +39,9 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
     private Action<MqttZeroRoutePlanBuffer>? _returnBuffer;
     private short _version;
 
+    /// <summary>
+    /// 初始化 MqttZeroFanoutOperation 的新实例。
+    /// </summary>
     private MqttZeroFanoutOperation()
     {
     }
@@ -56,6 +62,19 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
         }
     }
 
+    /// <summary>
+    /// 租用。
+    /// </summary>
+    /// <param name="plan">计划。</param>
+    /// <param name="buffer">缓冲区。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="senderConnection">sender连接。</param>
+    /// <param name="expectedBatchCount">expected批次数量。</param>
+    /// <param name="deliver">对应的 deliver。</param>
+    /// <param name="faulted">故障回调。</param>
+    /// <param name="returnBuffer">归还缓冲区。</param>
+    /// <param name="autoRelease">对应的 autoRelease。</param>
+    /// <returns>对应的结果。</returns>
     internal static MqttZeroFanoutOperation Rent(
         MqttZeroRoutePlan plan,
         MqttZeroRoutePlanBuffer buffer,
@@ -102,6 +121,9 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
         return operation;
     }
 
+    /// <summary>
+    /// 完成批次。
+    /// </summary>
     internal void CompleteBatch()
     {
         if (Interlocked.Decrement(ref _remainingBatchCount) == 0)
@@ -110,6 +132,12 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
         }
     }
 
+    /// <summary>
+    /// 执行批次。
+    /// </summary>
+    /// <param name="shardId">分片Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask ExecuteBatchAsync(
         int shardId,
         CancellationToken cancellationToken)
@@ -145,6 +173,10 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
         }
     }
 
+    /// <summary>
+    /// 标记失败。
+    /// </summary>
+    /// <param name="exception">异常。</param>
     internal void Fail(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
@@ -172,6 +204,9 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
         }
     }
 
+    /// <summary>
+    /// 执行 Seal 对应的处理。
+    /// </summary>
     internal void Seal()
     {
         if (_autoRelease)
@@ -224,6 +259,9 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
             flags);
     }
 
+    /// <summary>
+    /// 完成。
+    /// </summary>
     private void Complete()
     {
         if (Interlocked.Exchange(ref _completed, 1) != 0)
@@ -252,6 +290,9 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
         }
     }
 
+    /// <summary>
+    /// 归还To池。
+    /// </summary>
     private void ReturnToPool()
     {
         if (Interlocked.Exchange(ref _returned, 1) != 0)

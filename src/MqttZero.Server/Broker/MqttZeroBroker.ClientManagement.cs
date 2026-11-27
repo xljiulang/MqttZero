@@ -13,6 +13,9 @@ using System.Text;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
+/// </summary>
 public sealed partial class MqttZeroBroker
 {
     /// <summary>Tries to get the connected client handle for a client identifier.</summary>
@@ -39,6 +42,12 @@ public sealed partial class MqttZeroBroker
         return true;
     }
 
+    /// <summary>
+    /// 判断是否连接Attached。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     internal static bool IsConnectionAttached(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection)
@@ -46,6 +55,12 @@ public sealed partial class MqttZeroBroker
         return ReferenceEquals(session.Connection, connection);
     }
 
+    /// <summary>
+    /// 创建客户端快照。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <returns>对应的结果。</returns>
     internal static MqttZeroClientSnapshot CreateClientSnapshot(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection)
@@ -65,6 +80,15 @@ public sealed partial class MqttZeroBroker
         };
     }
 
+    /// <summary>
+    /// 订阅Connected客户端。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="subscriptions">订阅。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     internal ValueTask<IReadOnlyList<MqttZeroSubscribeResult>> SubscribeConnectedClientAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -182,6 +206,14 @@ public sealed partial class MqttZeroBroker
         return results;
     }
 
+    /// <summary>
+    /// 退订Connected客户端。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="topicFilters">主题过滤器。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     internal ValueTask<IReadOnlyList<MqttZeroUnsubscribeResult>> UnsubscribeConnectedClientAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -270,6 +302,14 @@ public sealed partial class MqttZeroBroker
         return results;
     }
 
+    /// <summary>
+    /// 发送发布To客户端。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="message">消息。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     internal ValueTask<bool> SendPublishToClientAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -291,6 +331,14 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 发送发布To客户端。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="message">消息。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<bool> SendPublishToClientCoreAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -367,6 +415,14 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 断开Connected客户端。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     internal ValueTask<bool> DisconnectConnectedClientAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -388,6 +444,14 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 断开Connected客户端。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private static async ValueTask<bool> DisconnectConnectedClientCoreAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -408,6 +472,13 @@ public sealed partial class MqttZeroBroker
         return true;
     }
 
+    /// <summary>
+    /// 调用On会话分片。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private ValueTask<T> InvokeOnSessionShardAsync<T>(
         MqttZeroSessionState session,
         Func<CancellationToken, ValueTask<T>> operation,
@@ -430,6 +501,11 @@ public sealed partial class MqttZeroBroker
             cancellationToken);
     }
 
+    /// <summary>
+    /// 确保Attached。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
     private static void EnsureAttached(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection)

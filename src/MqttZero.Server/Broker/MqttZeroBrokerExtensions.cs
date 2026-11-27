@@ -7,7 +7,7 @@ using System.IO.Pipelines;
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Provides convenience overloads for server-originated publishing.
+/// 服务端发布便捷扩展。
 /// </summary>
 public static class MqttZeroBrokerExtensions
 {
@@ -122,6 +122,13 @@ public static class MqttZeroBrokerExtensions
         }
     }
 
+    /// <summary>
+    /// 复制ToPipe。
+    /// </summary>
+    /// <param name="source">来源。</param>
+    /// <param name="destination">对应的 destination。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private static async ValueTask CopyToPipeAsync(
         Stream source,
         PipeWriter destination,

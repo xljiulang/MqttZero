@@ -2,6 +2,9 @@ using MqttZero.Memory;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// 已调度到目标分片的扇出批次。
+/// </summary>
 internal sealed class MqttZeroFanoutScheduledBatch
 {
     private static readonly MqttZeroBoundedObjectPool<
@@ -12,6 +15,9 @@ internal sealed class MqttZeroFanoutScheduledBatch
     private MqttZeroFanoutOperation? _operation;
     private int _shardId;
 
+    /// <summary>
+    /// 初始化 MqttZeroFanoutScheduledBatch 的新实例。
+    /// </summary>
     private MqttZeroFanoutScheduledBatch()
     {
     }
@@ -42,6 +48,12 @@ internal sealed class MqttZeroFanoutScheduledBatch
         }
     }
 
+    /// <summary>
+    /// 租用。
+    /// </summary>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="shardId">分片Id。</param>
+    /// <returns>对应的结果。</returns>
     internal static MqttZeroFanoutScheduledBatch Rent(
         MqttZeroFanoutOperation operation,
         int shardId)
@@ -59,6 +71,9 @@ internal sealed class MqttZeroFanoutScheduledBatch
         return batch;
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     internal void Release()
     {
         _operation = null;

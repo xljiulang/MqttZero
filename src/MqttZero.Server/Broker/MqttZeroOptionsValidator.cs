@@ -1,10 +1,17 @@
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// 配置项的启动期校验。
+/// </summary>
 internal static class MqttZeroOptionsValidator
 {
     private static readonly System.Text.UTF8Encoding StrictUtf8 =
         new(false, true);
 
+    /// <summary>
+    /// 校验。
+    /// </summary>
+    /// <param name="options">选项。</param>
     public static void Validate(MqttZeroOptions options)
     {
         ValidatePositive(
@@ -84,6 +91,11 @@ internal static class MqttZeroOptionsValidator
             nameof(options.ResponseInformation));
     }
 
+    /// <summary>
+    /// 校验Positive。
+    /// </summary>
+    /// <param name="value">值。</param>
+    /// <param name="propertyName">属性名称。</param>
     private static void ValidatePositive(int value, string propertyName)
     {
         if (value <= 0)
@@ -94,6 +106,11 @@ internal static class MqttZeroOptionsValidator
         }
     }
 
+    /// <summary>
+    /// 校验Positive。
+    /// </summary>
+    /// <param name="value">值。</param>
+    /// <param name="propertyName">属性名称。</param>
     private static void ValidatePositive(TimeSpan value, string propertyName)
     {
         if (value <= TimeSpan.Zero)
@@ -104,6 +121,11 @@ internal static class MqttZeroOptionsValidator
         }
     }
 
+    /// <summary>
+    /// 校验UTF-8字符串。
+    /// </summary>
+    /// <param name="value">值。</param>
+    /// <param name="propertyName">属性名称。</param>
     private static void ValidateUtf8String(string? value, string propertyName)
     {
         if (value == null)

@@ -1,5 +1,8 @@
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// 诊断计数的只读快照。
+/// </summary>
 internal sealed record MqttZeroFanoutDiagnosticsSnapshot(
     long PublishCount,
     long LocalBatchCount,

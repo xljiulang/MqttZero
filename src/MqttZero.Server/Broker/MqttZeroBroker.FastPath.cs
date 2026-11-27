@@ -9,8 +9,18 @@ using System.Buffers;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
+/// </summary>
 public sealed partial class MqttZeroBroker
 {
+    /// <summary>
+    /// 投递租约To会话Test。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal ValueTask DeliverLeaseToSessionForTestAsync(
         MqttZeroSessionState session,
         MqttZeroMessageLease lease,
@@ -25,6 +35,16 @@ public sealed partial class MqttZeroBroker
             cancellationToken);
     }
 
+    /// <summary>
+    /// 路由发布租约Fast。
+    /// </summary>
+    /// <param name="sender">对应的 sender。</param>
+    /// <param name="senderConnection">sender连接。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="suppressPublisherAck">suppressPublisher确认。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="scheduleQosZeroWithoutWaiting">对应的 scheduleQosZeroWithoutWaiting。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RoutePublishLeaseFastAsync(
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,
@@ -246,6 +266,17 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 投递租约Fast。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="qos">对应的 qos。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="copySubscriptionIdentifiers">copy订阅标识符。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private ValueTask DeliverLeaseFastAsync(
         MqttZeroSessionState session,
         MqttZeroMessageLease lease,

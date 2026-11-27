@@ -8,6 +8,9 @@ using System.Text;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
+/// </summary>
 public sealed partial class MqttZeroBroker
 {
     private static ReadOnlySpan<byte> SharedSubscriptionPrefix
@@ -18,6 +21,15 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// Evaluate订阅。
+    /// </summary>
+    /// <param name="connection">连接。</param>
+    /// <param name="request">对应的 request。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
+    /// <param name="candidate">对应的 candidate。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<MqttZeroSubscriptionDecision> EvaluateSubscriptionAsync(
         MqttZeroClientConnection connection,
         MqttSubscriptionRequest request,
@@ -75,6 +87,14 @@ public sealed partial class MqttZeroBroker
             GetGrantedReasonCode(request.QualityOfServiceLevel));
     }
 
+    /// <summary>
+    /// EvaluateUnsubscription。
+    /// </summary>
+    /// <param name="connection">连接。</param>
+    /// <param name="encodedFilter">encoded过滤器。</param>
+    /// <param name="candidate">对应的 candidate。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<MqttZeroUnsubscriptionDecision> EvaluateUnsubscriptionAsync(
         MqttZeroClientConnection connection,
         ReadOnlySequence<byte> encodedFilter,
@@ -129,6 +149,11 @@ public sealed partial class MqttZeroBroker
         return -1;
     }
 
+    /// <summary>
+    /// 获取Granted原因代码。
+    /// </summary>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <returns>对应的结果。</returns>
     private static MqttReasonCode GetGrantedReasonCode(
         MqttQualityOfServiceLevel qualityOfServiceLevel)
     {
@@ -140,6 +165,11 @@ public sealed partial class MqttZeroBroker
         };
     }
 
+    /// <summary>
+    /// 获取主题过滤器Text。
+    /// </summary>
+    /// <param name="topicFilter">主题过滤器。</param>
+    /// <returns>对应的字符串。</returns>
     private static string GetTopicFilterText(ReadOnlySequence<byte> topicFilter)
     {
         if (topicFilter.IsSingleSegment)
@@ -150,6 +180,12 @@ public sealed partial class MqttZeroBroker
         return Encoding.UTF8.GetString(topicFilter.ToArray());
     }
 
+    /// <summary>
+    /// 判断是否需要Deliver保留。
+    /// </summary>
+    /// <param name="request">对应的 request。</param>
+    /// <param name="existed">对应的 existed。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool ShouldDeliverRetained(
         MqttSubscriptionRequest request,
         bool existed)
@@ -164,6 +200,14 @@ public sealed partial class MqttZeroBroker
             !existed;
     }
 
+    /// <summary>
+    /// 投递保留订阅。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="request">对应的 request。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask DeliverRetainedForSubscriptionAsync(
         MqttZeroSessionState session,
         MqttSubscriptionRequest request,
@@ -220,6 +264,14 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 创建保留发布。
+    /// </summary>
+    /// <param name="retained">保留。</param>
+    /// <param name="request">对应的 request。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
+    /// <param name="now">当前时间。</param>
+    /// <returns>对应的结果。</returns>
     private MqttPublishPacket? CreateRetainedPublish(
         MqttZeroRetainedMessage retained,
         MqttSubscriptionRequest request,
@@ -249,6 +301,12 @@ public sealed partial class MqttZeroBroker
         };
     }
 
+    /// <summary>
+    /// 创建保留发布属性。
+    /// </summary>
+    /// <param name="retained">保留。</param>
+    /// <param name="now">当前时间。</param>
+    /// <returns>对应的结果。</returns>
     private MqttPublishProperties? CreateRetainedPublishProperties(
         MqttZeroRetainedMessage retained,
         DateTimeOffset now)

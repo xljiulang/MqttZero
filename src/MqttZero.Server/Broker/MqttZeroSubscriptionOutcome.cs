@@ -1,7 +1,7 @@
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Identifies how one SUBSCRIBE entry was handled.
+/// 单条订阅的处理方式。
 /// </summary>
 internal enum MqttZeroSubscriptionOutcome
 {

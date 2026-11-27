@@ -5,6 +5,9 @@ using MqttZero.Server.Sessions;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// 在会话分片外提交、携带确认报文的池化工作项。
+/// </summary>
 internal sealed class MqttZeroAcknowledgementWork
 {
     private static readonly MqttZeroBoundedObjectPool<
@@ -13,6 +16,9 @@ internal sealed class MqttZeroAcknowledgementWork
                 DefaultCapacity);
     private Action<TaskCompletionSource>? _completed;
 
+    /// <summary>
+    /// 初始化 MqttZeroAcknowledgementWork 的新实例。
+    /// </summary>
     private MqttZeroAcknowledgementWork()
     {
     }
@@ -28,14 +34,35 @@ internal sealed class MqttZeroAcknowledgementWork
     public MqttZeroAcknowledgementView Acknowledgement
     { get; private set; }
 
+    /// <summary>
+    /// 连接。
+    /// </summary>
     public MqttZeroClientConnection Connection { get; private set; } = null!;
 
+    /// <summary>
+    /// 会话。
+    /// </summary>
     public MqttZeroSessionState Session { get; private set; } = null!;
 
+    /// <summary>
+    /// Completion 的值。
+    /// </summary>
     public TaskCompletionSource? Completion { get; private set; }
 
+    /// <summary>
+    /// Enqueued时间戳时钟滴答。
+    /// </summary>
     public long EnqueuedTimestampTicks { get; set; }
 
+    /// <summary>
+    /// 租用。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="acknowledgement">确认。</param>
+    /// <param name="completed">对应的 completed。</param>
+    /// <param name="completion">对应的 completion。</param>
+    /// <returns>对应的结果。</returns>
     public static MqttZeroAcknowledgementWork Rent(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -58,6 +85,9 @@ internal sealed class MqttZeroAcknowledgementWork
         return work;
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public void Release()
     {
         Action<TaskCompletionSource>? completed = _completed;

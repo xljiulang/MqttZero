@@ -10,8 +10,15 @@ using MqttZero.Server.Storage;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
+/// </summary>
 public sealed partial class MqttZeroBroker
 {
+    /// <summary>
+    /// 注册会话Deadlines。
+    /// </summary>
+    /// <param name="session">会话。</param>
     private void RegisterSessionDeadlines(MqttZeroSessionState session)
     {
         MqttZeroShardOwnership.EnsureCurrent(
@@ -49,6 +56,12 @@ public sealed partial class MqttZeroBroker
         RescheduleSessionMessageExpiry(session);
     }
 
+    /// <summary>
+    /// 注册会话DeadlinesOn分片。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RegisterSessionDeadlinesOnShardAsync(
         MqttZeroSessionState session,
         CancellationToken cancellationToken)
@@ -59,6 +72,10 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 移除会话Deadlines。
+    /// </summary>
+    /// <param name="session">会话。</param>
     private void RemoveSessionDeadlines(MqttZeroSessionState session)
     {
         MqttZeroShardOwnership.EnsureCurrent(
@@ -76,6 +93,12 @@ public sealed partial class MqttZeroBroker
             MqttZeroDeadlineKind.MessageExpiry));
     }
 
+    /// <summary>
+    /// 移除会话DeadlinesOn分片。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RemoveSessionDeadlinesOnShardAsync(
         MqttZeroSessionState session,
         CancellationToken cancellationToken)
@@ -86,6 +109,12 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 调度会话定时器。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="kind">种类。</param>
+    /// <param name="dueAt">对应的 dueAt。</param>
     private void ScheduleSessionTimer(
         MqttZeroSessionState session,
         MqttZeroDeadlineKind kind,
@@ -106,6 +135,10 @@ public sealed partial class MqttZeroBroker
         wheel.Cancel(node);
     }
 
+    /// <summary>
+    /// Reschedule会话消息Expiry。
+    /// </summary>
+    /// <param name="session">会话。</param>
     private void RescheduleSessionMessageExpiry(
         MqttZeroSessionState session)
     {
@@ -131,6 +164,10 @@ public sealed partial class MqttZeroBroker
         RescheduleSessionMessageExpiryCore(session);
     }
 
+    /// <summary>
+    /// Reschedule会话消息Expiry。
+    /// </summary>
+    /// <param name="session">会话。</param>
     private void RescheduleSessionMessageExpiryCore(
         MqttZeroSessionState session)
     {
@@ -152,6 +189,11 @@ public sealed partial class MqttZeroBroker
             head.ExpiresAt.Value.UtcTicks);
     }
 
+    /// <summary>
+    /// Reschedule会话消息ExpiryOn分片。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async Task RescheduleSessionMessageExpiryOnShardAsync(
         MqttZeroSessionState session)
     {
@@ -170,6 +212,11 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 调度保留截止时间。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <param name="expiresAt">对应的 expiresAt。</param>
     private void ScheduleRetainedDeadline(
         string topic,
         DateTimeOffset? expiresAt)
@@ -199,6 +246,13 @@ public sealed partial class MqttZeroBroker
         wheel.Cancel(node);
     }
 
+    /// <summary>
+    /// 调度保留截止时间。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <param name="expiresAt">对应的 expiresAt。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ScheduleRetainedDeadlineAsync(
         string topic,
         DateTimeOffset? expiresAt,
@@ -211,6 +265,11 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Cancel保留截止时间。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <param name="message">消息。</param>
     private void CancelRetainedDeadline(
         string topic,
         MqttZeroRetainedMessage message)
@@ -224,6 +283,13 @@ public sealed partial class MqttZeroBroker
             message.GetExpiryTimerNode(topic));
     }
 
+    /// <summary>
+    /// Cancel保留截止时间。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <param name="message">消息。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask CancelRetainedDeadlineAsync(
         string topic,
         MqttZeroRetainedMessage message,
@@ -236,6 +302,11 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 调度AfterTick。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="now">当前时间。</param>
     private void ScheduleAfterTick(
         MqttZeroTimerNode node,
         DateTimeOffset now)
@@ -252,12 +323,22 @@ public sealed partial class MqttZeroBroker
             now.Add(_options.KeepAliveCheckInterval).UtcTicks);
     }
 
+    /// <summary>
+    /// 获取会话定时器时间轮。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <returns>对应的结果。</returns>
     private MqttZeroShardTimerWheel GetSessionTimerWheel(
         MqttZeroSessionState session)
     {
         return ShardSet.GetTimerWheel(session.ShardId);
     }
 
+    /// <summary>
+    /// 获取持有者分片Id。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <returns>计算得到的数值。</returns>
     private int GetOwnerShardId(MqttZeroTimerNode node)
     {
         return node.Owner switch
@@ -270,6 +351,13 @@ public sealed partial class MqttZeroBroker
         };
     }
 
+    /// <summary>
+    /// 运行On分片。
+    /// </summary>
+    /// <param name="shardId">分片Id。</param>
+    /// <param name="action">动作。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RunOnShardAsync(
         int shardId,
         Action action,
@@ -291,6 +379,12 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 处理定时器节点。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ProcessTimerNodeAsync(
         MqttZeroTimerNode node,
         CancellationToken cancellationToken)
@@ -352,6 +446,13 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 处理KeepAlive定时器。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="now">当前时间。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ProcessKeepAliveTimerAsync(
         MqttZeroTimerNode node,
         DateTimeOffset now,
@@ -399,6 +500,13 @@ public sealed partial class MqttZeroBroker
             cancellationToken);
     }
 
+    /// <summary>
+    /// 处理遗嘱定时器。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="now">当前时间。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ProcessWillTimerAsync(
         MqttZeroTimerNode node,
         DateTimeOffset now,
@@ -456,6 +564,13 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 处理会话Expiry定时器。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="now">当前时间。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ProcessSessionExpiryTimerAsync(
         MqttZeroTimerNode node,
         DateTimeOffset now,
@@ -500,6 +615,12 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 处理消息Expiry定时器。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ProcessMessageExpiryTimerAsync(
         MqttZeroTimerNode node,
         CancellationToken cancellationToken)
@@ -551,6 +672,13 @@ public sealed partial class MqttZeroBroker
         SignalEgress(session);
     }
 
+    /// <summary>
+    /// 处理保留Expiry定时器。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="now">当前时间。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ProcessRetainedExpiryTimerAsync(
         MqttZeroTimerNode node,
         DateTimeOffset now,
@@ -594,6 +722,12 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 尝试RemoveExpired会话。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<bool> TryRemoveExpiredSessionAsync(
         MqttZeroSessionState session,
         CancellationToken cancellationToken)
@@ -650,6 +784,12 @@ public sealed partial class MqttZeroBroker
         return true;
     }
 
+    /// <summary>
+    /// 关闭KeepAlive超时连接。
+    /// </summary>
+    /// <param name="connection">连接。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async Task CloseKeepAliveTimeoutConnectionAsync(
         MqttZeroClientConnection connection,
         CancellationToken cancellationToken)

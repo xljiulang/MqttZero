@@ -15,7 +15,7 @@ using System.Text;
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Implements broker startup and shutdown.
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
 /// </summary>
 public sealed partial class MqttZeroBroker
 {
@@ -226,6 +226,9 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 中止ConnectionsShutdown。
+    /// </summary>
     private void AbortConnectionsForShutdown()
     {
         foreach (MqttZeroSessionState session in _sessions.Values)
@@ -234,6 +237,11 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 等待ConnectionsTo排空。
+    /// </summary>
+    /// <param name="drained">对应的 drained。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private static async Task WaitForConnectionsToDrainAsync(Task drained)
     {
         try

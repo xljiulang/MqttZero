@@ -1,8 +1,7 @@
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Tracks the outstanding work of one connection phase and hands out the drain
-/// token that belongs to the current episode.
+/// 记录当前连接阶段的待完成数量并发放排空令牌。
 /// </summary>
 internal sealed class MqttZeroPendingDrain
 {

@@ -1,5 +1,8 @@
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// Object池快照。
+/// </summary>
 internal sealed record MqttZeroObjectPoolSnapshot(
     int LeaseCount,
     int QueuedMessageCount,

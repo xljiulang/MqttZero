@@ -5,8 +5,17 @@ using MqttZero.Server.Clients;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
+/// </summary>
 public sealed partial class MqttZeroBroker
 {
+    /// <summary>
+    /// 运行发布Interceptors。
+    /// </summary>
+    /// <param name="context">上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<MqttZeroInterceptionResult> RunPublishInterceptorsAsync(
         MqttZeroPublishContext context,
         CancellationToken cancellationToken)
@@ -25,6 +34,12 @@ public sealed partial class MqttZeroBroker
         return MqttZeroInterceptionResult.Continue;
     }
 
+    /// <summary>
+    /// 运行订阅Interceptors。
+    /// </summary>
+    /// <param name="context">上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<MqttZeroInterceptionResult> RunSubscribeInterceptorsAsync(
         MqttZeroSubscribeContext context,
         CancellationToken cancellationToken)
@@ -43,6 +58,12 @@ public sealed partial class MqttZeroBroker
         return MqttZeroInterceptionResult.Continue;
     }
 
+    /// <summary>
+    /// 运行退订Interceptors。
+    /// </summary>
+    /// <param name="context">上下文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<MqttZeroInterceptionResult> RunUnsubscribeInterceptorsAsync(
         MqttZeroUnsubscribeContext context,
         CancellationToken cancellationToken)
@@ -61,6 +82,11 @@ public sealed partial class MqttZeroBroker
         return MqttZeroInterceptionResult.Continue;
     }
 
+    /// <summary>
+    /// Assign发布上下文。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="context">上下文。</param>
     private static void AssignPublishContext(
         MqttPublishPacket packet,
         MqttZeroPublishContext context)
@@ -72,6 +98,16 @@ public sealed partial class MqttZeroBroker
         packet.Retain = context.Retain;
     }
 
+    /// <summary>
+    /// 拒绝发布。
+    /// </summary>
+    /// <param name="senderConnection">sender连接。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="interception">对应的 interception。</param>
+    /// <param name="context">上下文。</param>
+    /// <param name="suppressPublisherAck">suppressPublisher确认。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private static async ValueTask<MqttReasonCode> RejectPublishAsync(
         MqttZeroClientConnection senderConnection,
         MqttZeroMessageLease lease,

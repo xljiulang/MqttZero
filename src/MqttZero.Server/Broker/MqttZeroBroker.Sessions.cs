@@ -14,10 +14,17 @@ using System.Text;
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Implements session detachment and session resource cleanup.
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
 /// </summary>
 public sealed partial class MqttZeroBroker
 {
+    /// <summary>
+    /// 拆离连接。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="cleanDisconnect">clean断开。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask DetachConnectionAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -58,6 +65,14 @@ public sealed partial class MqttZeroBroker
             CancellationToken.None).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 拆离连接On分片。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="cleanDisconnect">clean断开。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask DetachConnectionOnShardAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -207,6 +222,11 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 停止出站。
+    /// </summary>
+    /// <param name="pump">对应的 pump。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private static async ValueTask StopEgressAsync(
         MqttZeroSessionEgress? pump)
     {
@@ -216,6 +236,12 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 判断是否会话Expired。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="now">当前时间。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool IsSessionExpired(MqttZeroSessionState session, DateTimeOffset now)
     {
         MqttZeroSessionLifecycleSnapshot lifecycle =
@@ -231,6 +257,11 @@ public sealed partial class MqttZeroBroker
                 lifecycle.ExpiryInterval);
     }
 
+    /// <summary>
+    /// 确保会话分片。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="operation">对应的 operation。</param>
     private void EnsureSessionShard(
         MqttZeroSessionState session,
         string operation)
@@ -246,6 +277,11 @@ public sealed partial class MqttZeroBroker
             _fanoutDiagnostics);
     }
 
+    /// <summary>
+    /// Clamp会话Expiry。
+    /// </summary>
+    /// <param name="requestedExpiry">对应的 requestedExpiry。</param>
+    /// <returns>对应的结果。</returns>
     private uint ClampSessionExpiry(uint requestedExpiry)
     {
         if (!_options.MaxSessionExpiryInterval.HasValue)

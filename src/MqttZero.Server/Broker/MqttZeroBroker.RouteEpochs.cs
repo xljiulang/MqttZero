@@ -4,8 +4,19 @@ using System.Text;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
+/// </summary>
 public sealed partial class MqttZeroBroker
 {
+    /// <summary>
+    /// Commit订阅。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="original">对应的 original。</param>
+    /// <param name="candidate">对应的 candidate。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask CommitSubscriptionsAsync(
         MqttZeroSessionState session,
         List<MqttZeroSubscription> original,
@@ -54,6 +65,11 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 移除会话订阅FromRoute。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RemoveSessionSubscriptionsFromRouteAsync(
         MqttZeroSessionState session)
     {
@@ -89,6 +105,11 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 添加会话订阅ToRoute。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask AddSessionSubscriptionsToRouteAsync(
         MqttZeroSessionState session)
     {
@@ -124,6 +145,10 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 重置Route路由快照FromSessions。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask ResetRouteEpochFromSessionsAsync()
     {
         MqttZeroRouteEpoch epoch =
@@ -142,6 +167,9 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// Rebuild共享组References。
+    /// </summary>
     private void RebuildSharedGroupReferences()
     {
         _sharedGroupReferences.Clear();
@@ -163,6 +191,10 @@ public sealed partial class MqttZeroBroker
         _sharedGroupCursors.PruneTo(keys);
     }
 
+    /// <summary>
+    /// 保留共享组Reference。
+    /// </summary>
+    /// <param name="subscription">订阅。</param>
     private void RetainSharedGroupReference(
         MqttZeroSubscription subscription)
     {
@@ -179,6 +211,10 @@ public sealed partial class MqttZeroBroker
                 : 1;
     }
 
+    /// <summary>
+    /// 释放共享组Reference。
+    /// </summary>
+    /// <param name="subscription">订阅。</param>
     private void ReleaseSharedGroupReference(
         MqttZeroSubscription subscription)
     {
@@ -204,6 +240,13 @@ public sealed partial class MqttZeroBroker
         _sharedGroupReferences[key] = count - 1;
     }
 
+    /// <summary>
+    /// 构建订阅Diff。
+    /// </summary>
+    /// <param name="original">对应的 original。</param>
+    /// <param name="candidate">对应的 candidate。</param>
+    /// <param name="removed">对应的 removed。</param>
+    /// <param name="added">对应的 added。</param>
     private static void BuildSubscriptionDiff(
         List<MqttZeroSubscription> original,
         List<MqttZeroSubscription> candidate,
@@ -239,6 +282,11 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 索引过滤器。
+    /// </summary>
+    /// <param name="subscriptions">订阅。</param>
+    /// <returns>对应的结果。</returns>
     private static Dictionary<string, MqttZeroSubscription> IndexByFilter(
         List<MqttZeroSubscription> subscriptions)
     {
@@ -254,12 +302,23 @@ public sealed partial class MqttZeroBroker
         return result;
     }
 
+    /// <summary>
+    /// 获取过滤器键。
+    /// </summary>
+    /// <param name="subscription">订阅。</param>
+    /// <returns>对应的字符串。</returns>
     private static string GetFilterKey(
         MqttZeroSubscription subscription)
     {
         return Encoding.UTF8.GetString(subscription.TopicFilter);
     }
 
+    /// <summary>
+    /// 判断是否存在SameRoute设置。
+    /// </summary>
+    /// <param name="left">对应的 left。</param>
+    /// <param name="right">对应的 right。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool HasSameRouteSettings(
         MqttZeroSubscription left,
         MqttZeroSubscription right)

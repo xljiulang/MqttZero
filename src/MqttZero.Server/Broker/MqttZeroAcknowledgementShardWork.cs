@@ -3,6 +3,9 @@ using MqttZero.Server.Scheduling;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// 把确认工作项调度到会话分片的包装。
+/// </summary>
 internal sealed class MqttZeroAcknowledgementShardWork : MqttZeroShardWork
 {
     private static readonly MqttZeroBoundedObjectPool<
@@ -16,6 +19,9 @@ internal sealed class MqttZeroAcknowledgementShardWork : MqttZeroShardWork
         CancellationToken,
         ValueTask>? _process;
 
+    /// <summary>
+    /// 初始化 MqttZeroAcknowledgementShardWork 的新实例。
+    /// </summary>
     private MqttZeroAcknowledgementShardWork()
     {
     }
@@ -28,6 +34,13 @@ internal sealed class MqttZeroAcknowledgementShardWork : MqttZeroShardWork
         }
     }
 
+    /// <summary>
+    /// 租用。
+    /// </summary>
+    /// <param name="work">工作项。</param>
+    /// <param name="process">对应的 process。</param>
+    /// <param name="faulted">故障回调。</param>
+    /// <returns>对应的结果。</returns>
     public static MqttZeroAcknowledgementShardWork Rent(
         MqttZeroAcknowledgementWork work,
         Func<
@@ -52,6 +65,12 @@ internal sealed class MqttZeroAcknowledgementShardWork : MqttZeroShardWork
         return shardWork;
     }
 
+    /// <summary>
+    /// 执行。
+    /// </summary>
+    /// <param name="shard">分片。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public override async ValueTask ExecuteAsync(
         MqttZeroEventLoop shard,
         CancellationToken cancellationToken)
@@ -78,6 +97,9 @@ internal sealed class MqttZeroAcknowledgementShardWork : MqttZeroShardWork
         }
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public override void Release()
     {
         _acknowledgementWork?.Release();

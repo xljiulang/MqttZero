@@ -1,5 +1,8 @@
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// 扇出与出站路径的诊断计数。
+/// </summary>
 internal sealed class MqttZeroFanoutDiagnostics
 {
     public const string AppContextSwitchName =
@@ -56,6 +59,9 @@ internal sealed class MqttZeroFanoutDiagnostics
     private long _totalAckWorkQueueTicks;
     private long _totalControlWriteTicks;
 
+    /// <summary>
+    /// 初始化 MqttZeroFanoutDiagnostics 的新实例。
+    /// </summary>
     public MqttZeroFanoutDiagnostics()
         : this(AppContext.TryGetSwitch(
             AppContextSwitchName,
@@ -63,6 +69,10 @@ internal sealed class MqttZeroFanoutDiagnostics
     {
     }
 
+    /// <summary>
+    /// 初始化 MqttZeroFanoutDiagnostics 的新实例。
+    /// </summary>
+    /// <param name="enabled">对应的 enabled。</param>
     internal MqttZeroFanoutDiagnostics(bool enabled)
     {
         _enabled = enabled;
@@ -76,6 +86,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 获取快照。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroFanoutDiagnosticsSnapshot GetSnapshot()
     {
         return new MqttZeroFanoutDiagnosticsSnapshot(
@@ -132,6 +146,9 @@ internal sealed class MqttZeroFanoutDiagnostics
             Interlocked.Read(ref _qosZeroDeferredCount));
     }
 
+    /// <summary>
+    /// 记录出站排空。
+    /// </summary>
     public void RecordEgressDrain()
     {
         if (_enabled)
@@ -140,6 +157,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 记录出站排空Timing。
+    /// </summary>
+    /// <param name="elapsedTicks">elapsed时钟滴答。</param>
     public void RecordEgressDrainTiming(long elapsedTicks)
     {
         if (!_enabled)
@@ -151,6 +172,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         InterlockedMax(ref _maxEgressDrainTicks, elapsedTicks);
     }
 
+    /// <summary>
+    /// 记录待处理Selection。
+    /// </summary>
+    /// <param name="elapsedTicks">elapsed时钟滴答。</param>
     public void RecordPendingSelection(long elapsedTicks)
     {
         if (!_enabled)
@@ -162,6 +187,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         InterlockedMax(ref _maxPendingSelectionTicks, elapsedTicks);
     }
 
+    /// <summary>
+    /// 记录在途Update。
+    /// </summary>
+    /// <param name="elapsedTicks">elapsed时钟滴答。</param>
     public void RecordInflightUpdate(long elapsedTicks)
     {
         if (!_enabled)
@@ -173,6 +202,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         InterlockedMax(ref _maxInflightUpdateTicks, elapsedTicks);
     }
 
+    /// <summary>
+    /// 记录发布Encode。
+    /// </summary>
+    /// <param name="elapsedTicks">elapsed时钟滴答。</param>
     public void RecordPublishEncode(long elapsedTicks)
     {
         if (!_enabled)
@@ -184,6 +217,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         InterlockedMax(ref _maxPublishEncodeTicks, elapsedTicks);
     }
 
+    /// <summary>
+    /// 记录发布写入。
+    /// </summary>
+    /// <param name="elapsedTicks">elapsed时钟滴答。</param>
     public void RecordPublishWrite(long elapsedTicks)
     {
         if (!_enabled)
@@ -195,6 +232,9 @@ internal sealed class MqttZeroFanoutDiagnostics
         InterlockedMax(ref _maxPublishWriteTicks, elapsedTicks);
     }
 
+    /// <summary>
+    /// 记录出站ScheduledActor。
+    /// </summary>
     public void RecordEgressScheduledActor()
     {
         if (_enabled)
@@ -203,6 +243,11 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 记录出站调度器轮次。
+    /// </summary>
+    /// <param name="actorCount">actor数量。</param>
+    /// <param name="elapsedTicks">elapsed时钟滴答。</param>
     public void RecordEgressSchedulerPass(
         int actorCount,
         long elapsedTicks)
@@ -217,6 +262,11 @@ internal sealed class MqttZeroFanoutDiagnostics
         Interlocked.Add(ref _totalEgressSchedulerTicks, elapsedTicks);
     }
 
+    /// <summary>
+    /// 记录出站数据批次。
+    /// </summary>
+    /// <param name="messageCount">消息数量。</param>
+    /// <param name="encodedBytes">encoded字节数。</param>
     public void RecordEgressDataBatch(
         int messageCount,
         long encodedBytes)
@@ -231,6 +281,9 @@ internal sealed class MqttZeroFanoutDiagnostics
         Interlocked.Add(ref _egressBatchByteCount, encodedBytes);
     }
 
+    /// <summary>
+    /// 记录出站FlushStart。
+    /// </summary>
     public void RecordEgressFlushStart()
     {
         if (_enabled)
@@ -239,6 +292,9 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 记录出站Signal。
+    /// </summary>
     public void RecordEgressSignal()
     {
         if (_enabled)
@@ -247,6 +303,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 记录EncodedPublishes。
+    /// </summary>
+    /// <param name="count">数量。</param>
     public void RecordEncodedPublishes(int count)
     {
         if (_enabled && count > 0)
@@ -255,6 +315,9 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 记录FlushWait。
+    /// </summary>
     public void RecordFlushWait()
     {
         if (_enabled)
@@ -263,6 +326,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 记录Fanout调度器Enqueue。
+    /// </summary>
+    /// <param name="elapsedTicks">elapsed时钟滴答。</param>
     public void RecordFanoutSchedulerEnqueue(long elapsedTicks)
     {
         if (!_enabled)
@@ -274,6 +341,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         InterlockedMax(ref _maxFanoutSchedulerWaitTicks, elapsedTicks);
     }
 
+    /// <summary>
+    /// 记录Fanout调度器轮次。
+    /// </summary>
+    /// <param name="batchCount">批次数量。</param>
     public void RecordFanoutSchedulerPass(int batchCount)
     {
         if (!_enabled)
@@ -285,6 +356,9 @@ internal sealed class MqttZeroFanoutDiagnostics
         Interlocked.Add(ref _fanoutSchedulerBatchCount, batchCount);
     }
 
+    /// <summary>
+    /// 记录Fanout调度器失败。
+    /// </summary>
     public void RecordFanoutSchedulerFailure()
     {
         if (_enabled)
@@ -293,6 +367,9 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 记录Fanout失败。
+    /// </summary>
     public void RecordFanoutFailure()
     {
         if (_enabled)
@@ -301,6 +378,9 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 记录分片归属Violation。
+    /// </summary>
     public void RecordShardOwnershipViolation()
     {
         if (_enabled)
@@ -309,6 +389,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 记录控制帧。
+    /// </summary>
+    /// <param name="direct">对应的 direct。</param>
     public void RecordControlFrame(bool direct)
     {
         if (!_enabled)
@@ -327,6 +411,11 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 记录控制批次。
+    /// </summary>
+    /// <param name="frameCount">帧数量。</param>
+    /// <param name="elapsedTicks">elapsed时钟滴答。</param>
     public void RecordControlBatch(int frameCount, long elapsedTicks)
     {
         if (!_enabled)
@@ -341,6 +430,9 @@ internal sealed class MqttZeroFanoutDiagnostics
         InterlockedMax(ref _maxControlWriteTicks, elapsedTicks);
     }
 
+    /// <summary>
+    /// 记录确认。
+    /// </summary>
     public void RecordAcknowledgement()
     {
         if (_enabled)
@@ -349,6 +441,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 记录确认队列。
+    /// </summary>
+    /// <param name="queuedTimestampTicks">queued时间戳时钟滴答。</param>
     public void RecordAcknowledgementQueue(long queuedTimestampTicks)
     {
         if (!_enabled)
@@ -367,6 +463,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         InterlockedMax(ref _maxAckWorkQueueTicks, elapsed);
     }
 
+    /// <summary>
+    /// 记录QosZeroRoute。
+    /// </summary>
+    /// <param name="direct">对应的 direct。</param>
     public void RecordQosZeroRoute(bool direct)
     {
         if (!_enabled)
@@ -384,6 +484,10 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 记录待处理队列Depth。
+    /// </summary>
+    /// <param name="depth">对应的 depth。</param>
     public void RecordPendingQueueDepth(int depth)
     {
         if (!_enabled)
@@ -407,6 +511,9 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 重置。
+    /// </summary>
     public void Reset()
     {
         if (!_enabled)
@@ -465,6 +572,13 @@ internal sealed class MqttZeroFanoutDiagnostics
         Interlocked.Exchange(ref _qosZeroDeferredCount, 0);
     }
 
+    /// <summary>
+    /// 记录发布。
+    /// </summary>
+    /// <param name="localBatchCount">本地批次数量。</param>
+    /// <param name="remoteBatchCount">远端批次数量。</param>
+    /// <param name="deliveryCount">delivery数量。</param>
+    /// <param name="elapsedTimestampTicks">elapsed时间戳时钟滴答。</param>
     public void RecordPublish(
         int localBatchCount,
         int remoteBatchCount,
@@ -497,6 +611,11 @@ internal sealed class MqttZeroFanoutDiagnostics
         }
     }
 
+    /// <summary>
+    /// 执行 InterlockedMax 对应的处理。
+    /// </summary>
+    /// <param name="target">目标。</param>
+    /// <param name="value">值。</param>
     private static void InterlockedMax(ref long target, long value)
     {
         long current = Volatile.Read(ref target);

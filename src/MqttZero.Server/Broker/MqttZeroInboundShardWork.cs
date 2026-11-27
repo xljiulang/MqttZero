@@ -3,6 +3,9 @@ using MqttZero.Server.Scheduling;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// 把入站发布调度到会话分片的包装。
+/// </summary>
 internal sealed class MqttZeroInboundShardWork : MqttZeroShardWork
 {
     private static readonly MqttZeroBoundedObjectPool<MqttZeroInboundShardWork>
@@ -13,6 +16,9 @@ internal sealed class MqttZeroInboundShardWork : MqttZeroShardWork
     private Func<MqttZeroInboundWork, CancellationToken, ValueTask>? _route;
     private MqttZeroInboundWork? _work;
 
+    /// <summary>
+    /// 初始化 MqttZeroInboundShardWork 的新实例。
+    /// </summary>
     private MqttZeroInboundShardWork()
     {
     }
@@ -25,6 +31,13 @@ internal sealed class MqttZeroInboundShardWork : MqttZeroShardWork
         }
     }
 
+    /// <summary>
+    /// 租用。
+    /// </summary>
+    /// <param name="work">工作项。</param>
+    /// <param name="route">对应的 route。</param>
+    /// <param name="faulted">故障回调。</param>
+    /// <returns>对应的结果。</returns>
     public static MqttZeroInboundShardWork Rent(
         MqttZeroInboundWork work,
         Func<MqttZeroInboundWork, CancellationToken, ValueTask> route,
@@ -45,6 +58,12 @@ internal sealed class MqttZeroInboundShardWork : MqttZeroShardWork
         return shardWork;
     }
 
+    /// <summary>
+    /// 执行。
+    /// </summary>
+    /// <param name="shard">分片。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public override async ValueTask ExecuteAsync(
         MqttZeroEventLoop shard,
         CancellationToken cancellationToken)
@@ -67,6 +86,9 @@ internal sealed class MqttZeroInboundShardWork : MqttZeroShardWork
         }
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public override void Release()
     {
         _work?.Release();

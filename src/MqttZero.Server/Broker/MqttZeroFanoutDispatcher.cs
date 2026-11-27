@@ -7,6 +7,9 @@ using System.Runtime.ExceptionServices;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// 按目标分片分批下发扇出投递。
+/// </summary>
 internal sealed class MqttZeroFanoutDispatcher
 {
     private readonly Func<
@@ -19,6 +22,13 @@ internal sealed class MqttZeroFanoutDispatcher
     private readonly Action<Exception> _faulted;
     private readonly MqttZeroShardSet _shards;
 
+    /// <summary>
+    /// 初始化 MqttZeroFanoutDispatcher 的新实例。
+    /// </summary>
+    /// <param name="shards">分片。</param>
+    /// <param name="deliver">对应的 deliver。</param>
+    /// <param name="faulted">故障回调。</param>
+    /// <param name="diagnostics">诊断。</param>
     public MqttZeroFanoutDispatcher(
         MqttZeroShardSet shards,
         Func<
@@ -39,6 +49,16 @@ internal sealed class MqttZeroFanoutDispatcher
         _diagnostics = diagnostics;
     }
 
+    /// <summary>
+    /// 分发。
+    /// </summary>
+    /// <param name="plan">计划。</param>
+    /// <param name="buffer">缓冲区。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="senderConnection">sender连接。</param>
+    /// <param name="publisherShardId">publisher分片Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask DispatchAsync(
         MqttZeroRoutePlan plan,
         MqttZeroRoutePlanBuffer buffer,
@@ -92,6 +112,17 @@ internal sealed class MqttZeroFanoutDispatcher
             Stopwatch.GetTimestamp() - started);
     }
 
+    /// <summary>
+    /// 分发QosZero。
+    /// </summary>
+    /// <param name="plan">计划。</param>
+    /// <param name="buffer">缓冲区。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="senderConnection">sender连接。</param>
+    /// <param name="publisherShardId">publisher分片Id。</param>
+    /// <param name="returnBuffer">归还缓冲区。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask DispatchQosZeroAsync(
         MqttZeroRoutePlan plan,
         MqttZeroRoutePlanBuffer buffer,
@@ -124,6 +155,17 @@ internal sealed class MqttZeroFanoutDispatcher
         operation.Seal();
     }
 
+    /// <summary>
+    /// 分发Scheduled。
+    /// </summary>
+    /// <param name="plan">计划。</param>
+    /// <param name="buffer">缓冲区。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="senderConnection">sender连接。</param>
+    /// <param name="publisherShardId">publisher分片Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="returnBuffer">归还缓冲区。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask DispatchScheduledAsync(
         MqttZeroRoutePlan plan,
         MqttZeroRoutePlanBuffer buffer,
@@ -188,6 +230,14 @@ internal sealed class MqttZeroFanoutDispatcher
         }
     }
 
+    /// <summary>
+    /// 调度AndExecute。
+    /// </summary>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="plan">计划。</param>
+    /// <param name="publisherShardId">publisher分片Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ScheduleAndExecuteAsync(
         MqttZeroFanoutOperation operation,
         MqttZeroRoutePlan plan,
@@ -241,6 +291,12 @@ internal sealed class MqttZeroFanoutDispatcher
 
     }
 
+    /// <summary>
+    /// 校验Dispatch。
+    /// </summary>
+    /// <param name="plan">计划。</param>
+    /// <param name="buffer">缓冲区。</param>
+    /// <param name="publisherShardId">publisher分片Id。</param>
     private void ValidateDispatch(
         MqttZeroRoutePlan plan,
         MqttZeroRoutePlanBuffer buffer,

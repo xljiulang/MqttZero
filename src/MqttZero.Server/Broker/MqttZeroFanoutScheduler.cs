@@ -4,6 +4,9 @@ using System.Diagnostics;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// 把扇出批次调度到目标分片。
+/// </summary>
 internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
 {
     private const int MaximumEntriesPerPass = 64;
@@ -25,6 +28,12 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
     private long _enqueuedCount;
     private readonly int _queueCapacity;
 
+    /// <summary>
+    /// 初始化 MqttZeroFanoutScheduler 的新实例。
+    /// </summary>
+    /// <param name="shard">分片。</param>
+    /// <param name="queueCapacity">队列容量。</param>
+    /// <param name="diagnostics">诊断。</param>
     internal MqttZeroFanoutScheduler(
         MqttZeroEventLoop shard,
         int queueCapacity,
@@ -56,6 +65,13 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 入队。
+    /// </summary>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="shardId">分片Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal ValueTask EnqueueAsync(
         MqttZeroFanoutOperation operation,
         int shardId,
@@ -84,6 +100,10 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
             cancellationToken);
     }
 
+    /// <summary>
+    /// 停止。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask StopAsync()
     {
         if (Interlocked.Exchange(ref _stopping, 1) != 0)
@@ -109,12 +129,21 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         await _stopped.Task.ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask DisposeAsync()
     {
         await StopAsync().ConfigureAwait(false);
         _capacity.Dispose();
     }
 
+    /// <summary>
+    /// 执行。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask ExecuteAsync(
         CancellationToken cancellationToken)
     {
@@ -159,6 +188,9 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// On工作项Released。
+    /// </summary>
     internal void OnWorkReleased()
     {
         Volatile.Write(ref _scheduled, 0);
@@ -176,6 +208,13 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 入队Slow。
+    /// </summary>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="shardId">分片Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask EnqueueSlowAsync(
         MqttZeroFanoutOperation operation,
         int shardId,
@@ -204,6 +243,12 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 尝试EnqueueSynchronously。
+    /// </summary>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="shardId">分片Id。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private bool TryEnqueueSynchronously(
         MqttZeroFanoutOperation operation,
         int shardId)
@@ -225,6 +270,11 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         return true;
     }
 
+    /// <summary>
+    /// 受理。
+    /// </summary>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="shardId">分片Id。</param>
     private void Accept(
         MqttZeroFanoutOperation operation,
         int shardId)
@@ -236,6 +286,9 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         Schedule();
     }
 
+    /// <summary>
+    /// 完成Enqueue。
+    /// </summary>
     private void CompleteEnqueue()
     {
         if (Interlocked.Decrement(ref _activeEnqueues) == 0 &&
@@ -245,6 +298,9 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 调度。
+    /// </summary>
     private void Schedule()
     {
         if (Volatile.Read(ref _stopping) != 0 &&
@@ -260,6 +316,10 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 调度工作项。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     private async Task ScheduleWorkAsync()
     {
         try
@@ -277,6 +337,10 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 标记失败待处理。
+    /// </summary>
+    /// <param name="exception">异常。</param>
     private void FailPending(Exception exception)
     {
         while (_ready.TryDequeue(out MqttZeroFanoutScheduledBatch? batch))
@@ -294,6 +358,9 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 抛出IfStopping。
+    /// </summary>
     private void ThrowIfStopping()
     {
         ObjectDisposedException.ThrowIf(

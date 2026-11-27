@@ -13,10 +13,18 @@ using System.Text;
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Implements packet dispatch, subscription, and unsubscription handling.
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
 /// </summary>
 public sealed partial class MqttZeroBroker
 {
+    /// <summary>
+    /// 处理报文。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="packet">报文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ProcessPacketAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -91,6 +99,14 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 处理出站Pub确认。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ProcessOutboundPubAckAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -149,6 +165,14 @@ public sealed partial class MqttZeroBroker
         SignalEgress(session);
     }
 
+    /// <summary>
+    /// 处理订阅。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="packet">报文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ProcessSubscribeAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -220,6 +244,14 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 处理退订。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="packet">报文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ProcessUnsubscribeAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,

@@ -7,7 +7,7 @@ using MqttZero.Server.Sessions;
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Defines the consumer-facing operations of an MQTTZero broker.
+/// 面向使用者的 Broker 操作接口。
 /// </summary>
 public interface IMqttZeroBroker
 {

@@ -14,10 +14,20 @@ using System.IO.Pipelines;
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Implements publish routing, topic aliases, and subscription snapshots.
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
 /// </summary>
 public sealed partial class MqttZeroBroker
 {
+    /// <summary>
+    /// 受理入站Qos2。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="releaseSourceLease">release来源租约。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<bool> AcceptInboundQos2Async(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -155,6 +165,14 @@ public sealed partial class MqttZeroBroker
         return true;
     }
 
+    /// <summary>
+    /// 路由发布。
+    /// </summary>
+    /// <param name="sender">对应的 sender。</param>
+    /// <param name="packet">报文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="publisherShardId">publisher分片Id。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RoutePublishAsync(
         MqttZeroSessionState? sender,
         MqttPublishPacket packet,
@@ -265,6 +283,12 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 创建消息租约。
+    /// </summary>
+    /// <param name="connection">连接。</param>
+    /// <param name="view">对应的 view。</param>
+    /// <returns>对应的结果。</returns>
     internal MqttZeroMessageLease CreateMessageLease(
         MqttZeroClientConnection connection,
         MqttZeroPublishView view)
@@ -282,6 +306,14 @@ public sealed partial class MqttZeroBroker
             $"The inbound MQTT PUBLISH is invalid: {reasonCode}.");
     }
 
+    /// <summary>
+    /// 尝试Create消息租约。
+    /// </summary>
+    /// <param name="connection">连接。</param>
+    /// <param name="view">对应的 view。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     internal bool TryCreateMessageLease(
         MqttZeroClientConnection connection,
         MqttZeroPublishView view,
@@ -359,6 +391,15 @@ public sealed partial class MqttZeroBroker
         return true;
     }
 
+    /// <summary>
+    /// 路由发布租约。
+    /// </summary>
+    /// <param name="sender">对应的 sender。</param>
+    /// <param name="senderConnection">sender连接。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="suppressPublisherAck">suppressPublisher确认。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal ValueTask RoutePublishLeaseAsync(
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,
@@ -386,6 +427,15 @@ public sealed partial class MqttZeroBroker
             cancellationToken);
     }
 
+    /// <summary>
+    /// 路由发布租约当前分片。
+    /// </summary>
+    /// <param name="sender">对应的 sender。</param>
+    /// <param name="senderConnection">sender连接。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="suppressPublisherAck">suppressPublisher确认。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private ValueTask RoutePublishLeaseCurrentShardAsync(
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,
@@ -418,6 +468,16 @@ public sealed partial class MqttZeroBroker
             cancellationToken);
     }
 
+    /// <summary>
+    /// 路由发布租约On分片。
+    /// </summary>
+    /// <param name="shard">分片。</param>
+    /// <param name="sender">对应的 sender。</param>
+    /// <param name="senderConnection">sender连接。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="suppressPublisherAck">suppressPublisher确认。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RoutePublishLeaseOnShardAsync(
         MqttZeroEventLoop shard,
         MqttZeroSessionState sender,
@@ -440,6 +500,14 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Prepare发布Dispatch。
+    /// </summary>
+    /// <param name="sender">对应的 sender。</param>
+    /// <param name="senderConnection">sender连接。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     internal async ValueTask<MqttZeroPreparedPublish> PreparePublishForDispatchAsync(
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,
@@ -528,6 +596,14 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 路由Prepared租约。
+    /// </summary>
+    /// <param name="sender">对应的 sender。</param>
+    /// <param name="senderConnection">sender连接。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask RoutePreparedLeaseAsync(
         MqttZeroSessionState sender,
         MqttZeroClientConnection? senderConnection,
@@ -556,6 +632,15 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 路由发布租约。
+    /// </summary>
+    /// <param name="sender">对应的 sender。</param>
+    /// <param name="senderConnection">sender连接。</param>
+    /// <param name="lease">租约。</param>
+    /// <param name="resultHolder">结果Holder。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RoutePublishLeaseCoreAsync(
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,
@@ -699,6 +784,11 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 解析主题别名。
+    /// </summary>
+    /// <param name="connection">连接。</param>
+    /// <param name="packet">报文。</param>
     private void ResolveTopicAlias(
         MqttZeroClientConnection connection,
         MqttPublishPacket packet)

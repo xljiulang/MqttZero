@@ -20,7 +20,7 @@ using System.Text;
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Provides the in-memory MQTT 5 broker pipeline.
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
 /// </summary>
 public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
 {
@@ -76,11 +76,20 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private int _state;
     private long _nextMessageId;
 
+    /// <summary>
+    /// 获取下一个消息Id。
+    /// </summary>
+    /// <returns>计算得到的数值。</returns>
     internal long GetNextMessageId()
     {
         return Interlocked.Increment(ref _nextMessageId);
     }
 
+    /// <summary>
+    /// 创建会话状态。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <returns>对应的结果。</returns>
     internal MqttZeroSessionState CreateSessionState(string clientId)
     {
         return new MqttZeroSessionState(
@@ -159,6 +168,13 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         _routeEpochs = new MqttZeroRouteEpochManager(_sharedGroupCursors);
     }
 
+    /// <summary>
+    /// 创建。
+    /// </summary>
+    /// <param name="options">选项。</param>
+    /// <param name="timeProvider">时间Provider。</param>
+    /// <param name="publishInterceptors">发布Interceptors。</param>
+    /// <returns>对应的结果。</returns>
     internal static MqttZeroBroker Create(
         MqttZeroOptions options,
         TimeProvider timeProvider,
@@ -262,11 +278,18 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         return _fanoutDiagnostics.GetSnapshot();
     }
 
+    /// <summary>
+    /// 重置Fanout诊断Test。
+    /// </summary>
     internal void ResetFanoutDiagnosticsForTest()
     {
         _fanoutDiagnostics.Reset();
     }
 
+    /// <summary>
+    /// 获取内存快照Test。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     internal MqttZeroBrokerMemorySnapshot GetMemorySnapshotForTest()
     {
         MqttZeroBufferPoolSnapshot buffers = _bufferPool.GetSnapshot();
@@ -323,11 +346,19 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 创建排空Signal。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     private static TaskCompletionSource CreateDrainSignal()
     {
         return new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
+    /// <summary>
+    /// 创建Completed排空Signal。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     private static TaskCompletionSource CreateCompletedDrainSignal()
     {
         TaskCompletionSource signal = CreateDrainSignal();

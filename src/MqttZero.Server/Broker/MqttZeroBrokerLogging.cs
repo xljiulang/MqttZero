@@ -2,8 +2,16 @@ using Microsoft.Extensions.Logging;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// Broker 的源生成日志方法。
+/// </summary>
 internal static partial class MqttZeroBrokerLogging
 {
+    /// <summary>
+    /// 记录Maintenance失败。
+    /// </summary>
+    /// <param name="logger">日志记录器。</param>
+    /// <param name="exception">异常。</param>
     [LoggerMessage(
         EventId = 1000,
         Level = LogLevel.Error,
@@ -12,6 +20,11 @@ internal static partial class MqttZeroBrokerLogging
         ILogger<MqttZeroBroker> logger,
         Exception exception);
 
+    /// <summary>
+    /// 记录连接Cleanup失败。
+    /// </summary>
+    /// <param name="logger">日志记录器。</param>
+    /// <param name="exception">异常。</param>
     [LoggerMessage(
         EventId = 1001,
         Level = LogLevel.Error,
@@ -20,6 +33,11 @@ internal static partial class MqttZeroBrokerLogging
         ILogger<MqttZeroBroker> logger,
         Exception exception);
 
+    /// <summary>
+    /// 记录观察者失败。
+    /// </summary>
+    /// <param name="logger">日志记录器。</param>
+    /// <param name="exception">异常。</param>
     [LoggerMessage(
         EventId = 1002,
         Level = LogLevel.Error,
@@ -28,6 +46,13 @@ internal static partial class MqttZeroBrokerLogging
         ILogger<MqttZeroBroker> logger,
         Exception exception);
 
+    /// <summary>
+    /// 记录Persistence失败。
+    /// </summary>
+    /// <param name="logger">日志记录器。</param>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="exception">异常。</param>
     [LoggerMessage(
         EventId = 1003,
         Level = LogLevel.Error,
@@ -38,6 +63,12 @@ internal static partial class MqttZeroBrokerLogging
         string clientId,
         Exception exception);
 
+    /// <summary>
+    /// 记录出站失败。
+    /// </summary>
+    /// <param name="logger">日志记录器。</param>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="exception">异常。</param>
     [LoggerMessage(
         EventId = 1004,
         Level = LogLevel.Error,
@@ -47,6 +78,11 @@ internal static partial class MqttZeroBrokerLogging
         string clientId,
         Exception exception);
 
+    /// <summary>
+    /// 记录入站Dispatcher失败。
+    /// </summary>
+    /// <param name="logger">日志记录器。</param>
+    /// <param name="exception">异常。</param>
     [LoggerMessage(
         EventId = 1005,
         Level = LogLevel.Error,
@@ -55,6 +91,11 @@ internal static partial class MqttZeroBrokerLogging
         ILogger<MqttZeroBroker> logger,
         Exception exception);
 
+    /// <summary>
+    /// 记录Fanout失败。
+    /// </summary>
+    /// <param name="logger">日志记录器。</param>
+    /// <param name="exception">异常。</param>
     [LoggerMessage(
         EventId = 1006,
         Level = LogLevel.Error,
@@ -63,6 +104,11 @@ internal static partial class MqttZeroBrokerLogging
         ILogger<MqttZeroBroker> logger,
         Exception exception);
 
+    /// <summary>
+    /// 记录Invalid保留属性。
+    /// </summary>
+    /// <param name="logger">日志记录器。</param>
+    /// <param name="topic">主题。</param>
     [LoggerMessage(
         EventId = 1007,
         Level = LogLevel.Warning,

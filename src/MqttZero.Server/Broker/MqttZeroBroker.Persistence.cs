@@ -9,8 +9,20 @@ using System.Text;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// MQTT 5 Broker 主体，按连接、会话、路由、投递与生命周期拆成多个分部文件。
+/// </summary>
 public sealed partial class MqttZeroBroker
 {
+    /// <summary>
+    /// 持久化。
+    /// </summary>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="key">键。</param>
+    /// <param name="state">状态。</param>
+    /// <param name="callback">回调。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask PersistAsync<TState>(
         string operation,
         string key,
@@ -33,6 +45,11 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 恢复Persistence。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RestorePersistenceAsync(CancellationToken cancellationToken)
     {
         Dictionary<string, MqttZeroSessionState> stagedSessions =
@@ -523,6 +540,12 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 删除Persisted消息。
+    /// </summary>
+    /// <param name="message">消息。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask DeletePersistedMessageAsync(
         MqttZeroPersistedMessage message,
         CancellationToken cancellationToken)
@@ -558,12 +581,22 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 判断是否ValidPersisted遗嘱。
+    /// </summary>
+    /// <param name="will">遗嘱。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool IsValidPersistedWill(MqttZeroPersistedWill will)
     {
         return IsValidPublishTopic(will.Topic) &&
             IsValidQualityOfService(will.QualityOfServiceLevel);
     }
 
+    /// <summary>
+    /// 判断是否Valid订阅。
+    /// </summary>
+    /// <param name="subscription">订阅。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool IsValidSubscription(
         MqttZeroPersistedSubscription subscription)
     {
@@ -574,6 +607,11 @@ public sealed partial class MqttZeroBroker
                 subscription.SubscriptionIdentifier.Value != 0);
     }
 
+    /// <summary>
+    /// 判断是否ValidPersisted消息。
+    /// </summary>
+    /// <param name="message">消息。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool IsValidPersistedMessage(MqttZeroPersistedMessage message)
     {
         if (!IsValidPublishTopic(message.Topic) ||
@@ -629,6 +667,11 @@ public sealed partial class MqttZeroBroker
             };
     }
 
+    /// <summary>
+    /// 判断是否Valid保留消息。
+    /// </summary>
+    /// <param name="message">消息。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool IsValidRetainedMessage(
         MqttZeroPersistedRetainedMessage message)
     {
@@ -636,12 +679,22 @@ public sealed partial class MqttZeroBroker
             IsValidQualityOfService(message.QualityOfServiceLevel);
     }
 
+    /// <summary>
+    /// 判断是否Valid发布主题。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool IsValidPublishTopic(ReadOnlyMemory<byte> topic)
     {
         return MqttZeroProtocolValidator.IsValidTopicName(
             new ReadOnlySequence<byte>(topic));
     }
 
+    /// <summary>
+    /// 判断是否Valid服务质量Service。
+    /// </summary>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool IsValidQualityOfService(
         MqttQualityOfServiceLevel qualityOfServiceLevel)
     {
@@ -649,6 +702,12 @@ public sealed partial class MqttZeroBroker
             (byte)MqttQualityOfServiceLevel.ExactlyOnce;
     }
 
+    /// <summary>
+    /// 保存会话。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask SaveSessionAsync(
         MqttZeroSessionState session,
         CancellationToken cancellationToken)
@@ -659,6 +718,13 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 保存会话订阅。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="subscriptions">订阅。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask SaveSessionSubscriptionsAsync(
         MqttZeroSessionState session,
         IReadOnlyList<MqttZeroSubscription> subscriptions,
@@ -671,6 +737,13 @@ public sealed partial class MqttZeroBroker
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 保存会话。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="candidateSubscriptions">candidate订阅。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask SaveSessionAsync(
         MqttZeroSessionState session,
         IReadOnlyList<MqttZeroSubscription>? candidateSubscriptions,
@@ -729,6 +802,13 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 保存保留。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="expiresAt">对应的 expiresAt。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask SaveRetainedAsync(
         MqttZeroMessageLease lease,
         DateTimeOffset? expiresAt,
@@ -762,6 +842,13 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 保存Queued。
+    /// </summary>
+    /// <param name="message">消息。</param>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask SaveQueuedAsync(
         MqttZeroQueuedMessage message,
         string clientId,
@@ -794,6 +881,13 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 保存出站。
+    /// </summary>
+    /// <param name="message">消息。</param>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask SaveOutboundAsync(
         MqttZeroQueuedMessage message,
         string clientId,
@@ -823,6 +917,14 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 保存入站Qos2。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask SaveInboundQos2Async(
         MqttZeroMessageLease lease,
         string clientId,
@@ -851,6 +953,14 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 保存入站Dispatch。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="sender">对应的 sender。</param>
+    /// <param name="messageId">消息Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask SaveInboundDispatchAsync(
         MqttZeroMessageLease lease,
         MqttZeroSessionState sender,
@@ -882,6 +992,13 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 删除入站Dispatch。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="messageId">消息Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask DeleteInboundDispatchAsync(
         string clientId,
         long messageId,
@@ -913,6 +1030,13 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// TransitionQueuedTo出站。
+    /// </summary>
+    /// <param name="message">消息。</param>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask TransitionQueuedToOutboundAsync(
         MqttZeroQueuedMessage message,
         string clientId,
@@ -954,6 +1078,14 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 替换Queued。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="replacedMessageId">replaced消息Id。</param>
+    /// <param name="message">消息。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ReplaceQueuedAsync(
         string clientId,
         long replacedMessageId,
@@ -996,6 +1128,13 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 删除消息。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="messageId">消息Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask DeleteMessageAsync(
         string clientId,
         long messageId,
@@ -1027,6 +1166,13 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 删除入站Qos2。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask DeleteInboundQos2Async(
         string clientId,
         ushort packetIdentifier,
@@ -1061,6 +1207,12 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 删除客户端消息。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask DeleteClientMessagesAsync(
         string clientId,
         CancellationToken cancellationToken)
@@ -1085,6 +1237,12 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 删除会话。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask DeleteSessionAsync(
         string clientId,
         CancellationToken cancellationToken)
@@ -1109,6 +1267,12 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 删除保留。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask DeleteRetainedAsync(
         string topic,
         CancellationToken cancellationToken)
@@ -1133,6 +1297,13 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 创建Persisted消息。
+    /// </summary>
+    /// <param name="message">消息。</param>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="kind">种类。</param>
+    /// <returns>对应的结果。</returns>
     private static MqttZeroPersistedMessage CreatePersistedMessage(
         MqttZeroQueuedMessage message,
         string clientId,
@@ -1162,6 +1333,13 @@ public sealed partial class MqttZeroBroker
         };
     }
 
+    /// <summary>
+    /// 创建入站Persisted消息。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <returns>对应的结果。</returns>
     private static MqttZeroPersistedMessage CreateInboundPersistedMessage(
         MqttZeroMessageLease lease,
         string clientId,
@@ -1183,6 +1361,13 @@ public sealed partial class MqttZeroBroker
         };
     }
 
+    /// <summary>
+    /// 创建入站DispatchPersisted消息。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="messageId">消息Id。</param>
+    /// <returns>对应的结果。</returns>
     private static MqttZeroPersistedMessage CreateInboundDispatchPersistedMessage(
         MqttZeroMessageLease lease,
         string clientId,
@@ -1204,6 +1389,12 @@ public sealed partial class MqttZeroBroker
         };
     }
 
+    /// <summary>
+    /// 比较入站DispatchOrder。
+    /// </summary>
+    /// <param name="left">对应的 left。</param>
+    /// <param name="right">对应的 right。</param>
+    /// <returns>计算得到的数值。</returns>
     private static int CompareInboundDispatchOrder(
         (
             MqttZeroSessionState Session,
@@ -1222,6 +1413,11 @@ public sealed partial class MqttZeroBroker
             : left.MessageId.CompareTo(right.MessageId);
     }
 
+    /// <summary>
+    /// NormalizePersisted消息属性。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <returns>只读字节序列。</returns>
     private static ReadOnlySequence<byte> NormalizePersistedMessageProperties(
         ReadOnlyMemory<byte> properties)
     {
@@ -1236,6 +1432,12 @@ public sealed partial class MqttZeroBroker
         return normalized;
     }
 
+    /// <summary>
+    /// 尝试NormalizePersisted消息属性。
+    /// </summary>
+    /// <param name="properties">属性。</param>
+    /// <param name="normalized">对应的 normalized。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private static bool TryNormalizePersistedMessageProperties(
         ReadOnlyMemory<byte> properties,
         out ReadOnlySequence<byte> normalized)
@@ -1260,6 +1462,11 @@ public sealed partial class MqttZeroBroker
         return true;
     }
 
+    /// <summary>
+    /// 计算消息ExpiresAt。
+    /// </summary>
+    /// <param name="expiryInterval">expiry间隔。</param>
+    /// <returns>对应的结果。</returns>
     private DateTimeOffset? CalculateMessageExpiresAt(uint? expiryInterval)
     {
         return expiryInterval.HasValue
@@ -1267,6 +1474,12 @@ public sealed partial class MqttZeroBroker
             : null;
     }
 
+    /// <summary>
+    /// 获取Remaining消息Expiry。
+    /// </summary>
+    /// <param name="expiresAt">对应的 expiresAt。</param>
+    /// <param name="now">当前时间。</param>
+    /// <returns>对应的结果。</returns>
     private static uint? GetRemainingMessageExpiry(
         DateTimeOffset? expiresAt,
         DateTimeOffset now)
@@ -1285,6 +1498,11 @@ public sealed partial class MqttZeroBroker
         return (uint)Math.Min(remainingSeconds, uint.MaxValue);
     }
 
+    /// <summary>
+    /// 创建Persisted遗嘱。
+    /// </summary>
+    /// <param name="will">遗嘱。</param>
+    /// <returns>对应的结果。</returns>
     private static MqttZeroPersistedWill? CreatePersistedWill(MqttZeroWillMessage? will)
     {
         if (will == null)
@@ -1304,6 +1522,12 @@ public sealed partial class MqttZeroBroker
         };
     }
 
+    /// <summary>
+    /// 删除客户端Persistence。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask DeleteClientPersistenceAsync(
         string clientId,
         CancellationToken cancellationToken)
@@ -1312,6 +1536,12 @@ public sealed partial class MqttZeroBroker
         await DeleteSessionAsync(clientId, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 恢复会话Persistence。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RestoreSessionPersistenceAsync(
         MqttZeroSessionState session,
         CancellationToken cancellationToken)

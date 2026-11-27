@@ -3,6 +3,9 @@ using MqttZero.Server.Scheduling;
 
 namespace MqttZero.Server.Broker;
 
+/// <summary>
+/// 单个目标分片的扇出批次工作项。
+/// </summary>
 internal sealed class MqttZeroFanoutBatchWork : MqttZeroShardWork
 {
     private static readonly MqttZeroBoundedObjectPool<MqttZeroFanoutBatchWork>
@@ -13,6 +16,9 @@ internal sealed class MqttZeroFanoutBatchWork : MqttZeroShardWork
     private MqttZeroFanoutOperation? _operation;
     private int _shardId;
 
+    /// <summary>
+    /// 初始化 MqttZeroFanoutBatchWork 的新实例。
+    /// </summary>
     private MqttZeroFanoutBatchWork()
     {
     }
@@ -25,6 +31,12 @@ internal sealed class MqttZeroFanoutBatchWork : MqttZeroShardWork
         }
     }
 
+    /// <summary>
+    /// 租用。
+    /// </summary>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="shardId">分片Id。</param>
+    /// <returns>对应的结果。</returns>
     internal static MqttZeroFanoutBatchWork Rent(
         MqttZeroFanoutOperation operation,
         int shardId)
@@ -42,6 +54,12 @@ internal sealed class MqttZeroFanoutBatchWork : MqttZeroShardWork
         return work;
     }
 
+    /// <summary>
+    /// 执行。
+    /// </summary>
+    /// <param name="shard">分片。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public override async ValueTask ExecuteAsync(
         MqttZeroEventLoop shard,
         CancellationToken cancellationToken)
@@ -66,6 +84,9 @@ internal sealed class MqttZeroFanoutBatchWork : MqttZeroShardWork
         }
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public override void Release()
     {
         _operation = null;

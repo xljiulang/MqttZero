@@ -1,8 +1,7 @@
 namespace MqttZero.Server.Broker;
 
 /// <summary>
-/// Decides whether one QoS 0 PUBLISH may skip the session shard and route from
-/// the connection thread.
+/// 判断 QoS 0 发布能否绕过会话分片直接路由。
 /// </summary>
 internal static class MqttZeroQosZeroDirectRouting
 {
