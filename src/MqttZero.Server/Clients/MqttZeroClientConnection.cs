@@ -512,7 +512,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             MqttPacketHeader.GetFirstByte(MqttPacketType.PubAck),
             packetIdentifier,
             reasonCode,
-            cancellationToken);
+            cancellationToken,
+            waitForWrite: false);
     }
 
     public ValueTask SendPubRecAsync(
@@ -1007,7 +1008,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         byte firstByte,
         ushort packetIdentifier,
         MqttReasonCode reasonCode,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool waitForWrite = true)
     {
         bool includeReason = reasonCode != MqttReasonCode.Success;
         int encodedLength = includeReason ? 6 : 4;
@@ -1029,7 +1031,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 includeReason,
                 reasonCode);
             frame.Writer.Advance(encodedLength);
-            await PostControlFrameAsync(frame, cancellationToken)
+            await PostControlFrameAsync(frame, cancellationToken, waitForWrite)
                 .ConfigureAwait(false);
             return;
         }
@@ -1164,7 +1166,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
 
     private async ValueTask PostControlFrameAsync(
         MqttZeroEgressControlFrame frame,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool waitForWrite = true)
     {
         bool ownsFrame = true;
         try
@@ -1173,7 +1176,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 throw new ObjectDisposedException(nameof(MqttZeroSessionEgress));
             ownsFrame = !await egress.PostControlAsync(
                 frame,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                waitForWrite).ConfigureAwait(false);
         }
         finally
         {

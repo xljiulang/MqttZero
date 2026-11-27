@@ -155,7 +155,8 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
 
     internal async ValueTask<bool> PostControlAsync(
         MqttZeroEgressControlFrame frame,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool waitForWrite = true)
     {
         ArgumentNullException.ThrowIfNull(frame);
         ThrowIfStopping();
@@ -176,15 +177,46 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
             return true;
         }
 
-        await _scheduler.Shard.InvokeAsync(
-            _ =>
+        if (waitForWrite)
+        {
+            await _scheduler.Shard.InvokeAsync(
+                _ =>
+                {
+                    EnqueueControl(frame);
+                    return ValueTask.FromResult(true);
+                },
+                CancellationToken.None).ConfigureAwait(false);
+            await frame.WaitAsync().ConfigureAwait(false);
+            return false;
+        }
+
+        frame.MarkForActorRelease();
+        MqttZeroControlPostWork work =
+            MqttZeroControlPostWork.Rent(this, frame);
+        try
+        {
+            if (!_scheduler.Shard.TryEnqueue(work))
             {
-                EnqueueControl(frame);
-                return ValueTask.FromResult(true);
-            },
-            CancellationToken.None).ConfigureAwait(false);
-        await frame.WaitAsync().ConfigureAwait(false);
-        return false;
+                await _scheduler.Shard.EnqueueAsync(
+                    work,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception)
+        {
+            work.Release();
+            frame.Fail(exception);
+            frame.ReleaseIfActorOwned();
+            return false;
+        }
+
+        return true;
+    }
+
+    internal void AcceptControlFromShard(MqttZeroEgressControlFrame frame)
+    {
+        ArgumentNullException.ThrowIfNull(frame);
+        EnqueueControl(frame);
     }
 
     internal async ValueTask StopAsync()

@@ -241,6 +241,64 @@ public sealed class MqttZeroSessionEgressTests
         }
     }
 
+    [Fact(Timeout = 10_000)]
+    public async Task OffShardControlPostReturnsBeforeTheFrameIsWritten()
+    {
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+        await using MqttZeroEventLoop shard = new(0, 32);
+        await using MqttZeroEgressScheduler scheduler = new(
+            shard,
+            diagnostics: null);
+        TaskCompletionSource controlWriteStarted = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseControlWrite = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using MqttZeroBufferPool bufferPool = new(1024 * 1024);
+        using MqttZeroEgressControlFramePool framePool =
+            new(bufferPool);
+        await using MqttZeroSessionEgress actor = CreateActor(
+            scheduler,
+            async (_, token) =>
+            {
+                controlWriteStarted.TrySetResult();
+                await releaseControlWrite.Task.WaitAsync(token);
+            },
+            _ => ValueTask.FromResult(false),
+            _ => { });
+        MqttZeroEgressControlFrame frame = CreateFrame(framePool);
+        try
+        {
+            Task<bool> post = Task.Run(
+                async () => await actor.PostControlAsync(
+                    frame,
+                    cancellationToken,
+                    waitForWrite: false),
+                cancellationToken);
+
+            Assert.True(
+                await post.WaitAsync(
+                    TimeSpan.FromSeconds(5),
+                    cancellationToken));
+            await controlWriteStarted.Task.WaitAsync(
+                TimeSpan.FromSeconds(5),
+                cancellationToken);
+            ValueTask frameCompletion = frame.WaitAsync();
+            Assert.False(frameCompletion.IsCompleted);
+
+            releaseControlWrite.TrySetResult();
+            await frameCompletion.AsTask().WaitAsync(
+                TimeSpan.FromSeconds(5),
+                cancellationToken);
+        }
+        finally
+        {
+            releaseControlWrite.TrySetResult();
+            frame.Release();
+            await actor.StopAsync();
+        }
+    }
+
     private static MqttZeroSessionEgress CreateActor(
         MqttZeroEgressScheduler scheduler,
         Func<

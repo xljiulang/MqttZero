@@ -802,12 +802,12 @@ namespace MqttZero.Tests.Broker
                 32,
                 1024 * 1024,
                 TimeProvider.System);
-            int egressBatchCount = 0;
+            int egressFrameCount = 0;
             await using MqttZeroSessionEgress egress = new(
                 scheduler,
                 async (frames, cancellationToken) =>
                 {
-                    Interlocked.Increment(ref egressBatchCount);
+                    Interlocked.Add(ref egressFrameCount, frames.Count);
                     await Task.CompletedTask.ConfigureAwait(false);
                 },
                 _ => ValueTask.FromResult(false),
@@ -834,7 +834,22 @@ namespace MqttZero.Tests.Broker
                     },
                     TestContext.Current.CancellationToken);
 
-                Assert.Equal(3, Volatile.Read(ref egressBatchCount));
+                // PUBACK is handed to the egress without waiting for the write,
+                // so the third frame may arrive asynchronously and may share the
+                // batch with CONNACK.
+                for (int attempt = 0; attempt < 100; attempt++)
+                {
+                    if (Volatile.Read(ref egressFrameCount) == 3)
+                    {
+                        break;
+                    }
+
+                    await Task.Delay(
+                        TimeSpan.FromMilliseconds(10),
+                        TestContext.Current.CancellationToken);
+                }
+
+                Assert.Equal(3, Volatile.Read(ref egressFrameCount));
             }
             finally
             {
