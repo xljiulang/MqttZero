@@ -431,77 +431,77 @@ public sealed partial class MqttZeroBroker
     {
         MqttZeroRetainedTopicTrie stagedRetainedTrie = MqttZeroRetainedTopicTrie.Empty;
         long stagedRetainedBytes = 0;
-            IReadOnlyList<MqttZeroPersistedRetainedMessage> retained =
-                await _retainedMessageStore.LoadAllAsync(cancellationToken).ConfigureAwait(false);
-            foreach (MqttZeroPersistedRetainedMessage persisted in retained)
+        IReadOnlyList<MqttZeroPersistedRetainedMessage> retained =
+            await _retainedMessageStore.LoadAllAsync(cancellationToken).ConfigureAwait(false);
+        foreach (MqttZeroPersistedRetainedMessage persisted in retained)
+        {
+            string topic = Encoding.UTF8.GetString(persisted.Topic.Span);
+            if (!IsValidRetainedMessage(persisted) ||
+                (persisted.ExpiresAt.HasValue &&
+                    persisted.ExpiresAt.Value <= _timeProvider.GetUtcNow()) ||
+                stagedRetainedMessages.ContainsKey(topic))
             {
-                string topic = Encoding.UTF8.GetString(persisted.Topic.Span);
-                if (!IsValidRetainedMessage(persisted) ||
-                    (persisted.ExpiresAt.HasValue &&
-                        persisted.ExpiresAt.Value <= _timeProvider.GetUtcNow()) ||
-                    stagedRetainedMessages.ContainsKey(topic))
-                {
-                    await DeleteRetainedAsync(topic, cancellationToken)
-                        .ConfigureAwait(false);
+                await DeleteRetainedAsync(topic, cancellationToken)
+                    .ConfigureAwait(false);
 
-                    continue;
-                }
-
-                long retainedBytes =
-                    persisted.Topic.Length +
-                    persisted.Properties.Length +
-                    persisted.Payload.Length;
-                if ((_options.MaxRetainedMessages > 0 &&
-                        stagedRetainedMessages.Count >= _options.MaxRetainedMessages) ||
-                    stagedRetainedBytes + retainedBytes > _options.MaxRetainedBytes)
-                {
-                    await DeleteRetainedAsync(topic, cancellationToken)
-                        .ConfigureAwait(false);
-
-                    continue;
-                }
-
-                if (!TryNormalizePersistedMessageProperties(
-                        persisted.Properties,
-                        out ReadOnlySequence<byte> retainedProperties))
-                {
-                    MqttZeroBrokerLogging.LogInvalidRetainedProperties(
-                        _logger,
-                        topic);
-                    await DeleteRetainedAsync(topic, cancellationToken)
-                        .ConfigureAwait(false);
-                    continue;
-                }
-
-                MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
-                    new ReadOnlySequence<byte>(persisted.Topic),
-                    retainedProperties,
-                    new ReadOnlySequence<byte>(persisted.Payload),
-                    persisted.QualityOfServiceLevel,
-                    true,
-                    null,
-                    null,
-                    _bufferPool);
-                MqttZeroRetainedMessage? retainedMessage = null;
-                try
-                {
-                    retainedMessage = new MqttZeroRetainedMessage(
-                        lease,
-                        persisted.QualityOfServiceLevel,
-                        persisted.ExpiresAt);
-                    stagedRetainedMessages.Add(topic, retainedMessage);
-                    stagedRetainedTrie = stagedRetainedTrie.Set(
-                        retainedMessage.Topic.Span,
-                        retainedMessage);
-                    stagedRetainedBytes += retainedMessage.ByteLength;
-                    retainedMessage = null;
-                }
-                finally
-                {
-                    lease.Release();
-                    retainedMessage?.Release();
-                }
+                continue;
             }
+
+            long retainedBytes =
+                persisted.Topic.Length +
+                persisted.Properties.Length +
+                persisted.Payload.Length;
+            if ((_options.MaxRetainedMessages > 0 &&
+                    stagedRetainedMessages.Count >= _options.MaxRetainedMessages) ||
+                stagedRetainedBytes + retainedBytes > _options.MaxRetainedBytes)
+            {
+                await DeleteRetainedAsync(topic, cancellationToken)
+                    .ConfigureAwait(false);
+
+                continue;
+            }
+
+            if (!TryNormalizePersistedMessageProperties(
+                    persisted.Properties,
+                    out ReadOnlySequence<byte> retainedProperties))
+            {
+                MqttZeroBrokerLogging.LogInvalidRetainedProperties(
+                    _logger,
+                    topic);
+                await DeleteRetainedAsync(topic, cancellationToken)
+                    .ConfigureAwait(false);
+                continue;
+            }
+
+            MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                new ReadOnlySequence<byte>(persisted.Topic),
+                retainedProperties,
+                new ReadOnlySequence<byte>(persisted.Payload),
+                persisted.QualityOfServiceLevel,
+                true,
+                null,
+                null,
+                _bufferPool);
+            MqttZeroRetainedMessage? retainedMessage = null;
+            try
+            {
+                retainedMessage = new MqttZeroRetainedMessage(
+                    lease,
+                    persisted.QualityOfServiceLevel,
+                    persisted.ExpiresAt);
+                stagedRetainedMessages.Add(topic, retainedMessage);
+                stagedRetainedTrie = stagedRetainedTrie.Set(
+                    retainedMessage.Topic.Span,
+                    retainedMessage);
+                stagedRetainedBytes += retainedMessage.ByteLength;
+                retainedMessage = null;
+            }
+            finally
+            {
+                lease.Release();
+                retainedMessage?.Release();
+            }
+        }
 
         return (stagedRetainedTrie, stagedRetainedBytes);
     }
@@ -522,44 +522,44 @@ public sealed partial class MqttZeroBroker
         long stagedRetainedBytes,
         CancellationToken cancellationToken)
     {
-            lock (_sessionGate)
+        lock (_sessionGate)
+        {
+            _sessions.Clear();
+            foreach (KeyValuePair<string, MqttZeroSessionState> pair in stagedSessions)
             {
-                _sessions.Clear();
-                foreach (KeyValuePair<string, MqttZeroSessionState> pair in stagedSessions)
-                {
-                    _sessions[pair.Key] = pair.Value;
-                }
-
-                _retainedMessages.Clear();
-                foreach (KeyValuePair<string, MqttZeroRetainedMessage> pair in
-                    stagedRetainedMessages)
-                {
-                    _retainedMessages[pair.Key] = pair.Value;
-                }
-
-                Volatile.Write(
-                    ref _retainedTopicTrie,
-                    stagedRetainedTrie);
-                _retainedBytes = stagedRetainedBytes;
+                _sessions[pair.Key] = pair.Value;
             }
 
-            await ResetRouteEpochFromSessionsAsync()
-                .ConfigureAwait(false);
-            foreach (MqttZeroSessionState restoredSession in _sessions.Values)
-            {
-                await RegisterSessionDeadlinesOnShardAsync(
-                    restoredSession,
-                    cancellationToken).ConfigureAwait(false);
-            }
-
+            _retainedMessages.Clear();
             foreach (KeyValuePair<string, MqttZeroRetainedMessage> pair in
-                _retainedMessages)
+                stagedRetainedMessages)
             {
-                await ScheduleRetainedDeadlineAsync(
-                    pair.Key,
-                    pair.Value.ExpiresAt,
-                    cancellationToken).ConfigureAwait(false);
+                _retainedMessages[pair.Key] = pair.Value;
             }
+
+            Volatile.Write(
+                ref _retainedTopicTrie,
+                stagedRetainedTrie);
+            _retainedBytes = stagedRetainedBytes;
+        }
+
+        await ResetRouteEpochFromSessionsAsync()
+            .ConfigureAwait(false);
+        foreach (MqttZeroSessionState restoredSession in _sessions.Values)
+        {
+            await RegisterSessionDeadlinesOnShardAsync(
+                restoredSession,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (KeyValuePair<string, MqttZeroRetainedMessage> pair in
+            _retainedMessages)
+        {
+            await ScheduleRetainedDeadlineAsync(
+                pair.Key,
+                pair.Value.ExpiresAt,
+                cancellationToken).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -572,44 +572,44 @@ public sealed partial class MqttZeroBroker
         List<(MqttZeroSessionState Session, MqttZeroMessageLease Lease, long MessageId)> inboundDispatches,
         CancellationToken cancellationToken)
     {
-            while (inboundDispatches.Count > 0)
+        while (inboundDispatches.Count > 0)
+        {
+            int dispatchIndex = 0;
+            for (int index = 1;
+                index < inboundDispatches.Count;
+                index++)
             {
-                int dispatchIndex = 0;
-                for (int index = 1;
-                    index < inboundDispatches.Count;
-                    index++)
+                if (CompareInboundDispatchOrder(
+                    inboundDispatches[index],
+                    inboundDispatches[dispatchIndex]) < 0)
                 {
-                    if (CompareInboundDispatchOrder(
-                        inboundDispatches[index],
-                        inboundDispatches[dispatchIndex]) < 0)
-                    {
-                        dispatchIndex = index;
-                    }
-                }
-
-                (
-                    MqttZeroSessionState Session,
-                    MqttZeroMessageLease Lease,
-                    long MessageId) dispatch =
-                    inboundDispatches[dispatchIndex];
-                inboundDispatches.RemoveAt(dispatchIndex);
-                try
-                {
-                    await RoutePreparedLeaseAsync(
-                        dispatch.Session,
-                        null,
-                        dispatch.Lease,
-                        cancellationToken).ConfigureAwait(false);
-                    await DeleteInboundDispatchAsync(
-                        dispatch.Session.ClientId,
-                        dispatch.MessageId,
-                        cancellationToken).ConfigureAwait(false);
-                }
-                finally
-                {
-                    dispatch.Lease.Release();
+                    dispatchIndex = index;
                 }
             }
+
+            (
+                MqttZeroSessionState Session,
+                MqttZeroMessageLease Lease,
+                long MessageId) dispatch =
+                inboundDispatches[dispatchIndex];
+            inboundDispatches.RemoveAt(dispatchIndex);
+            try
+            {
+                await RoutePreparedLeaseAsync(
+                    dispatch.Session,
+                    null,
+                    dispatch.Lease,
+                    cancellationToken).ConfigureAwait(false);
+                await DeleteInboundDispatchAsync(
+                    dispatch.Session.ClientId,
+                    dispatch.MessageId,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                dispatch.Lease.Release();
+            }
+        }
     }
 
     /// <summary>
@@ -617,19 +617,19 @@ public sealed partial class MqttZeroBroker
     /// </summary>
     private void ResetRestoredState()
     {
-            lock (_sessionGate)
-            {
-                _sessions.Clear();
-                _retainedMessages.Clear();
-                Volatile.Write(
-                    ref _retainedTopicTrie,
-                    MqttZeroRetainedTopicTrie.Empty);
-                _retainedBytes = 0;
-                _routeEpochs.ResetToEmpty();
-                _sharedGroupCursors.PruneTo([]);
-            }
+        lock (_sessionGate)
+        {
+            _sessions.Clear();
+            _retainedMessages.Clear();
+            Volatile.Write(
+                ref _retainedTopicTrie,
+                MqttZeroRetainedTopicTrie.Empty);
+            _retainedBytes = 0;
+            _routeEpochs.ResetToEmpty();
+            _sharedGroupCursors.PruneTo([]);
+        }
 
-            _sharedGroupReferences.Clear();
+        _sharedGroupReferences.Clear();
     }
 
     /// <summary>
@@ -648,28 +648,28 @@ public sealed partial class MqttZeroBroker
         bool inboundDispatchesReleased,
         CancellationToken cancellationToken)
     {
-                if (!inboundDispatchesReleased)
-                {
-                    foreach ((
-                        _,
-                        MqttZeroMessageLease lease,
-                        _) in inboundDispatches)
-                    {
-                        lease.Release();
-                    }
-                }
+        if (!inboundDispatchesReleased)
+        {
+            foreach ((
+                _,
+                MqttZeroMessageLease lease,
+                _) in inboundDispatches)
+            {
+                lease.Release();
+            }
+        }
 
-                foreach (MqttZeroSessionState session in stagedSessions.Values)
-                {
-                    await ReleaseSessionMessagesOnShardAsync(
-                        session,
-                        cancellationToken).ConfigureAwait(false);
-                }
+        foreach (MqttZeroSessionState session in stagedSessions.Values)
+        {
+            await ReleaseSessionMessagesOnShardAsync(
+                session,
+                cancellationToken).ConfigureAwait(false);
+        }
 
-                foreach (MqttZeroRetainedMessage retained in stagedRetainedMessages.Values)
-                {
-                    retained.Release();
-                }
+        foreach (MqttZeroRetainedMessage retained in stagedRetainedMessages.Values)
+        {
+            retained.Release();
+        }
     }
 
     /// <summary>
