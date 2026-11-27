@@ -15,3 +15,5 @@ dashboard/**/vite.config.js
 dashboard/**/vite.config.d.ts
 artifacts/
 BenchmarkDotNet.Artifacts/
+__pycache__/
+*.pyc
