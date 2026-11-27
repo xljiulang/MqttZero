@@ -102,6 +102,51 @@ namespace MqttZero.Tests.Broker
             await AssertBrokerPublishDoesNotAllocateAfterWarmup([new NoOpPublishInterceptor()]);
         }
         [Fact]
+        public void QueuedMessageWithSingleIdentifierDoesNotAllocateAfterWarmup()
+        {
+            MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                new ReadOnlySequence<byte>("hot/topic"u8.ToArray()),
+                ReadOnlySequence<byte>.Empty,
+                new ReadOnlySequence<byte>(new byte[64]),
+                MqttQualityOfServiceLevel.AtLeastOnce,
+                false,
+                null,
+                null);
+            try
+            {
+                for (int index = 0; index < 10; index++)
+                {
+                    MqttZeroQueuedMessage warmup = MqttZeroQueuedMessage.Rent(
+                        lease,
+                        MqttQualityOfServiceLevel.AtLeastOnce,
+                        false,
+                        42u,
+                        null);
+                    warmup.Release();
+                }
+
+                long before = GC.GetAllocatedBytesForCurrentThread();
+                for (int index = 0; index < 1000; index++)
+                {
+                    MqttZeroQueuedMessage message = MqttZeroQueuedMessage.Rent(
+                        lease,
+                        MqttQualityOfServiceLevel.AtLeastOnce,
+                        false,
+                        42u,
+                        null);
+                    message.Release();
+                }
+
+                long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+                Assert.Equal(0, allocated);
+            }
+            finally
+            {
+                lease.Release();
+            }
+        }
+
+        [Fact]
         public async Task ClientConnectionPublishSendDoesNotAllocateAfterWarmup()
         {
             AllocationPipeWriter receiverWriter = new(16 * 1024);
