@@ -5,25 +5,25 @@ namespace MqttZero.Tests.Protocol
     public sealed class MqttPacketHeaderTests
     {
         [Theory]
-        [InlineData(MqttPacketType.Connect, 0x10)]
-        [InlineData(MqttPacketType.ConnAck, 0x20)]
-        [InlineData(MqttPacketType.Publish, 0x30)]
-        [InlineData(MqttPacketType.PubAck, 0x40)]
-        [InlineData(MqttPacketType.PubRec, 0x50)]
-        [InlineData(MqttPacketType.PubRel, 0x62)]
-        [InlineData(MqttPacketType.PubComp, 0x70)]
-        [InlineData(MqttPacketType.Subscribe, 0x82)]
-        [InlineData(MqttPacketType.SubAck, 0x90)]
-        [InlineData(MqttPacketType.Unsubscribe, 0xA2)]
-        [InlineData(MqttPacketType.UnsubAck, 0xB0)]
-        [InlineData(MqttPacketType.PingReq, 0xC0)]
-        [InlineData(MqttPacketType.PingResp, 0xD0)]
-        [InlineData(MqttPacketType.Disconnect, 0xE0)]
+        [InlineData((byte)MqttPacketType.Connect, (byte)0x10)]
+        [InlineData((byte)MqttPacketType.ConnAck, (byte)0x20)]
+        [InlineData((byte)MqttPacketType.Publish, (byte)0x30)]
+        [InlineData((byte)MqttPacketType.PubAck, (byte)0x40)]
+        [InlineData((byte)MqttPacketType.PubRec, (byte)0x50)]
+        [InlineData((byte)MqttPacketType.PubRel, (byte)0x62)]
+        [InlineData((byte)MqttPacketType.PubComp, (byte)0x70)]
+        [InlineData((byte)MqttPacketType.Subscribe, (byte)0x82)]
+        [InlineData((byte)MqttPacketType.SubAck, (byte)0x90)]
+        [InlineData((byte)MqttPacketType.Unsubscribe, (byte)0xA2)]
+        [InlineData((byte)MqttPacketType.UnsubAck, (byte)0xB0)]
+        [InlineData((byte)MqttPacketType.PingReq, (byte)0xC0)]
+        [InlineData((byte)MqttPacketType.PingResp, (byte)0xD0)]
+        [InlineData((byte)MqttPacketType.Disconnect, (byte)0xE0)]
         public void ControlPacketFirstByteMatchesWireFormat(
-            MqttPacketType packetType,
+            byte packetType,
             byte expected)
         {
-            Assert.Equal(expected, MqttPacketHeader.GetFirstByte(packetType));
+            Assert.Equal(expected, MqttPacketHeader.GetFirstByte((MqttPacketType)packetType));
         }
 
         [Theory]

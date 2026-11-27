@@ -3,7 +3,7 @@ namespace MqttZero.Protocol;
 /// <summary>
 /// MQTT 5 SUBSCRIBE 订阅报文。
 /// </summary>
-public sealed class MqttSubscribePacket : MqttPacket
+internal sealed class MqttSubscribePacket : MqttPacket
 {
     /// <inheritdoc />
     public override MqttPacketType PacketType

@@ -3,7 +3,7 @@ namespace MqttZero.Protocol;
 /// <summary>
 /// QoS 1 的 PUBACK 确认报文。
 /// </summary>
-public sealed class MqttPubAckPacket : MqttPacket
+internal sealed class MqttPubAckPacket : MqttPacket
 {
     /// <inheritdoc />
     public override MqttPacketType PacketType

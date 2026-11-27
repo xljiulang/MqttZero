@@ -3,7 +3,7 @@ namespace MqttZero.Protocol;
 /// <summary>
 /// MQTT 控制报文类型。
 /// </summary>
-public enum MqttPacketType : byte
+internal enum MqttPacketType : byte
 {
     /// <summary>Client connection request.</summary>
     Connect = 1,

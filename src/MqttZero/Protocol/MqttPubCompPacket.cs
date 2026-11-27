@@ -3,7 +3,7 @@ namespace MqttZero.Protocol;
 /// <summary>
 /// QoS 2 的 PUBCOMP 完成报文。
 /// </summary>
-public sealed class MqttPubCompPacket : MqttPacket
+internal sealed class MqttPubCompPacket : MqttPacket
 {
     /// <inheritdoc />
     public override MqttPacketType PacketType => MqttPacketType.PubComp;

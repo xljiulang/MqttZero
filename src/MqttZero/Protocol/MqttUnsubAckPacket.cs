@@ -5,7 +5,7 @@ namespace MqttZero.Protocol;
 /// <summary>
 /// MQTT 5 UNSUBACK 退订确认报文。
 /// </summary>
-public sealed class MqttUnsubAckPacket : MqttPacket
+internal sealed class MqttUnsubAckPacket : MqttPacket
 {
     /// <inheritdoc />
     public override MqttPacketType PacketType

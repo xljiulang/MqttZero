@@ -3,7 +3,7 @@ namespace MqttZero.Protocol;
 /// <summary>
 /// MQTT 5 DISCONNECT 报文。
 /// </summary>
-public sealed class MqttDisconnectPacket : MqttPacket
+internal sealed class MqttDisconnectPacket : MqttPacket
 {
     /// <inheritdoc />
     public override MqttPacketType PacketType

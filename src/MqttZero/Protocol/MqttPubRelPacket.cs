@@ -3,7 +3,7 @@ namespace MqttZero.Protocol;
 /// <summary>
 /// QoS 2 的 PUBREL 释放报文。
 /// </summary>
-public sealed class MqttPubRelPacket : MqttPacket
+internal sealed class MqttPubRelPacket : MqttPacket
 {
     /// <inheritdoc />
     public override MqttPacketType PacketType => MqttPacketType.PubRel;

@@ -12,6 +12,9 @@
     <InternalsVisibleTo Include="MqttZero.Server" />
     <InternalsVisibleTo Include="MqttZero.Tests" />
     <InternalsVisibleTo Include="MqttZero.Benchmarks" />
+    <InternalsVisibleTo Include="MqttZero.BrokerBenchmarks" />
+    <InternalsVisibleTo Include="MqttZero.BrokerBenchmarks.Tests" />
+    <InternalsVisibleTo Include="MqttZero.AspNetCore" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>

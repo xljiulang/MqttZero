@@ -5,7 +5,7 @@ namespace MqttZero.Protocol;
 /// <summary>
 /// MQTT 5 CONNACK 报文。
 /// </summary>
-public sealed class MqttConnAckPacket : MqttPacket
+internal sealed class MqttConnAckPacket : MqttPacket
 {
     /// <inheritdoc />
     public override MqttPacketType PacketType

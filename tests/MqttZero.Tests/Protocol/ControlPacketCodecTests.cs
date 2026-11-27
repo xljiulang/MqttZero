@@ -107,13 +107,13 @@ namespace MqttZero.Tests.Protocol
         }
 
         [Theory]
-        [InlineData("4003002A00", MqttPacketType.PubAck)]
-        [InlineData("5003002A00", MqttPacketType.PubRec)]
-        [InlineData("6203002A00", MqttPacketType.PubRel)]
-        [InlineData("7003002A00", MqttPacketType.PubComp)]
+        [InlineData("4003002A00", (byte)MqttPacketType.PubAck)]
+        [InlineData("5003002A00", (byte)MqttPacketType.PubRec)]
+        [InlineData("6203002A00", (byte)MqttPacketType.PubRel)]
+        [InlineData("7003002A00", (byte)MqttPacketType.PubComp)]
         public void DecodesAcknowledgementWithReasonButNoPropertyLength(
             string hex,
-            MqttPacketType packetType)
+            byte packetType)
         {
             byte[] bytes = Convert.FromHexString(hex);
 
@@ -124,21 +124,21 @@ namespace MqttZero.Tests.Protocol
 
             Assert.True(decoded, hex);
             Assert.Equal(bytes.Length, consumed);
-            Assert.Equal(packetType, packet!.PacketType);
+            Assert.Equal((MqttPacketType)packetType, packet!.PacketType);
             Assert.Equal(MqttReasonCode.Success, GetReasonCode(packet));
         }
 
         [Theory]
-        [InlineData("4002002A", MqttPacketType.PubAck, MqttReasonCode.Success)]
-        [InlineData("4003002A00", MqttPacketType.PubAck, MqttReasonCode.Success)]
-        [InlineData("4004002A0000", MqttPacketType.PubAck, MqttReasonCode.Success)]
-        [InlineData("4008002A00041F000178", MqttPacketType.PubAck, MqttReasonCode.Success)]
-        [InlineData("5003002A00", MqttPacketType.PubRec, MqttReasonCode.Success)]
-        [InlineData("6203002A00", MqttPacketType.PubRel, MqttReasonCode.Success)]
-        [InlineData("7003002A00", MqttPacketType.PubComp, MqttReasonCode.Success)]
+        [InlineData("4002002A", (byte)MqttPacketType.PubAck, MqttReasonCode.Success)]
+        [InlineData("4003002A00", (byte)MqttPacketType.PubAck, MqttReasonCode.Success)]
+        [InlineData("4004002A0000", (byte)MqttPacketType.PubAck, MqttReasonCode.Success)]
+        [InlineData("4008002A00041F000178", (byte)MqttPacketType.PubAck, MqttReasonCode.Success)]
+        [InlineData("5003002A00", (byte)MqttPacketType.PubRec, MqttReasonCode.Success)]
+        [InlineData("6203002A00", (byte)MqttPacketType.PubRel, MqttReasonCode.Success)]
+        [InlineData("7003002A00", (byte)MqttPacketType.PubComp, MqttReasonCode.Success)]
         public void DecodesAcknowledgementView(
             string hex,
-            MqttPacketType packetType,
+            byte packetType,
             MqttReasonCode reasonCode)
         {
             byte[] bytes = Convert.FromHexString(hex);
@@ -149,7 +149,7 @@ namespace MqttZero.Tests.Protocol
 
             Assert.True(decoded, hex);
             Assert.Equal(bytes.Length, consumed);
-            Assert.Equal(packetType, view.PacketType);
+            Assert.Equal((MqttPacketType)packetType, view.PacketType);
             Assert.Equal((ushort)42, view.PacketIdentifier);
             Assert.Equal(reasonCode, view.ReasonCode);
         }
