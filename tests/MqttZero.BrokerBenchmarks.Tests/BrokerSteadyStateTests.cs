@@ -1,6 +1,7 @@
 using MqttZero.BrokerBenchmarks;
 using MqttZero.Protocol;
 using MqttZero.Server.Broker;
+using System.Diagnostics;
 
 namespace MqttZero.BrokerBenchmarks.Tests;
 
@@ -143,8 +144,19 @@ public sealed class BrokerSteadyStateTests
                 .WaitAsync(
                     TimeSpan.FromSeconds(40),
                     cancellationToken);
+            // 最后一次 flush 的续接可能在 StopAsync 返回后才回到传输线程，
+            // 因此给释放留一个有限的收敛窗口；超时仍然视为泄漏。
             MqttZeroBrokerMemorySnapshot stopped =
                 host.Broker.GetMemorySnapshotForTest();
+            long deadline =
+                Stopwatch.GetTimestamp() + (Stopwatch.Frequency * 5);
+            while (stopped.BufferRentedBytes != 0 &&
+                Stopwatch.GetTimestamp() < deadline)
+            {
+                await Task.Delay(20, cancellationToken);
+                stopped = host.Broker.GetMemorySnapshotForTest();
+            }
+
             Assert.Equal(0, stopped.BufferRentedBytes);
             Assert.Equal(0, stopped.RoutePlanInUseCount);
         }

@@ -240,6 +240,11 @@ public sealed partial class MqttZeroBroker
             await ReleaseAllSessionMessagesOnShardsAsync(cancellationToken).ConfigureAwait(false);
             await shardSet.DisposeAsync().ConfigureAwait(false);
             _shardSet = null;
+            // 分片停止后不会再产生新的入队；补一次同步释放，覆盖停止窗口内才落进队列的消息。
+            foreach (MqttZeroSessionState session in _sessions.Values)
+            {
+                ReleaseSessionMessagesCore(session);
+            }
         }
 
         _fanoutDispatcher = null;
