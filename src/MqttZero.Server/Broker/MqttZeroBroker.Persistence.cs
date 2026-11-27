@@ -52,21 +52,57 @@ public sealed partial class MqttZeroBroker
     /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RestorePersistenceAsync(CancellationToken cancellationToken)
     {
-        Dictionary<string, MqttZeroSessionState> stagedSessions =
-            new(StringComparer.Ordinal);
-        Dictionary<string, MqttZeroRetainedMessage> stagedRetainedMessages =
-            new(StringComparer.Ordinal);
-        MqttZeroRetainedTopicTrie stagedRetainedTrie =
-            MqttZeroRetainedTopicTrie.Empty;
-        List<(
-            MqttZeroSessionState Session,
-            MqttZeroMessageLease Lease,
-            long MessageId)> inboundDispatches = [];
+        Dictionary<string, MqttZeroSessionState> stagedSessions = new(StringComparer.Ordinal);
+        Dictionary<string, MqttZeroRetainedMessage> stagedRetainedMessages = new(StringComparer.Ordinal);
+        MqttZeroRetainedTopicTrie stagedRetainedTrie = MqttZeroRetainedTopicTrie.Empty;
+        List<(MqttZeroSessionState Session, MqttZeroMessageLease Lease, long MessageId)> inboundDispatches = [];
         bool inboundDispatchesReleased = true;
         long stagedRetainedBytes = 0;
         bool committed = false;
         try
         {
+            await RestoreSessionsAsync(stagedSessions, cancellationToken).ConfigureAwait(false);
+            inboundDispatchesReleased = await RestoreMessagesAsync(stagedSessions, inboundDispatches, cancellationToken).ConfigureAwait(false);
+            (stagedRetainedTrie, stagedRetainedBytes) = await RestoreRetainedMessagesAsync(stagedRetainedMessages, cancellationToken).ConfigureAwait(false);
+            await CommitRestoredStateAsync(stagedSessions, stagedRetainedMessages, stagedRetainedTrie, stagedRetainedBytes, cancellationToken).ConfigureAwait(false);
+            await DispatchRestoredInboundAsync(inboundDispatches, cancellationToken).ConfigureAwait(false);
+            inboundDispatchesReleased = true;
+            committed = true;
+        }
+        catch (Exception exception)
+        {
+            ResetRestoredState();
+            MqttZeroBrokerLogging.LogPersistenceFailure(
+                _logger,
+                nameof(RestorePersistenceAsync),
+                string.Empty,
+                exception);
+            throw;
+        }
+        finally
+        {
+            if (!committed)
+            {
+                await ReleaseStagedStateAsync(
+                    stagedSessions,
+                    stagedRetainedMessages,
+                    inboundDispatches,
+                    inboundDispatchesReleased,
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 从会话存储恢复会话与订阅。
+    /// </summary>
+    /// <param name="stagedSessions">暂存会话字典。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
+    private async ValueTask RestoreSessionsAsync(
+        Dictionary<string, MqttZeroSessionState> stagedSessions,
+        CancellationToken cancellationToken)
+    {
             IReadOnlyList<MqttZeroPersistedSession> sessions =
                 await _sessionStore.LoadAllAsync(cancellationToken).ConfigureAwait(false);
             foreach (MqttZeroPersistedSession persisted in sessions)
@@ -174,7 +210,21 @@ public sealed partial class MqttZeroBroker
 
                 stagedSessions.Add(session.ClientId, session);
             }
+    }
 
+    /// <summary>
+    /// 从消息存储恢复在途与排队消息，并清理孤儿消息。
+    /// </summary>
+    /// <param name="stagedSessions">暂存会话字典。</param>
+    /// <param name="inboundDispatches">待分发的入站消息。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>为 <see langword="true"/> 表示没有遗留未释放的入站消息。</returns>
+    private async ValueTask<bool> RestoreMessagesAsync(
+        Dictionary<string, MqttZeroSessionState> stagedSessions,
+        List<(MqttZeroSessionState Session, MqttZeroMessageLease Lease, long MessageId)> inboundDispatches,
+        CancellationToken cancellationToken)
+    {
+        bool released = true;
             IReadOnlyList<MqttZeroPersistedMessage> messages =
                 await _messageStore.LoadAllAsync(cancellationToken).ConfigureAwait(false);
             HashSet<string> orphanClients = new(StringComparer.Ordinal);
@@ -256,7 +306,7 @@ public sealed partial class MqttZeroBroker
                         session,
                         dispatchLease,
                         persisted.MessageId));
-                    inboundDispatchesReleased = false;
+                    released = false;
                     continue;
                 }
 
@@ -334,6 +384,21 @@ public sealed partial class MqttZeroBroker
                 }
             }
 
+        return released;
+    }
+
+    /// <summary>
+    /// 从保留消息存储恢复保留消息与前缀树。
+    /// </summary>
+    /// <param name="stagedRetainedMessages">暂存保留消息字典。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>恢复后的前缀树与保留字节数。</returns>
+    private async ValueTask<(MqttZeroRetainedTopicTrie Trie, long Bytes)> RestoreRetainedMessagesAsync(
+        Dictionary<string, MqttZeroRetainedMessage> stagedRetainedMessages,
+        CancellationToken cancellationToken)
+    {
+        MqttZeroRetainedTopicTrie stagedRetainedTrie = MqttZeroRetainedTopicTrie.Empty;
+        long stagedRetainedBytes = 0;
             IReadOnlyList<MqttZeroPersistedRetainedMessage> retained =
                 await _retainedMessageStore.LoadAllAsync(cancellationToken).ConfigureAwait(false);
             foreach (MqttZeroPersistedRetainedMessage persisted in retained)
@@ -406,6 +471,25 @@ public sealed partial class MqttZeroBroker
                 }
             }
 
+        return (stagedRetainedTrie, stagedRetainedBytes);
+    }
+
+    /// <summary>
+    /// 把暂存的会话与保留消息发布为可用的 Broker 状态。
+    /// </summary>
+    /// <param name="stagedSessions">暂存会话字典。</param>
+    /// <param name="stagedRetainedMessages">暂存保留消息字典。</param>
+    /// <param name="stagedRetainedTrie">恢复后的前缀树。</param>
+    /// <param name="stagedRetainedBytes">保留字节数。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
+    private async ValueTask CommitRestoredStateAsync(
+        Dictionary<string, MqttZeroSessionState> stagedSessions,
+        Dictionary<string, MqttZeroRetainedMessage> stagedRetainedMessages,
+        MqttZeroRetainedTopicTrie stagedRetainedTrie,
+        long stagedRetainedBytes,
+        CancellationToken cancellationToken)
+    {
             lock (_sessionGate)
             {
                 _sessions.Clear();
@@ -444,7 +528,18 @@ public sealed partial class MqttZeroBroker
                     pair.Value.ExpiresAt,
                     cancellationToken).ConfigureAwait(false);
             }
+    }
 
+    /// <summary>
+    /// 按时间顺序分发恢复出来的入站消息。
+    /// </summary>
+    /// <param name="inboundDispatches">待分发的入站消息。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
+    private async ValueTask DispatchRestoredInboundAsync(
+        List<(MqttZeroSessionState Session, MqttZeroMessageLease Lease, long MessageId)> inboundDispatches,
+        CancellationToken cancellationToken)
+    {
             while (inboundDispatches.Count > 0)
             {
                 int dispatchIndex = 0;
@@ -483,13 +578,13 @@ public sealed partial class MqttZeroBroker
                     dispatch.Lease.Release();
                 }
             }
+    }
 
-            inboundDispatchesReleased = true;
-
-            committed = true;
-        }
-        catch (Exception exception)
-        {
+    /// <summary>
+    /// 把恢复失败后的会话、保留消息与路由快照清空。
+    /// </summary>
+    private void ResetRestoredState()
+    {
             lock (_sessionGate)
             {
                 _sessions.Clear();
@@ -503,17 +598,24 @@ public sealed partial class MqttZeroBroker
             }
 
             _sharedGroupReferences.Clear();
-            MqttZeroBrokerLogging.LogPersistenceFailure(
-                _logger,
-                nameof(RestorePersistenceAsync),
-                string.Empty,
-                exception);
-            throw;
-        }
-        finally
-        {
-            if (!committed)
-            {
+    }
+
+    /// <summary>
+    /// 释放恢复失败时仍被暂存的租约与消息。
+    /// </summary>
+    /// <param name="stagedSessions">暂存会话字典。</param>
+    /// <param name="stagedRetainedMessages">暂存保留消息字典。</param>
+    /// <param name="inboundDispatches">待分发的入站消息。</param>
+    /// <param name="inboundDispatchesReleased">入站消息是否已释放。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
+    private async ValueTask ReleaseStagedStateAsync(
+        Dictionary<string, MqttZeroSessionState> stagedSessions,
+        Dictionary<string, MqttZeroRetainedMessage> stagedRetainedMessages,
+        List<(MqttZeroSessionState Session, MqttZeroMessageLease Lease, long MessageId)> inboundDispatches,
+        bool inboundDispatchesReleased,
+        CancellationToken cancellationToken)
+    {
                 if (!inboundDispatchesReleased)
                 {
                     foreach ((
@@ -536,8 +638,6 @@ public sealed partial class MqttZeroBroker
                 {
                     retained.Release();
                 }
-            }
-        }
     }
 
     /// <summary>
