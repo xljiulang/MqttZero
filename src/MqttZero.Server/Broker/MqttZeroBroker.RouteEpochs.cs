@@ -12,6 +12,9 @@ public sealed partial class MqttZeroBroker
         List<MqttZeroSubscription> candidate,
         CancellationToken cancellationToken)
     {
+        EnsureSessionShard(
+            session,
+            nameof(CommitSubscriptionsAsync));
         ArgumentNullException.ThrowIfNull(original);
         ArgumentNullException.ThrowIfNull(candidate);
         List<MqttZeroSubscription> removed = [];
@@ -41,11 +44,7 @@ public sealed partial class MqttZeroBroker
                 RetainSharedGroupReference(subscription);
             }
 
-            lock (session.SyncRoot)
-            {
-                session.Subscriptions.Clear();
-                session.Subscriptions.AddRange(candidate);
-            }
+            session.Subscriptions.Replace(candidate);
 
             _routeEpochs.Publish(current, replacement);
         }
@@ -58,15 +57,14 @@ public sealed partial class MqttZeroBroker
     private async ValueTask RemoveSessionSubscriptionsFromRouteAsync(
         MqttZeroSessionState session)
     {
-        MqttZeroSubscription[] subscriptions;
-        lock (session.SyncRoot)
+        EnsureSessionShard(
+            session,
+            nameof(RemoveSessionSubscriptionsFromRouteAsync));
+        MqttZeroSubscription[] subscriptions =
+            session.Subscriptions.Snapshot();
+        if (subscriptions.Length == 0)
         {
-            if (session.Subscriptions.Count == 0)
-            {
-                return;
-            }
-
-            subscriptions = [.. session.Subscriptions];
+            return;
         }
 
         await _routeMutationGate.WaitAsync(CancellationToken.None)
@@ -94,15 +92,14 @@ public sealed partial class MqttZeroBroker
     private async ValueTask AddSessionSubscriptionsToRouteAsync(
         MqttZeroSessionState session)
     {
-        MqttZeroSubscription[] subscriptions;
-        lock (session.SyncRoot)
+        EnsureSessionShard(
+            session,
+            nameof(AddSessionSubscriptionsToRouteAsync));
+        MqttZeroSubscription[] subscriptions =
+            session.Subscriptions.Snapshot();
+        if (subscriptions.Length == 0)
         {
-            if (session.Subscriptions.Count == 0)
-            {
-                return;
-            }
-
-            subscriptions = [.. session.Subscriptions];
+            return;
         }
 
         await _routeMutationGate.WaitAsync(CancellationToken.None)
@@ -131,7 +128,8 @@ public sealed partial class MqttZeroBroker
     {
         MqttZeroRouteEpoch epoch =
             MqttZeroRouteEpochManager.BuildFromSessions(
-                _sessions.Values);
+                _sessions.Values,
+                _sharedGroupCursors);
         await _routeMutationGate.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -149,15 +147,14 @@ public sealed partial class MqttZeroBroker
         _sharedGroupReferences.Clear();
         foreach (MqttZeroSessionState session in _sessions.Values)
         {
-            lock (session.SyncRoot)
+            MqttZeroSubscription[] subscriptions =
+                session.Subscriptions.Snapshot();
+            for (int index = 0;
+                index < subscriptions.Length;
+                index++)
             {
-                for (int index = 0;
-                    index < session.Subscriptions.Count;
-                    index++)
-                {
-                    RetainSharedGroupReference(
-                        session.Subscriptions[index]);
-                }
+                RetainSharedGroupReference(
+                    subscriptions[index]);
             }
         }
 

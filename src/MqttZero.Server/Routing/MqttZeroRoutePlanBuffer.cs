@@ -168,8 +168,7 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
     }
 
     internal void PlanSharedGroups(
-        MqttZeroSessionState? sender,
-        MqttZeroSharedGroupCursors cursors)
+        MqttZeroSessionState? sender)
     {
         for (int groupIndex = 0;
             groupIndex < _sharedGroupCount;
@@ -193,9 +192,7 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
                 continue;
             }
 
-            int selectedOffset = cursors.GetNext(
-                group.Key,
-                matchingCount);
+            int selectedOffset = group.Cursor.NextOffset(matchingCount);
             foreach (MqttZeroPersistentHashMapEntry<
                 MqttZeroSessionState,
                 MqttZeroSubscription> entry in group.Entries)

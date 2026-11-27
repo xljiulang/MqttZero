@@ -2,6 +2,13 @@ using MqttZero.Server.Sessions;
 
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// Accumulates the delivery candidates of one topic match.
+/// </summary>
+/// <remarks>
+/// Test and benchmark only. Production routing collects candidates inside
+/// <see cref="MqttZeroRoutePlanBuffer"/>.
+/// </remarks>
 internal ref struct MqttZeroRouteEpochMatch
 {
     private readonly List<MqttZeroDeliveryCandidate> _deliveries;
@@ -29,8 +36,7 @@ internal ref struct MqttZeroRouteEpochMatch
 
     internal void AddEndpoint(
         MqttZeroRouteEndpoint endpoint,
-        MqttZeroSessionState? sender,
-        MqttZeroSharedGroupCursors cursors)
+        MqttZeroSessionState? sender)
     {
         if (endpoint.RegularEntries != null)
         {
@@ -48,7 +54,7 @@ internal ref struct MqttZeroRouteEpochMatch
                 MqttZeroSharedGroupKey,
                 MqttZeroSharedRouteEntries> group in endpoint.SharedEntries)
             {
-                AddSharedGroup(group.Value, sender, cursors);
+                AddSharedGroup(group.Value, sender);
             }
         }
     }
@@ -71,8 +77,7 @@ internal ref struct MqttZeroRouteEpochMatch
 
     private void AddSharedGroup(
         MqttZeroSharedRouteEntries group,
-        MqttZeroSessionState? sender,
-        MqttZeroSharedGroupCursors cursors)
+        MqttZeroSessionState? sender)
     {
         int matchingCount = 0;
         foreach (MqttZeroPersistentHashMapEntry<
@@ -93,7 +98,7 @@ internal ref struct MqttZeroRouteEpochMatch
             return;
         }
 
-        int selectedOffset = cursors.GetNext(group.Key, matchingCount);
+        int selectedOffset = group.Cursor.NextOffset(matchingCount);
         foreach (MqttZeroPersistentHashMapEntry<
             MqttZeroSessionState,
             MqttZeroSubscription> entry in group.Entries)

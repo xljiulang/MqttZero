@@ -4,6 +4,7 @@ using MqttZero.Protocol;
 using MqttZero.Publishing;
 using MqttZero.Server.Retained;
 using MqttZero.Server.Routing;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using MqttZero.Server.Clients;
 using MqttZero.Server.Egress;
@@ -28,15 +29,10 @@ public sealed partial class MqttZeroBroker
         List<MqttZeroClientSnapshot> clients = [];
         foreach (MqttZeroSessionState session in _sessions.Values)
         {
-            MqttZeroClientConnection? connection;
-            int subscriptionCount;
-            lock (session.SyncRoot)
-            {
-                connection = session.Connection;
-                subscriptionCount = session.Subscriptions.Count;
-            }
+            MqttZeroClientConnection? connection =
+                session.Connection;
 
-            if (connection == null)
+            if (connection == null || connection.IsClosed)
             {
                 continue;
             }
@@ -49,7 +45,7 @@ public sealed partial class MqttZeroBroker
                 IsSecure = connection.IsSecure,
                 IsWebSocket = connection.IsWebSocket,
                 ProtocolVersion = connection.ClientInfo.ProtocolVersion,
-                SubscriptionCount = subscriptionCount,
+                SubscriptionCount = session.Subscriptions.Count,
                 Statistics = connection.GetStatistics()
             });
         }
@@ -178,7 +174,7 @@ public sealed partial class MqttZeroBroker
     /// <param name="reasonCode">The DISCONNECT reason code.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when a connected client was found.</returns>
-    public async ValueTask<bool> DisconnectClientAsync(
+    public ValueTask<bool> DisconnectClientAsync(
         string clientId,
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken = default)
@@ -186,23 +182,36 @@ public sealed partial class MqttZeroBroker
         ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
         if (!_sessions.TryGetValue(clientId, out MqttZeroSessionState? session))
         {
+            return ValueTask.FromResult(false);
+        }
+
+        return InvokeOnSessionShardAsync(
+            session,
+            token => DisconnectClientCoreAsync(
+                session,
+                reasonCode,
+                token),
+            cancellationToken);
+    }
+
+    private async ValueTask<bool> DisconnectClientCoreAsync(
+        MqttZeroSessionState session,
+        MqttReasonCode reasonCode,
+        CancellationToken cancellationToken)
+    {
+        MqttZeroShardOwnership.EnsureCurrent(
+            session.ShardId,
+            nameof(DisconnectClientCoreAsync),
+            _fanoutDiagnostics);
+        MqttZeroClientConnection? connection =
+            session.Connection;
+
+        if (connection == null || connection.IsClosed)
+        {
             return false;
         }
 
-        MqttZeroClientConnection? connection;
-        MqttZeroEgressActor? pump;
-        lock (session.SyncRoot)
-        {
-            connection = session.Connection;
-            pump = session.Egress;
-            session.Egress = null;
-        }
-
-        if (connection == null)
-        {
-            return false;
-        }
-
+        MqttZeroSessionEgress? pump = session.TakeEgress();
         await StopEgressAsync(pump).ConfigureAwait(false);
         await connection.CloseAsync(reasonCode, cancellationToken).ConfigureAwait(false);
         return true;

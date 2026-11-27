@@ -11,12 +11,27 @@ namespace MqttZero.Server.Broker;
 
 public sealed partial class MqttZeroBroker
 {
+    internal ValueTask DeliverLeaseToSessionForTestAsync(
+        MqttZeroSessionState session,
+        MqttZeroMessageLease lease,
+        CancellationToken cancellationToken)
+    {
+        return DeliverLeaseFastAsync(
+            session,
+            lease,
+            MqttQualityOfServiceLevel.AtLeastOnce,
+            retain: false,
+            ReadOnlyMemory<uint>.Empty,
+            cancellationToken);
+    }
+
     private async ValueTask RoutePublishLeaseFastAsync(
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,
         MqttZeroMessageLease lease,
         bool suppressPublisherAck,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool scheduleQosZeroWithoutWaiting = false)
     {
         MqttZeroMessageLease effectiveLease = lease;
         bool ownsEffectiveLease = false;
@@ -104,7 +119,9 @@ public sealed partial class MqttZeroBroker
             effectiveLease.EnsureOwned();
             if (effectiveLease.RetainFlag)
             {
-                StoreRetainedMessageInMemory(effectiveLease);
+                await StoreRetainedMessageInMemoryAsync(
+                    effectiveLease,
+                    cancellationToken).ConfigureAwait(false);
             }
 
             MqttZeroFanoutDispatcher dispatcher =
@@ -135,7 +152,6 @@ public sealed partial class MqttZeroBroker
                         _routeEpochs.Current,
                         effectiveLease.Topic.Span,
                         sender,
-                        _sharedGroupCursors,
                         shards.Count,
                         buffer);
                 }
@@ -151,14 +167,30 @@ public sealed partial class MqttZeroBroker
                 }
                 else
                 {
-                    await dispatcher.DispatchQosZeroAsync(
-                        plan,
-                        buffer,
-                        effectiveLease,
-                        senderConnection,
-                        publisherShardId,
-                        qosZeroPlanBuffers.ReturnCallback,
-                        cancellationToken).ConfigureAwait(false);
+                    if (scheduleQosZeroWithoutWaiting &&
+                        plan.Batches[publisherShardId].Count > 0)
+                    {
+                        await dispatcher.DispatchScheduledAsync(
+                            plan,
+                            buffer,
+                            effectiveLease,
+                            senderConnection,
+                            publisherShardId,
+                            cancellationToken,
+                            qosZeroPlanBuffers.ReturnCallback)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await dispatcher.DispatchQosZeroAsync(
+                            plan,
+                            buffer,
+                            effectiveLease,
+                            senderConnection,
+                            publisherShardId,
+                            qosZeroPlanBuffers.ReturnCallback,
+                            cancellationToken).ConfigureAwait(false);
+                    }
                 }
             }
             else
@@ -167,7 +199,6 @@ public sealed partial class MqttZeroBroker
                     _routeEpochs.Current,
                     effectiveLease.Topic.Span,
                     sender,
-                    _sharedGroupCursors,
                     shards.Count,
                     lanes[publisherShardId]);
                 if (plan.TotalDeliveryCount > 0)
@@ -224,6 +255,9 @@ public sealed partial class MqttZeroBroker
         CancellationToken cancellationToken,
         bool copySubscriptionIdentifiers = false)
     {
+        EnsureSessionShard(
+            session,
+            nameof(DeliverLeaseFastAsync));
         DateTimeOffset? expiresAt = lease.ExpiresAt;
         if (expiresAt.HasValue &&
             expiresAt.Value <= _timeProvider.GetUtcNow())
@@ -231,11 +265,7 @@ public sealed partial class MqttZeroBroker
             return ValueTask.CompletedTask;
         }
 
-        MqttZeroClientConnection? connection;
-        lock (session.SyncRoot)
-        {
-            connection = session.Connection;
-        }
+        MqttZeroClientConnection? connection = session.Connection;
 
         if (qos == MqttQualityOfServiceLevel.AtMostOnce &&
             connection == null &&
@@ -276,27 +306,25 @@ public sealed partial class MqttZeroBroker
         bool enqueued = false;
         try
         {
-            lock (session.SyncRoot)
+            if (qos == MqttQualityOfServiceLevel.AtMostOnce &&
+                session.Connection == null &&
+                !_options.StoreQos0InQueue)
             {
-                if (qos == MqttQualityOfServiceLevel.AtMostOnce &&
-                    session.Connection == null &&
-                    !_options.StoreQos0InQueue)
-                {
-                    return ValueTask.CompletedTask;
-                }
-
-                MqttZeroClientConnection? currentConnection = session.Connection;
-                if (currentConnection != null &&
-                    ReferenceEquals(currentConnection, connection))
-                {
-                    message.SetEncodedLength(
-                        encodedLength,
-                        currentConnection.MaximumPacketSize);
-                }
-
-                evicted = EnqueueMessage(session, message);
-                enqueued = true;
+                return ValueTask.CompletedTask;
             }
+
+            MqttZeroClientConnection? currentConnection =
+                session.Connection;
+            if (currentConnection != null &&
+                ReferenceEquals(currentConnection, connection))
+            {
+                message.SetEncodedLength(
+                    encodedLength,
+                    currentConnection.MaximumPacketSize);
+            }
+
+            evicted = EnqueueMessage(session, message);
+            enqueued = true;
         }
         finally
         {

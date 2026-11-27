@@ -1,0 +1,173 @@
+{
+  "Waves": [
+    {
+      "Wave": 1,
+      "PublishedMessages": 1000,
+      "ReceivedMessages": 100000,
+      "FailedOperations": 0,
+      "MeasurementDrainMilliseconds": 9.7282,
+      "Snapshot": {
+        "AllocatedBytes": 7492008,
+        "ManagedHeapBytes": 1570504,
+        "WorkingSetBytes": 65957888,
+        "PrivateMemoryBytes": 65957888,
+        "Gen0CollectionCount": 4,
+        "Gen1CollectionCount": 4,
+        "Gen2CollectionCount": 4,
+        "BufferRentedBytes": 25600,
+        "BufferCachedBytes": 2816,
+        "BufferCommittedBytes": 28416,
+        "RoutePlanAvailableCount": 10,
+        "RoutePlanInUseCount": 0,
+        "RoutePlanRetainedBytes": 98560,
+        "SharedCursorCount": 0,
+        "ObjectPools": {
+          "LeaseCount": 11,
+          "QueuedMessageCount": 145,
+          "PublishContextCount": 0,
+          "InboundWorkCount": 0,
+          "InboundShardWorkCount": 0,
+          "FanoutOperationCount": 9,
+          "FanoutBatchWorkCount": 27,
+          "FanoutScheduledBatchCount": 0
+        }
+      },
+      "Peak": {
+        "BufferRentedBytes": 25600,
+        "BufferCachedBytes": 2816,
+        "BufferCommittedBytes": 28416,
+        "RoutePlanInUseCount": 0,
+        "RoutePlanRetainedBytes": 98560,
+        "SharedCursorCount": 0,
+        "ManagedHeapBytes": 4151872,
+        "WorkingSetBytes": 65957888
+      }
+    },
+    {
+      "Wave": 2,
+      "PublishedMessages": 1000,
+      "ReceivedMessages": 100000,
+      "FailedOperations": 0,
+      "MeasurementDrainMilliseconds": 15.9903,
+      "Snapshot": {
+        "AllocatedBytes": 9774472,
+        "ManagedHeapBytes": 3907440,
+        "WorkingSetBytes": 66834432,
+        "PrivateMemoryBytes": 66834432,
+        "Gen0CollectionCount": 4,
+        "Gen1CollectionCount": 4,
+        "Gen2CollectionCount": 4,
+        "BufferRentedBytes": 25600,
+        "BufferCachedBytes": 2816,
+        "BufferCommittedBytes": 28416,
+        "RoutePlanAvailableCount": 10,
+        "RoutePlanInUseCount": 0,
+        "RoutePlanRetainedBytes": 98560,
+        "SharedCursorCount": 0,
+        "ObjectPools": {
+          "LeaseCount": 11,
+          "QueuedMessageCount": 145,
+          "PublishContextCount": 0,
+          "InboundWorkCount": 0,
+          "InboundShardWorkCount": 0,
+          "FanoutOperationCount": 9,
+          "FanoutBatchWorkCount": 27,
+          "FanoutScheduledBatchCount": 0
+        }
+      },
+      "Peak": {
+        "BufferRentedBytes": 25600,
+        "BufferCachedBytes": 2816,
+        "BufferCommittedBytes": 28416,
+        "RoutePlanInUseCount": 0,
+        "RoutePlanRetainedBytes": 98560,
+        "SharedCursorCount": 0,
+        "ManagedHeapBytes": 3907440,
+        "WorkingSetBytes": 66834432
+      }
+    },
+    {
+      "Wave": 3,
+      "PublishedMessages": 1000,
+      "ReceivedMessages": 100000,
+      "FailedOperations": 0,
+      "MeasurementDrainMilliseconds": 30.1283,
+      "Snapshot": {
+        "AllocatedBytes": 11981912,
+        "ManagedHeapBytes": 1660232,
+        "WorkingSetBytes": 62459904,
+        "PrivateMemoryBytes": 62459904,
+        "Gen0CollectionCount": 8,
+        "Gen1CollectionCount": 8,
+        "Gen2CollectionCount": 8,
+        "BufferRentedBytes": 25600,
+        "BufferCachedBytes": 2816,
+        "BufferCommittedBytes": 28416,
+        "RoutePlanAvailableCount": 10,
+        "RoutePlanInUseCount": 0,
+        "RoutePlanRetainedBytes": 98560,
+        "SharedCursorCount": 0,
+        "ObjectPools": {
+          "LeaseCount": 11,
+          "QueuedMessageCount": 145,
+          "PublishContextCount": 0,
+          "InboundWorkCount": 0,
+          "InboundShardWorkCount": 0,
+          "FanoutOperationCount": 9,
+          "FanoutBatchWorkCount": 27,
+          "FanoutScheduledBatchCount": 0
+        }
+      },
+      "Peak": {
+        "BufferRentedBytes": 25600,
+        "BufferCachedBytes": 2816,
+        "BufferCommittedBytes": 28416,
+        "RoutePlanInUseCount": 0,
+        "RoutePlanRetainedBytes": 98560,
+        "SharedCursorCount": 0,
+        "ManagedHeapBytes": 3881904,
+        "WorkingSetBytes": 66334720
+      }
+    }
+  ],
+  "Run": {
+    "Mode": "tcp",
+    "BrokerAssembly": "D:\\github\\mqttzero\\artifacts\\broker-ab\\shard-owned-regression-2026-11-26\\checkouts\\d14f433\\benchmarks\\MqttZero.BrokerBenchmarks\\bin\\Release\\net10.0\\MqttZero.BrokerBenchmarks.dll",
+    "BrokerCommit": "d14f433",
+    "BufferQuotaBytes": 536870912,
+    "ProbeMilliseconds": 50,
+    "Qos": 0,
+    "Subscribers": 100,
+    "PayloadSize": 32,
+    "MessagesPerWave": 1000,
+    "PeakBufferCommittedBytes": 28416,
+    "PeakManagedHeapBytes": 4151872,
+    "PeakWorkingSetBytes": 66834432,
+    "IdleSnapshot": {
+      "AllocatedBytes": 4138064,
+      "ManagedHeapBytes": 796424,
+      "WorkingSetBytes": 59887616,
+      "PrivateMemoryBytes": 59887616,
+      "Gen0CollectionCount": 2,
+      "Gen1CollectionCount": 2,
+      "Gen2CollectionCount": 2,
+      "BufferRentedBytes": 25600,
+      "BufferCachedBytes": 0,
+      "BufferCommittedBytes": 25600,
+      "RoutePlanAvailableCount": 0,
+      "RoutePlanInUseCount": 0,
+      "RoutePlanRetainedBytes": 0,
+      "SharedCursorCount": 0,
+      "ObjectPools": {
+        "LeaseCount": 0,
+        "QueuedMessageCount": 0,
+        "PublishContextCount": 0,
+        "InboundWorkCount": 0,
+        "InboundShardWorkCount": 0,
+        "FanoutOperationCount": 0,
+        "FanoutBatchWorkCount": 0,
+        "FanoutScheduledBatchCount": 0
+      }
+    }
+  }
+}

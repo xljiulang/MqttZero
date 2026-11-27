@@ -4,7 +4,22 @@ namespace MqttZero.Server.Routing;
 
 internal sealed class MqttZeroRouteEpochManager
 {
-    private MqttZeroRouteEpoch _current = MqttZeroRouteEpoch.Empty;
+    private readonly MqttZeroSharedGroupCursors _cursors;
+    private MqttZeroRouteEpoch _current;
+
+    public MqttZeroRouteEpochManager()
+        : this(new MqttZeroSharedGroupCursors())
+    {
+    }
+
+    public MqttZeroRouteEpochManager(MqttZeroSharedGroupCursors cursors)
+    {
+        _cursors = cursors ?? throw new ArgumentNullException(nameof(cursors));
+        _current = new MqttZeroRouteEpoch(
+            0,
+            MqttZeroRouteTrieNode.Empty,
+            cursors);
+    }
 
     public MqttZeroRouteEpoch Current
     {
@@ -68,23 +83,43 @@ internal sealed class MqttZeroRouteEpochManager
         Volatile.Write(ref _current, epoch);
     }
 
+    public void ResetToEmpty()
+    {
+        Volatile.Write(
+            ref _current,
+            new MqttZeroRouteEpoch(
+                0,
+                MqttZeroRouteTrieNode.Empty,
+                _cursors));
+    }
+
     public static MqttZeroRouteEpoch BuildFromSessions(
         IEnumerable<MqttZeroSessionState> sessions)
     {
+        return BuildFromSessions(sessions, new MqttZeroSharedGroupCursors());
+    }
+
+    public static MqttZeroRouteEpoch BuildFromSessions(
+        IEnumerable<MqttZeroSessionState> sessions,
+        MqttZeroSharedGroupCursors cursors)
+    {
         ArgumentNullException.ThrowIfNull(sessions);
-        MqttZeroRouteEpoch epoch = MqttZeroRouteEpoch.Empty;
+        ArgumentNullException.ThrowIfNull(cursors);
+        MqttZeroRouteEpoch epoch = new(
+            0,
+            MqttZeroRouteTrieNode.Empty,
+            cursors);
         foreach (MqttZeroSessionState session in sessions)
         {
-            lock (session.SyncRoot)
+            MqttZeroSubscription[] subscriptions =
+                session.Subscriptions.Snapshot();
+            for (int index = 0;
+                index < subscriptions.Length;
+                index++)
             {
-                for (int index = 0;
-                    index < session.Subscriptions.Count;
-                    index++)
-                {
-                    epoch = epoch.Add(
-                        session,
-                        session.Subscriptions[index]);
-                }
+                epoch = epoch.Add(
+                    session,
+                    subscriptions[index]);
             }
         }
 

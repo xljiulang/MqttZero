@@ -5,22 +5,40 @@ namespace MqttZero.Server.Routing;
 
 internal sealed class MqttZeroRouteEpoch
 {
-    public static MqttZeroRouteEpoch Empty { get; } = new(
-        0,
-        MqttZeroRouteTrieNode.Empty);
+    public static MqttZeroRouteEpoch Empty
+    {
+        get
+        {
+            return new MqttZeroRouteEpoch(
+                0,
+                MqttZeroRouteTrieNode.Empty,
+                new MqttZeroSharedGroupCursors());
+        }
+    }
 
     public MqttZeroRouteEpoch(
         long version,
         MqttZeroRouteTrieNode root)
+        : this(version, root, new MqttZeroSharedGroupCursors())
+    {
+    }
+
+    public MqttZeroRouteEpoch(
+        long version,
+        MqttZeroRouteTrieNode root,
+        MqttZeroSharedGroupCursors cursors)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(version);
         Version = version;
         Root = root ?? throw new ArgumentNullException(nameof(root));
+        Cursors = cursors ?? throw new ArgumentNullException(nameof(cursors));
     }
 
     public long Version { get; }
 
     internal MqttZeroRouteTrieNode Root { get; }
+
+    internal MqttZeroSharedGroupCursors Cursors { get; }
 
     public MqttZeroRouteEpoch Add(
         MqttZeroSessionState session,
@@ -35,7 +53,7 @@ internal sealed class MqttZeroRouteEpoch
             add: true,
             out bool changed);
         return changed
-            ? new MqttZeroRouteEpoch(Version + 1, root)
+            ? new MqttZeroRouteEpoch(Version + 1, root, Cursors)
             : this;
     }
 
@@ -53,18 +71,28 @@ internal sealed class MqttZeroRouteEpoch
         return changed
             ? new MqttZeroRouteEpoch(
                 Version + 1,
-                root ?? MqttZeroRouteTrieNode.Empty)
+                root ?? MqttZeroRouteTrieNode.Empty,
+                Cursors)
             : this;
     }
 
+    /// <summary>
+    /// Matches a topic against this epoch and collects delivery candidates.
+    /// </summary>
+    /// <param name="topic">The published topic.</param>
+    /// <param name="sender">The publishing session, or null for server-originated messages.</param>
+    /// <param name="match">The match accumulator.</param>
+    /// <remarks>
+    /// Test and benchmark only. Production routing uses
+    /// <see cref="MqttZeroRoutePlanner"/> with <see cref="MqttZeroRoutePlanBuffer"/>,
+    /// which plans per-shard batches directly.
+    /// </remarks>
     public void Match(
         ReadOnlySpan<byte> topic,
         MqttZeroSessionState? sender,
-        MqttZeroSharedGroupCursors cursors,
         ref MqttZeroRouteEpochMatch match)
     {
-        ArgumentNullException.ThrowIfNull(cursors);
-        MatchNode(Root, topic, true, sender, cursors, ref match);
+        MatchNode(Root, topic, true, sender, ref match);
     }
 
     public void CollectSharedGroupKeys(
@@ -119,7 +147,7 @@ internal sealed class MqttZeroRouteEpoch
         return node;
     }
 
-    private static MqttZeroRouteTrieNode Update(
+    private MqttZeroRouteTrieNode Update(
         MqttZeroRouteTrieNode node,
         MqttZeroSubscription subscription,
         MqttZeroSessionState session,
@@ -135,7 +163,7 @@ internal sealed class MqttZeroRouteEpoch
         return result ?? MqttZeroRouteTrieNode.Empty;
     }
 
-    private static MqttZeroRouteTrieNode? UpdateOrNull(
+    private MqttZeroRouteTrieNode? UpdateOrNull(
         MqttZeroRouteTrieNode node,
         MqttZeroSubscription subscription,
         MqttZeroSessionState session,
@@ -162,7 +190,7 @@ internal sealed class MqttZeroRouteEpoch
             out changed);
     }
 
-    private static MqttZeroRouteTrieNode? UpdateNode(
+    private MqttZeroRouteTrieNode? UpdateNode(
         MqttZeroRouteTrieNode node,
         ReadOnlySpan<byte> filter,
         int offset,
@@ -272,7 +300,7 @@ internal sealed class MqttZeroRouteEpoch
         return result.IsEmpty ? null : result;
     }
 
-    private static MqttZeroRouteTrieNode? UpdateEndpoint(
+    private MqttZeroRouteTrieNode? UpdateEndpoint(
         MqttZeroRouteTrieNode node,
         MqttZeroSessionState session,
         MqttZeroSubscription subscription,
@@ -287,7 +315,11 @@ internal sealed class MqttZeroRouteEpoch
         if (add)
         {
             replacement = shared
-                ? endpoint.SetShared(sharedKey, session, subscription)
+                ? endpoint.SetShared(
+                    sharedKey,
+                    session,
+                    subscription,
+                    Cursors.Resolve(sharedKey))
                 : endpoint.SetRegular(session, subscription);
             changed = true;
         }
@@ -315,19 +347,18 @@ internal sealed class MqttZeroRouteEpoch
         ReadOnlySpan<byte> remainingTopic,
         bool hasCurrentLevel,
         MqttZeroSessionState? sender,
-        MqttZeroSharedGroupCursors cursors,
         ref MqttZeroRouteEpochMatch match)
     {
         if (node.MultiLevel?.Endpoint != null)
         {
-            match.AddEndpoint(node.MultiLevel.Endpoint, sender, cursors);
+            match.AddEndpoint(node.MultiLevel.Endpoint, sender);
         }
 
         if (!hasCurrentLevel)
         {
             if (node.Endpoint != null)
             {
-                match.AddEndpoint(node.Endpoint, sender, cursors);
+                match.AddEndpoint(node.Endpoint, sender);
             }
 
             return;
@@ -351,7 +382,6 @@ internal sealed class MqttZeroRouteEpoch
                 rest,
                 hasMoreLevels,
                 sender,
-                cursors,
                 ref match);
         }
 
@@ -362,7 +392,6 @@ internal sealed class MqttZeroRouteEpoch
                 rest,
                 hasMoreLevels,
                 sender,
-                cursors,
                 ref match);
         }
     }

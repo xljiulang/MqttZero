@@ -117,7 +117,10 @@ public sealed class BrokerBenchmarkJsonContractTests
                                 InboundShardWorkCount: 0,
                                 FanoutOperationCount: 0,
                                 FanoutBatchWorkCount: 0,
-                                FanoutScheduledBatchCount: 0)))
+                                FanoutScheduledBatchCount: 0,
+                                AcknowledgementWorkCount: 0,
+                                AcknowledgementShardWorkCount: 0,
+                                ControlPostWorkCount: 0)))
             ]);
 
         string json = JsonSerializer.Serialize(

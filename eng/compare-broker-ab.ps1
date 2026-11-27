@@ -12,10 +12,12 @@ param(
     [int] $MaxPending = 1024,
     [int] $MinGainPercent = 10,
     [int] $MaxDeliveryP99RegressionPercent = 5,
+    [int] $DeliveryP99AbsoluteUs = 0,
     [int] $StartPort = 25000,
     [string] $OutputDirectory = 'artifacts/broker-ab',
     [switch] $SkipBuild,
-    [switch] $SkipExisting
+    [switch] $SkipExisting,
+    [switch] $Diagnostics
 )
 
 $ErrorActionPreference = 'Stop'
@@ -117,6 +119,11 @@ else {
 }
 
 $driverAssembly = $candidateAssembly
+$diagnosticArguments = @()
+if ($Diagnostics) {
+    $diagnosticArguments = @('--diagnostics', 'true')
+}
+
 $cellIndex = 0
 $cells = @()
 foreach ($cellQos in $Qos) {
@@ -153,7 +160,9 @@ foreach ($cellQos in $Qos) {
                 --start-port $cellPort `
                 --min-gain-percent $MinGainPercent `
                 --max-delivery-p99-regression-percent $MaxDeliveryP99RegressionPercent `
-                --output $cellPath
+                --delivery-p99-absolute-us $DeliveryP99AbsoluteUs `
+                --output $cellPath `
+                @diagnosticArguments
             if (-not (Test-Path -LiteralPath $cellPath)) {
                 throw "Cell '$cellName' did not produce $cellPath."
             }
@@ -171,23 +180,7 @@ foreach ($cell in $cells) {
         $cell.Qos -eq 1 -and
         $cell.Subscribers -eq 100 -and
         $cell.PayloadSize -eq 65536)
-    $throughputOk = if ($isTarget) {
-        $summary.ThroughputChangeRatio -ge ($MinGainPercent / 100.0)
-    }
-    else {
-        $summary.ThroughputChangeRatio -ge -0.05
-    }
-
-    $latencyOk = (
-        $summary.BaselineDeliveryP99Microseconds -le 0 -or
-        $summary.DeliveryP99Ratio -le
-            (1 + ($MaxDeliveryP99RegressionPercent / 100.0)))
-    $integrityOk = (
-        $summary.Failures -eq 0 -and
-        $summary.MissingDeliveryMessages -eq 0 -and
-        $summary.SequenceRegressions -eq 0 -and
-        $summary.DuplicateDeliveryMessages -eq 0)
-    $passed = $throughputOk -and $latencyOk -and $integrityOk
+    $passed = [bool]$summary.Passed
     if (-not $passed) {
         $anyFailed = $true
     }
@@ -203,6 +196,8 @@ foreach ($cell in $cells) {
         BaselineDeliveryP99 = [math]::Round($summary.BaselineDeliveryP99Microseconds, 1)
         CandidateDeliveryP99 = [math]::Round($summary.CandidateDeliveryP99Microseconds, 1)
         DeliveryP99Ratio = [math]::Round($summary.DeliveryP99Ratio, 3)
+        ThroughputMetric = $summary.ThroughputMetric
+        DrainRatio = [math]::Round($summary.DrainRatio, 3)
         BaselineBrokerCpuMs = [math]::Round((Get-Median @($baselineRounds |
             ForEach-Object { $_.BrokerObservation.TotalProcessorMilliseconds })), 1)
         CandidateBrokerCpuMs = [math]::Round((Get-Median @($candidateRounds |

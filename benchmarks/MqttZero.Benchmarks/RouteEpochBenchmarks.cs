@@ -71,7 +71,6 @@ public class RouteEpochBenchmarks : IDisposable
             _epoch,
             ExactTopic,
             null,
-            _cursors,
             1,
             _lanes[0]).TotalDeliveryCount;
     }

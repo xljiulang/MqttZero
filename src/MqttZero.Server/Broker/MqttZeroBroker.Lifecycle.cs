@@ -3,6 +3,7 @@ using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Clients;
 using MqttZero.Server.Egress;
+using MqttZero.Server.Retained;
 using MqttZero.Server.Routing;
 using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
@@ -40,11 +41,10 @@ public sealed partial class MqttZeroBroker
                 throw new InvalidOperationException("The MQTTZero broker is stopping.");
             }
 
-            Volatile.Write(ref _fanoutFailed, 0);
             int shardCount = MqttZeroShardCountResolver.Resolve(
                 _options.EventLoopShardCount);
             _sessionShardMap = new MqttZeroSessionShardMap(shardCount);
-            _routeEpochs.Reset(MqttZeroRouteEpoch.Empty);
+            _routeEpochs.ResetToEmpty();
             _sharedGroupCursors.PruneTo([]);
             int shardQueueCapacity = Math.Max(
                 1024,
@@ -52,7 +52,10 @@ public sealed partial class MqttZeroBroker
             MqttZeroShardSet shardSet = new(
                 shardCount,
                 shardQueueCapacity,
-                _fanoutDiagnostics);
+                _fanoutDiagnostics,
+                _timeProvider,
+                _options.KeepAliveCheckInterval,
+                ProcessTimerNodeAsync);
             MqttZeroRoutePlannerLanes? routePlannerLanes = null;
             MqttZeroRoutePlanBufferPool? qosZeroPlanBuffers = null;
             try
@@ -74,9 +77,6 @@ public sealed partial class MqttZeroBroker
                 _connectionsDrained = CreateDrainSignal();
                 Volatile.Write(ref _stopping, 0);
                 Volatile.Write(ref _state, (int)MqttZeroBrokerState.Running);
-                _maintenanceCancellation = new CancellationTokenSource();
-                _maintenanceTask = RunMaintenanceAsync(
-                    _maintenanceCancellation.Token);
             }
             catch
             {
@@ -114,6 +114,13 @@ public sealed partial class MqttZeroBroker
 
             Volatile.Write(ref _stopping, 1);
             Volatile.Write(ref _state, (int)MqttZeroBrokerState.Stopping);
+            MqttZeroShardSet? activeShards =
+                Volatile.Read(ref _shardSet);
+            if (activeShards != null)
+            {
+                await activeShards.StopTimersAsync().ConfigureAwait(false);
+            }
+
             CancellationTokenSource[] acceptedConnections;
             lock (_sessionGate)
             {
@@ -131,36 +138,12 @@ public sealed partial class MqttZeroBroker
                 }
             }
 
-            if (_maintenanceCancellation != null)
-            {
-                await _maintenanceCancellation.CancelAsync().ConfigureAwait(false);
-            }
-
-            if (_maintenanceTask != null)
-            {
-                try
-                {
-                    await _maintenanceTask.ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                }
-            }
-
-            _maintenanceCancellation?.Dispose();
-            _maintenanceCancellation = null;
-            _maintenanceTask = null;
-
             foreach (MqttZeroSessionState session in _sessions.Values)
             {
-                MqttZeroClientConnection? connection;
-                MqttZeroEgressActor? pump;
-                lock (session.SyncRoot)
-                {
-                    connection = session.Connection;
-                    pump = session.Egress;
-                    session.Egress = null;
-                }
+                MqttZeroClientConnection? connection =
+                    session.Connection;
+                MqttZeroSessionEgress? pump =
+                    session.TakeEgress();
 
                 if (pump != null)
                 {
@@ -201,6 +184,15 @@ public sealed partial class MqttZeroBroker
             MqttZeroShardSet? shardSet = _shardSet;
             if (shardSet != null)
             {
+                foreach (MqttZeroSessionState session in _sessions.Values)
+                {
+                    MqttZeroSessionEgress? pump =
+                        session.TakeEgress();
+                    await StopEgressAsync(pump).ConfigureAwait(false);
+                }
+
+                await ReleaseAllSessionMessagesOnShardsAsync(
+                    cancellationToken).ConfigureAwait(false);
                 await shardSet.DisposeAsync().ConfigureAwait(false);
                 _shardSet = null;
             }
@@ -215,29 +207,17 @@ public sealed partial class MqttZeroBroker
             _routePlannerLanes = null;
             routePlannerLanes?.Dispose();
 
-            foreach (MqttZeroSessionState session in _sessions.Values)
-            {
-                MqttZeroEgressActor? pump;
-                lock (session.SyncRoot)
-                {
-                    pump = session.Egress;
-                    session.Egress = null;
-                }
-
-                await StopEgressAsync(pump).ConfigureAwait(false);
-                ReleaseSessionMessages(session);
-            }
-
             foreach (string topic in _retainedMessages.Keys)
             {
-                RemoveRetainedMessage(topic);
+                MqttZeroRetainedMessage? removed =
+                    RemoveRetainedMessageCore(topic);
+                removed?.Release();
             }
 
             _sessions.Clear();
             _sessionShardMap = null;
-            _routeEpochs.Reset(MqttZeroRouteEpoch.Empty);
+            _routeEpochs.ResetToEmpty();
             _sharedGroupCursors.PruneTo([]);
-            _deadlines.Clear();
             Volatile.Write(ref _state, (int)MqttZeroBrokerState.Stopped);
         }
         finally
@@ -250,13 +230,7 @@ public sealed partial class MqttZeroBroker
     {
         foreach (MqttZeroSessionState session in _sessions.Values)
         {
-            MqttZeroClientConnection? connection;
-            lock (session.SyncRoot)
-            {
-                connection = session.Connection;
-            }
-
-            connection?.Abort();
+            session.Connection?.Abort();
         }
     }
 

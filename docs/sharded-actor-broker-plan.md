@@ -2,30 +2,39 @@
 
 ## 状态
 
-- 状态：Phase 2 部分完成；统一 Connection Writer 实验已否决；
-  Shard 公平调度与自适应 Egress 待实施
-- 目标分支：`perf/egress-actor-closure`
+- 状态：Phase 2、5、6、8 的架构闭环已在实验分支完成；正确性、分配、构建和
+  供应链门禁通过；同日同机性能回归门禁未通过，因此分支被阻断，不能合并或发布。
+- 当前分支：`refactor/shard-owned-egress-timers`
 - 目标框架：`net10.0`
 - 记录日期：2026-11-26
-- 下一步计划：
-  `docs/superpowers/plans/2026-11-26-egress-fairness-adaptive-recovery.md`
+- 当前证据：
+  `perf/baseline/shard-owned-egress-timers-2026-11-26.md`、
+  `perf/baseline/shard-owned-egress-ab-investigation-2026-11-26.md`
+- 下一步：QoS0/QoS1 热路径已解耦并恢复吞吐/分配，但 QoS0 尾延迟、QoS0/100/8 KiB
+  吞吐和 QoS2 尾延迟仍未过门禁。需要先用更长窗口复核这些单元格；门禁通过前不合并
+  `master`，不提升版本。
 
 > 本文保留总体架构设计和历史任务追踪。当前可执行顺序、前置门禁和停止条件
-> 以上述新计划为准；下方未勾选历史项不应在没有新计划授权时直接恢复执行。
+> 以上述跨 Shard PUBLISH 根因为准；下方未勾选历史项不应在没有新证据和新计划授权时直接恢复执行。
 
 ## 背景与目标
 
-当前实现的编解码、消息 Lease、常规 Topic Trie 和稳态零分配路径已经具备较好基础。以下是本计划立项时识别的主要瓶颈，其中部分已由 Phase 1、3、4 关闭：
+当前实现的编解码、消息 Lease、常规 Topic Trie 和稳态零分配路径已经具备较好基础。
+以下是本计划立项时识别的主要瓶颈，其中 Phase 1、2、3、4、5、6 的已实施部分关闭
+了 Egress 所有权、全局 Deadline 扫描和 Session 锁问题：
 
-- Egress 状态分散在 Broker Delivery、Egress Actor 和 ClientConnection：
-  Pending/Inflight 选择、调度、编码写入和 Flush 生命周期尚未由一个所有者闭环管理。
+- Egress 状态曾分散在 Broker Delivery、Egress Actor 和 ClientConnection；
+  现已收敛到每 Session 一个 `MqttZeroSessionEgress`。
 - 单发布者通常固定在一个 Inbound Dispatcher Worker 中，无法利用全部核心完成扇出。
 - 订阅变更会遍历并重建全部 Session 路由。
 - 共享订阅和 Retained 订阅匹配仍包含线性扫描。
 - 每个 Session 和连接存在与流量无关的固定大数组分配。
-- KeepAlive、Will、Session 和 Retained 清理每 500 ms 全量扫描。
+- KeepAlive、Will、Session 和 Retained 清理曾经每 500 ms 全量扫描；现已改为
+  每 Shard 一个分层时间轮。
 
-最终架构目标仍是“固定 Shard 所有权 + 单连接 Egress Actor + 不可变路由快照”，并通过同机 MQTTZero 回归基线和按单元格的 MQTTnet 对比验证性能。
+架构目标已调整为“固定 Shard 所有权 + 每 Session Session Egress + 每 Shard 时间轮 +
+不可变路由快照”。实现先以确定性所有权和去锁为目标，性能仍必须通过同机 MQTTZero
+回归基线和按单元格的 MQTTnet 对比验证。
 
 单进程 100,000 连接容量验证暂不纳入本轮验收，但新架构不得重新引入明显的固定内存和全量扫描瓶颈。
 
@@ -93,34 +102,32 @@
 - [ ] CONNECT 前连接暂由 Ingress Shard 处理，解析 Client ID 后将连接 Actor 转移到 Session Shard。
 - [ ] Kestrel `SocketTransportOptions.IOQueueCount` 与 Broker Shard 数对齐，但保持两套调度器职责分离。
 
-### Phase 2：单连接 Egress Actor
+### Phase 2：Session-scoped Egress 所有权
 
-> 当前状态：部分完成。现有 Egress Actor 尚未独占 Session Pending、Inflight、
-> 编码、PipeWriter 写入和 Flush 生命周期的完整发送闭环。统一 Connection
-> Writer 实验提高了目标扇出单元格，但使单订阅 64 KiB 吞吐退化超过门禁，
-> 实现已删除。后续只允许在单一 Egress 所有者内实现 Direct/Backlog 双模式，
-> 不得再次用一个 Writer 策略替换所有发送路径。
+> 当前状态：架构闭环已完成。旧 `MqttZeroEgressActor` 已删除，
+> `MqttZeroSessionEgress` 成为 Session Pending、Inflight、控制帧顺序、编码写入和
+> Flush 生命周期的唯一所有者。统一 Connection Writer、强制公平和 Direct/Backlog
+> 实验均未通过性能门禁，生产实现已删除。
 
-- [ ] 先修正 Benchmark Client、发布调用延迟、端到端投递延迟和测量后排空口径。
-- [ ] 为 Shard 高/低优先级队列实现有界公平调度，防止持续 Fanout 饿死 Egress。
-- [ ] 增加高优先级与低优先级队列等待年龄、饥饿和 Flush 等待诊断。
-- [ ] 将 Pending、Inflight、控制包顺序、编码写入和 Flush 收敛为一个逻辑所有者；
-  旧 Pump/Writer 不得作为并行生产路径保留。
-- [ ] 在 Egress Actor 内提供 Direct/Backlog 两种互斥执行策略。
-- [ ] Egress 维护控制帧优先队列和待发送数据状态。
-- [ ] 控制帧只在完整 MQTT 包边界插入。
-- [ ] 数据批次同时受字节数、消息数和持续时间限制。
-- [ ] 存在控制帧时，数据批次在下一包边界结束。
-- [ ] `FlushAsync` 同步完成时继续发送。
-- [ ] `FlushAsync` 未完成时设置 `flushPending`，注册完成回调并 Post 回同一 Shard。
-- [ ] 不使用统一常驻 Writer；Backlog 模式只在存在可测积压时启用。
-- [ ] 删除连接向 Egress 的第二次消息复制和第二次队列交接。
-- [ ] 消息从 Session Pending 直接进入发送批次。
-- [ ] 保留 `MaxInflight`、Receive Maximum、QoS 1/2 Inflight、DUP、重连恢复、过期和队列驱逐语义。
-- [ ] 保留 PUBACK 与订阅者网络 Flush 解耦；发布者确认等待持久化入站接受，不等待全部订阅者发送完成。
+- [x] 修正 Benchmark Client、发布调用延迟、端到端投递延迟和测量后排空口径。
+- [x] 为 Shard 高/低优先级队列提供调度、背压、停止和诊断能力；强制公平实验不进入生产路径。
+- [x] 将 Pending、Inflight、控制包顺序、编码写入和 Flush 收敛到
+  `MqttZeroSessionEgress`；旧 Pump/Writer 不作为并行生产路径保留。
+- [x] Egress 维护控制帧优先队列和待发送数据状态。
+- [x] 控制帧只在完整 MQTT 包边界插入。
+- [x] 数据批次同时受字节数、消息数和持续时间限制。
+- [x] 存在控制帧时，数据批次在下一包边界结束。
+- [x] `FlushAsync` 同步完成时继续发送；未完成时进入单一 `FlushPending` 生命周期。
+- [x] 消息从 Session Pending 直接进入发送批次，不增加第二次消息复制或队列交接。
+- [x] 保留 `MaxInflight`、Receive Maximum、QoS 1/2 Inflight、DUP、重连恢复、过期和队列驱逐语义。
+- [x] 保留 PUBACK 与订阅者网络 Flush 解耦；发布者确认等待持久化入站接受，不等待全部订阅者发送完成。
+- [ ] 同机性能矩阵恢复到旧基线 `5%` 内，并定位当前吞吐回退。
 
-执行顺序、停止条件和验收数据见
-`docs/superpowers/plans/2026-11-26-egress-fairness-adaptive-recovery.md`。
+> A/B 已完成：首个主要吞吐回退为 `d14f433`。该提交在连接读取线程与 Session
+> Shard 之间逐 PUBLISH 创建 `MqttZeroShardInvocation<T>`、TaskCompletionSource
+> 和异步续接。后续 `6eca005` 去锁与 `ec8ba3f` 连接循环合并没有复现主要吞吐
+> 回退。QoS0/QoS1 修复已消除对应热路径分配，并将 QoS0/100/32 B 从约 `0.66x`
+> 恢复到 `1.09x`；剩余门禁集中在 QoS0 尾延迟、QoS0/100/8 KiB 和 QoS2 尾延迟。
 
 ### Phase 3：内存密度与单 Slab Lease
 
@@ -163,25 +170,29 @@
 
 ### Phase 5：时间轮与生命周期
 
-- [ ] 每个 Shard 持有分层时间轮。
-- [ ] 时间轮管理 KeepAlive、Will Delay、Session Expiry、Message Expiry 和 Retained Expiry。
-- [ ] 每个 Session 保存 Deadline 原子字段和 Timer Version。
-- [ ] 收到数据只更新 Deadline，不立即重排 Timer。
-- [ ] 到期槽触发时若 Deadline 已变化，则按新值重新挂入。
-- [ ] `KeepAliveCheckInterval` 继续作为基础 Tick，默认 `500 ms`。
-- [ ] 不再遍历全部 Session 或 Retained。
-- [ ] Broker Stop 按“停止接收新连接 -> 排空 Scheduled 工作 -> 关闭 Actor -> 释放 Lease/Buffer/Store 状态”的顺序停止全部 Shard。
-- [ ] 会话接管、断线、Will 和 Store 失败均通过 Post 回 Session Shard 完成。
-- [ ] 禁止跨 Shard 直接修改 Session 字段。
+> 当前状态：已完成。每个 Shard 拥有一个四层、每层 512 槽的侵入式时间轮；全局
+> Deadline Queue、全局维护扫描和 `PeriodicTimer` 已删除。
+
+- [x] 每个 Shard 持有分层时间轮。
+- [x] 时间轮管理 KeepAlive、Will Delay、Session Expiry、Message Expiry 和 Retained Expiry。
+- [x] 到期节点使用版本号和侵入式链表，不创建逐消息 Task 或 Timer。
+- [x] 到期槽触发时若 Deadline 已变化，则按新值重新挂入。
+- [x] `KeepAliveCheckInterval` 继续作为基础 Tick，默认 `500 ms`。
+- [x] 不再遍历全部 Session 或 Retained。
+- [x] Broker Stop 停止 Shard ticker、排空 Scheduled 工作并释放 Timer/Lease/Buffer 状态。
+- [x] 会话接管、断线、Will 和 Store 失败均通过所属 Session Shard 完成。
+- [x] 禁止跨 Shard 直接修改 Session 字段。
 
 ### Phase 6：扩展语义与兼容路径
 
-- [ ] 异步拦截器和 Observer 在 Shard 外执行，完成后将结果 Post 回原 Shard。
-- [ ] 扩展调用 Broker API 时不得造成 Shard 自等待死锁。
-- [ ] 保持拦截器顺序、重入、异常隔离、Store Write-Through 和现有 ACK 时序。
-- [ ] 无 Store、无 Observer、无拦截器时继续使用专用零分配快路径。
-- [ ] 有扩展时允许额外对象分配。
-- [ ] TLS、WebSocket、MQTT 5 属性、QoS 2、Session Takeover、Message Expiry 和 Retained 行为全部回归。
+> 当前状态：现有扩展和真实传输语义已通过完整回归。当前阻断点是性能，不是协议或
+> 扩展兼容性。
+
+- [x] 扩展调用 Broker API 时不得造成 Shard 自等待死锁。
+- [x] 保持拦截器顺序、重入、异常隔离、Store Write-Through 和现有 ACK 时序。
+- [x] 无 Store、无 Observer、无拦截器时继续使用专用零分配快路径。
+- [x] 有扩展时允许额外对象分配。
+- [x] TLS、WebSocket、MQTT 5 属性、QoS 2、Session Takeover、Message Expiry 和 Retained 行为全部回归。
 
 ### Phase 7：Kestrel 与 Socket A/B
 
@@ -198,14 +209,43 @@
 
 ### Phase 8：删除旧架构与发布门禁
 
-- [ ] 删除 `MqttZeroInboundDispatcher`。
-- [ ] 删除 `MqttZeroSessionOutboundPump`。
-- [ ] 删除 `MqttZeroConnectionWriter`。
-- [ ] 删除旧 Route Snapshot Builder。
-- [ ] 删除临时兼容开关。
-- [ ] 更新 README、配置文档、性能基线和架构说明。
-- [ ] 普通发布前通过功能、回归和供应链门禁。
+- [x] 删除 `MqttZeroEgressActor`、全局 Deadline Queue 和仅测试使用的旧出站发送路径。
+- [x] 删除 Session `SyncRoot`、Session Mutation Lock 和 Session Mutation Lease。
+- [x] 删除临时 Egress、Timer 和 Session-lock 兼容开关。
+- [x] 更新架构、性能定位和基准方法文档。
+- [x] 普通发布前功能、回归、分配和供应链门禁通过。
+- [ ] 同机性能矩阵恢复到旧基线 `5%` 内。
 - [ ] 只对实际通过三次中位数验证的单元格和指标发布性能声明。
+- [ ] 完成性能调查后才允许合并 `master` 或提升版本。
+
+## Phase 9：下一阶段架构提案（未启动）
+
+> 状态：未启动。本节只固定提案与准入条件，不代表已排期。Phase 9 的任何代码
+> 都不得与当前 QoS 2 尾延迟修复、测量口径修正共用一个分支或一次 A/B。
+
+评审（`docs/superpowers/reviews/2026-11-27-shard-owned-egress-architecture-review.md`）
+提出四项，当前状态如下：
+
+| 提案 | 状态 | 说明 |
+|---|---|---|
+| Control/Data Fair Egress | 已完成 | `MqttZeroEgressFairness`（每轮控制帧硬预算 64）已进入生产路径 |
+| Shard-Owned Timer Diagnostics | 降级为约束 | `MqttZeroShardTimerWheel.GetSnapshot` 只允许在所属 Shard 调用；当前无生产调用者，等 Dashboard 或内存探针真正需要时再做 |
+| 单目标 Fast Fanout | 待立项 | 目前没有 `TotalDeliveryCount == 1` 的快捷路径，仍走完整的 per-shard batch 加统一完成信号 |
+| 连接级 Publish Sequencer | 待立项 | 当前由 `MqttZeroQosZeroDirectRouting` 的 `pendingPublishCount == 0` 闸门做最小安全替代 |
+
+准入条件与判定格：
+
+| 提案 | 前置条件 | 判定格 | 分支策略 |
+|---|---|---|---|
+| 单目标 Fast Fanout | 测量口径修正落地（`DrainRatio`、延迟档 `max-pending`） | QoS 1 / 1 / 64 KiB、QoS 0 / 1 / 32 B | 独立分支、独立 A/B |
+| Publish Sequencer | 同上；且必须在同一次提交内删除 `pendingPublishCount == 0` 闸门 | QoS 0 / 1 / 32 B、QoS 1 / 1 / 64 KiB、混合 QoS 顺序矩阵 | 独立分支、独立 A/B |
+
+硬性约定：
+
+- 两项都改 QoS 0 最热路径，必须一次只改一项，各跑一次同机 A/B，不合并成一次提交。
+- Sequencer 是现有闸门的替代实现，不允许两套顺序规则并存。
+- 两项都必须先补 `perf/verify-allocation.ps1` 的零分配断言和顺序用例，再进 A/B。
+- 未达到吞吐 `>= 0.95x`、p99 `<= 1.05x` 的提案按既有规则删除，不留实验开关。
 
 ## 测试计划
 

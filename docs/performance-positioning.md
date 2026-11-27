@@ -34,21 +34,54 @@ Known gaps include large-payload high-fanout throughput and tail latency. Those
 cells are recorded in `perf/baseline` and are not implied by the general
 zero-allocation claim.
 
-## Next Architecture Step
+## Current Shard-Owned Egress Status
 
-The complete connection-writer experiment was measured and rejected. It
-improved QoS 1 / 100 subscribers / 64 KiB, but regressed single-subscriber
-64-KiB QoS 0 and QoS 1 throughput beyond the five-percent gate. The production
-implementation was removed.
+The `refactor/shard-owned-egress-timers` branch implements:
 
-The next track is defined in
-`docs/superpowers/plans/2026-11-26-egress-fairness-adaptive-recovery.md`:
+- one `MqttZeroSessionEgress` as the sole outbound owner for each Session;
+- one four-level hierarchical timer wheel per Shard;
+- Shard-confined Session mutation with lock-free management snapshots;
+- removal of Session `SyncRoot`, mutation locks and mutation leases.
 
-1. Correct the benchmark payload-copy and delivery-drain contract.
-2. Guarantee fair progress between high-priority Fanout work and low-priority
-   Egress work.
-3. Only if measured evidence still requires it, add Direct and Backlog modes
-   under one Egress owner instead of replacing every path with one Writer.
+Correctness, allocation, Release build, formatting, supply-chain and NuGet
+consumer gates pass. The branch is nevertheless blocked by the ordinary release
+gate: on the same machine and date, several MQTTZero development-matrix cells
+retained less than 95 percent of the preceding baseline throughput.
+
+Alternating same-machine A/B has now isolated the dominant regression to
+`d14f433 refactor: move session mutations onto owning shards`. Every network
+PUBLISH crossing to its Session Shard creates a new
+`MqttZeroShardInvocation<T>`, `TaskCompletionSource<T>` and async execution
+state, adding about 2.2 MiB per 1,000 QoS 0 publishes at 100 subscribers.
+`d424810 -> d14f433` retains `0.862x` throughput for QoS 0 / 1 / 32 B and
+`0.819x` for QoS 0 / 100 / 32 B over five alternating rounds.
+
+The later `6eca005` de-lock commit is neutral, and direct five-round testing
+did not confirm `ec8ba3f` as a throughput cause. Master-only q0/1/32-B drift is
+small and not independently attributed to a single commit.
+
+The follow-up hotpath repair restores QoS0/QoS1 throughput and per-message
+allocation parity with `d424810`, including QoS1 / 100 / 64 KiB. It does not
+pass the full gate: QoS0 tails, QoS0 / 100 / 8 KiB throughput and several QoS2
+tails remain outside the five-percent limits.
+
+The branch is not merged, no package version was raised and no performance
+leadership claim is made. Evidence and raw results are recorded in
+`perf/baseline/shard-owned-egress-timers-2026-11-26.md` and
+`perf/baseline/shard-owned-egress-ab-investigation-2026-11-26.md`.
+
+## Next Performance Step
+
+The next step is to repair the identified cross-Shard command path:
+
+1. Validate the remaining QoS0 and QoS2 tail cells with longer end-to-end
+   measurement windows before changing their scheduling again.
+2. Keep QoS1 and the pooled QoS0/PUBACK paths unchanged unless a repeatable
+   exception is found.
+3. Do not pipeline QoS2 PUBLISH unless the full PUBREC/PUBREL persistence and
+   ordering suite remains green.
+4. Re-run the debug matrix and strict p99 matrix before reopening the release
+   gate.
 
 Development regression checks may use two repetitions to keep iteration cost
 bounded. Final performance claims and published comparison matrices still
@@ -61,13 +94,7 @@ Universal MQTTnet superiority across every benchmark cell remains outside the
 ordinary release gate. Performance claims are limited to measured cells and
 named metrics.
 
-## Current Hardening Track
+## Current Decision
 
-The post-investigation code review is recorded in
-`docs/superpowers/reviews/2026-11-26-master-hotpath-code-review.md`.
-
-The next implementation plan is
-`docs/superpowers/plans/2026-11-26-master-hotpath-hardening.md`. It prioritizes
-Lease-release correctness, Shard-confined Egress lifecycle, benchmark sampling
-integrity and default-disabled diagnostics before any new performance
-experiment.
+The branch remains ineligible for integration. QoS0/QoS1 recovery is
+significant, but the complete performance gate is still blocked.

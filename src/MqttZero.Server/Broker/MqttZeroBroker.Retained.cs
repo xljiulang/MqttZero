@@ -22,49 +22,126 @@ public sealed partial class MqttZeroBroker
     {
         if (!_retainedMessageStore.IsEnabled)
         {
-            StoreRetainedMessageInMemory(lease);
+            await StoreRetainedMessageInMemoryAsync(
+                lease,
+                cancellationToken).ConfigureAwait(false);
             return;
         }
 
+        string topicKey = Encoding.UTF8.GetString(lease.Topic.Span);
+        DateTimeOffset? expiresAt = lease.ExpiresAt;
+        MqttZeroRetainedMessage? removed = null;
+        MqttZeroRetainedMessage? replaced = null;
+        bool stored = false;
         await _retainedMutationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            string topicKey = Encoding.UTF8.GetString(lease.Topic.Span);
             if (lease.PayloadSequence.IsEmpty)
             {
                 await DeleteRetainedAsync(topicKey, cancellationToken)
                     .ConfigureAwait(false);
-                RemoveRetainedMessage(topicKey);
-                return;
+                removed = RemoveRetainedMessageCore(topicKey);
             }
-
-            lease.EnsureOwned();
-            ValidateRetainedCapacity(topicKey, lease.TopicSequence.Length + lease.PayloadSequence.Length);
-            DateTimeOffset? expiresAt = lease.ExpiresAt;
-            await SaveRetainedAsync(lease, expiresAt, cancellationToken).ConfigureAwait(false);
-            StoreRetainedMessageInMemory(lease, topicKey, expiresAt);
+            else
+            {
+                lease.EnsureOwned();
+                ValidateRetainedCapacity(
+                    topicKey,
+                    lease.TopicSequence.Length +
+                        lease.PayloadSequence.Length);
+                await SaveRetainedAsync(
+                    lease,
+                    expiresAt,
+                    cancellationToken).ConfigureAwait(false);
+                replaced = StoreRetainedMessageInMemoryCore(
+                    lease,
+                    topicKey,
+                    expiresAt);
+                stored = true;
+            }
         }
         finally
         {
             _retainedMutationGate.Release();
         }
+
+        if (removed != null)
+        {
+            try
+            {
+                await CancelRetainedDeadlineAsync(
+                    topicKey,
+                    removed,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                removed.Release();
+            }
+
+            return;
+        }
+
+        if (!stored)
+        {
+            return;
+        }
+
+        await ScheduleRetainedDeadlineAsync(
+            topicKey,
+            expiresAt,
+            cancellationToken).ConfigureAwait(false);
+        if (replaced != null)
+        {
+            try
+            {
+                await CancelRetainedDeadlineAsync(
+                    topicKey,
+                    replaced,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                replaced.Release();
+            }
+        }
     }
 
-    private void StoreRetainedMessageInMemory(MqttZeroMessageLease lease)
+    private async ValueTask StoreRetainedMessageInMemoryAsync(
+        MqttZeroMessageLease lease,
+        CancellationToken cancellationToken)
     {
         string topicKey = Encoding.UTF8.GetString(lease.Topic.Span);
         if (lease.PayloadSequence.IsEmpty)
         {
-            RemoveRetainedMessage(topicKey);
+            await RemoveRetainedMessageAsync(
+                topicKey,
+                cancellationToken).ConfigureAwait(false);
             return;
         }
 
         lease.EnsureOwned();
         DateTimeOffset? expiresAt = lease.ExpiresAt;
-        StoreRetainedMessageInMemory(lease, topicKey, expiresAt);
+        MqttZeroRetainedMessage? replaced =
+            StoreRetainedMessageInMemoryCore(
+                lease,
+                topicKey,
+                expiresAt);
+        await ScheduleRetainedDeadlineAsync(
+            topicKey,
+            expiresAt,
+            cancellationToken).ConfigureAwait(false);
+        if (replaced != null)
+        {
+            await CancelRetainedDeadlineAsync(
+                topicKey,
+                replaced,
+                cancellationToken).ConfigureAwait(false);
+            replaced.Release();
+        }
     }
 
-    private void StoreRetainedMessageInMemory(
+    private MqttZeroRetainedMessage? StoreRetainedMessageInMemoryCore(
         MqttZeroMessageLease lease,
         string topicKey,
         DateTimeOffset? expiresAt)
@@ -72,12 +149,15 @@ public sealed partial class MqttZeroBroker
         MqttZeroRetainedMessage? replaced;
         lock (_retainedGate)
         {
-            _retainedMessages.TryGetValue(topicKey, out MqttZeroRetainedMessage? existing);
+            _retainedMessages.TryGetValue(
+                topicKey,
+                out MqttZeroRetainedMessage? existing);
             if (existing == null &&
                 _options.MaxRetainedMessages > 0 &&
                 _retainedMessages.Count >= _options.MaxRetainedMessages)
             {
-                throw new InvalidOperationException("The retained message count limit was reached.");
+                throw new InvalidOperationException(
+                    "The retained message count limit was reached.");
             }
 
             long previousBytes = existing?.ByteLength ?? 0;
@@ -85,10 +165,12 @@ public sealed partial class MqttZeroBroker
                 lease.TopicSequence.Length +
                 lease.PropertiesSequence.Length +
                 lease.PayloadSequence.Length;
-            long retainedBytes = _retainedBytes - previousBytes + replacementBytes;
+            long retainedBytes =
+                _retainedBytes - previousBytes + replacementBytes;
             if (retainedBytes > _options.MaxRetainedBytes)
             {
-                throw new InvalidOperationException("The retained message byte limit was reached.");
+                throw new InvalidOperationException(
+                    "The retained message byte limit was reached.");
             }
 
             MqttZeroRetainedMessage replacement = new(
@@ -107,8 +189,7 @@ public sealed partial class MqttZeroBroker
             replaced = existing;
         }
 
-        ScheduleRetainedDeadline(topicKey, expiresAt);
-        replaced?.Release();
+        return replaced;
     }
 
     private void ValidateRetainedCapacity(string topicKey, long replacementBytes)
@@ -131,7 +212,32 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    private void RemoveRetainedMessage(string topicKey)
+    private async ValueTask RemoveRetainedMessageAsync(
+        string topicKey,
+        CancellationToken cancellationToken)
+    {
+        MqttZeroRetainedMessage? removed =
+            RemoveRetainedMessageCore(topicKey);
+        if (removed == null)
+        {
+            return;
+        }
+
+        try
+        {
+            await CancelRetainedDeadlineAsync(
+                topicKey,
+                removed,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            removed.Release();
+        }
+    }
+
+    private MqttZeroRetainedMessage? RemoveRetainedMessageCore(
+        string topicKey)
     {
         MqttZeroRetainedMessage? removed = null;
         lock (_retainedGate)
@@ -147,8 +253,7 @@ public sealed partial class MqttZeroBroker
             }
         }
 
-        RemoveRetainedDeadline(topicKey);
-        removed?.Release();
+        return removed;
     }
 
     private void MatchRetainedMessages(

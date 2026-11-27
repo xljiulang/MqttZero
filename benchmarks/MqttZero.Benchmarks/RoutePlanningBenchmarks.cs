@@ -73,7 +73,6 @@ public class RoutePlanningBenchmarks : IDisposable
             _epoch,
             Topic,
             null,
-            _cursors,
             Shards,
             _lanes[0]).TotalDeliveryCount;
     }

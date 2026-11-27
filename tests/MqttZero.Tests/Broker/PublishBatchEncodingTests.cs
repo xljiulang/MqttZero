@@ -47,6 +47,50 @@ public sealed class PublishBatchEncodingTests
         }
     }
 
+    [Fact(Timeout = 5_000)]
+    public async Task DuplicateBatchSetsTheDupFlagOnEveryPublish()
+    {
+        List<MqttZeroQueuedMessage> messages = CreateMessages();
+        try
+        {
+            CapturingPipeWriter writer = new();
+            await using MqttZeroClientConnection connection =
+                CreateConnection(writer);
+
+            await connection.SendPublishBatchAsync(
+                messages,
+                TestContext.Current.CancellationToken,
+                duplicate: true);
+
+            Assert.Equal(1, writer.FlushCount);
+            byte[] bytes = writer.WrittenBytes.ToArray();
+            List<int> publishOffsets = [];
+            int offset = 0;
+            while (offset < bytes.Length)
+            {
+                Assert.Equal(0x30, bytes[offset] & 0xF0);
+                Assert.Equal(0x08, bytes[offset] & 0x08);
+                publishOffsets.Add(offset);
+                offset += MqttPacketCodec.TryGetPacketLength(
+                    new ReadOnlySequence<byte>(bytes, offset, bytes.Length - offset),
+                    out long packetLength,
+                    out _)
+                        ? (int)packetLength
+                        : throw new InvalidOperationException(
+                            "The encoded batch is malformed.");
+            }
+
+            Assert.Equal(messages.Count, publishOffsets.Count);
+        }
+        finally
+        {
+            for (int index = 0; index < messages.Count; index++)
+            {
+                messages[index].Release();
+            }
+        }
+    }
+
     [Fact]
     public void ExpiringMessageKeepsCachedEncodedLength()
     {

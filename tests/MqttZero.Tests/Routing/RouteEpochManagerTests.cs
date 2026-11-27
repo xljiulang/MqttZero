@@ -11,13 +11,14 @@ public sealed class RouteEpochManagerTests
     public void BuildAddAndBuildRemoveAreRelativeToCurrentEpoch()
     {
         MqttZeroRouteEpochManager manager = new();
+        MqttZeroRouteEpoch initial = manager.Current;
         MqttZeroSessionState session = new("subscriber");
         MqttZeroSubscription subscription = CreateSubscription("route/#");
 
         MqttZeroRouteEpoch added = manager.BuildAdd(
             [subscription],
             session);
-        manager.Publish(MqttZeroRouteEpoch.Empty, added);
+        manager.Publish(initial, added);
         MqttZeroRouteEpoch removed = manager.BuildRemove(
             [subscription],
             session);
@@ -31,19 +32,20 @@ public sealed class RouteEpochManagerTests
     public void PublishRejectsStaleReplacement()
     {
         MqttZeroRouteEpochManager manager = new();
+        MqttZeroRouteEpoch initial = manager.Current;
         MqttZeroSessionState session = new("subscriber");
         MqttZeroSubscription subscription = CreateSubscription("route/#");
         MqttZeroRouteEpoch first = manager.BuildAdd(
             [subscription],
             session);
-        manager.Publish(MqttZeroRouteEpoch.Empty, first);
+        manager.Publish(initial, first);
         MqttZeroRouteEpoch replacement = manager.BuildAdd(
             [CreateSubscription("route/+")],
             session);
 
         Assert.Throws<InvalidOperationException>(() =>
         {
-            manager.Publish(MqttZeroRouteEpoch.Empty, replacement);
+            manager.Publish(initial, replacement);
         });
         Assert.Same(first, manager.Current);
         Assert.NotSame(replacement, manager.Current);

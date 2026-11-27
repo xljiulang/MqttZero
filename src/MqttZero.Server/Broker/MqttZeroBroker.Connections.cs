@@ -2,6 +2,7 @@ using MqttZero.Server.Interceptors;
 using MqttZero.Memory;
 using MqttZero.Protocol;
 using MqttZero.Server.Routing;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using MqttZero.Server.Storage;
 using System.Buffers;
@@ -171,26 +172,26 @@ public sealed partial class MqttZeroBroker
                 return false;
             }
 
-            InboundBufferAction publishAction =
+            MqttZeroInboundBufferAction publishAction =
                 await ProcessFastPublishAsync(context).ConfigureAwait(false);
-            if (publishAction == InboundBufferAction.Stop)
+            if (publishAction == MqttZeroInboundBufferAction.Stop)
             {
                 return false;
             }
 
-            if (publishAction == InboundBufferAction.Handled)
+            if (publishAction == MqttZeroInboundBufferAction.Handled)
             {
                 continue;
             }
 
-            InboundBufferAction acknowledgementAction =
+            MqttZeroInboundBufferAction acknowledgementAction =
                 await ProcessAcknowledgementAsync(context).ConfigureAwait(false);
-            if (acknowledgementAction == InboundBufferAction.Stop)
+            if (acknowledgementAction == MqttZeroInboundBufferAction.Stop)
             {
                 return false;
             }
 
-            if (acknowledgementAction == InboundBufferAction.Handled)
+            if (acknowledgementAction == MqttZeroInboundBufferAction.Handled)
             {
                 continue;
             }
@@ -225,9 +226,26 @@ public sealed partial class MqttZeroBroker
         return true;
     }
 
-    private async ValueTask<InboundBufferAction> ProcessFastPublishAsync(
+    private async ValueTask<MqttZeroInboundBufferAction> ProcessFastPublishAsync(
         AcceptedConnectionContext context)
     {
+        if (!context.Buffer.IsEmpty)
+        {
+            byte fixedHeader =
+                context.Buffer.Slice(0, 1).FirstSpan[0];
+            bool isQosZeroPublish =
+                (fixedHeader >> 4) == 0x03 &&
+                (fixedHeader & 0x06) == 0;
+            if (isQosZeroPublish &&
+                context.PendingPublishCount >=
+                    AcceptedConnectionContext.
+                        MaximumPendingPublishesInFlight)
+            {
+                await context.WaitForPendingPublishesAsync()
+                    .ConfigureAwait(false);
+            }
+        }
+
         if (context.Session == null ||
             context.Connection == null ||
             !MqttPublishPacketCodec.TryDecode(
@@ -235,10 +253,12 @@ public sealed partial class MqttZeroBroker
                 out MqttZeroPublishView publishView,
                 out long publishConsumed))
         {
-            return InboundBufferAction.NotHandled;
+            return MqttZeroInboundBufferAction.NotHandled;
         }
 
         MqttZeroClientConnection connection = context.Connection;
+        ushort publishPacketIdentifier =
+            publishView.PacketIdentifier;
         connection.MarkPacketReceived(
             _timeProvider,
             publishConsumed,
@@ -254,33 +274,128 @@ public sealed partial class MqttZeroBroker
                 bool stop = await RejectInvalidPublishAsync(
                     connection,
                     publishView.QualityOfServiceLevel,
-                    publishView.PacketIdentifier,
+                    publishPacketIdentifier,
                     reasonCode,
                     context.ConnectionLifetime.Token).ConfigureAwait(false);
                 context.Buffer = context.Buffer.Slice(publishConsumed);
                 return stop
-                    ? InboundBufferAction.Stop
-                    : InboundBufferAction.Handled;
+                    ? MqttZeroInboundBufferAction.Stop
+                    : MqttZeroInboundBufferAction.Handled;
             }
 
-            InboundBufferAction action = await ProcessOwnedPublishAsync(
-                context,
-                candidate,
-                publishView.PacketIdentifier).ConfigureAwait(false);
-            if (action == InboundBufferAction.Stop)
+            context.CurrentOwnedPublishLease = candidate;
+            context.CurrentOwnedPublishPacketIdentifier =
+                publishPacketIdentifier;
+            if (candidate.QualityOfServiceLevel ==
+                MqttQualityOfServiceLevel.AtMostOnce)
             {
-                return InboundBufferAction.Stop;
+                await OwnInboundLeaseAsync(
+                    candidate,
+                    context.ConnectionLifetime.Token).ConfigureAwait(false);
+                try
+                {
+                    if (CanRouteQosZeroDirectly(context, candidate))
+                    {
+                        _fanoutDiagnostics.RecordQosZeroRoute(direct: true);
+                        await RoutePublishLeaseFastAsync(
+                            context.Session!,
+                            connection,
+                            candidate,
+                            suppressPublisherAck: false,
+                            cancellationToken:
+                                context.ConnectionLifetime.Token,
+                            scheduleQosZeroWithoutWaiting: true)
+                            .ConfigureAwait(false);
+                        context.Buffer =
+                            context.Buffer.Slice(publishConsumed);
+                        return MqttZeroInboundBufferAction.Handled;
+                    }
+
+                    _fanoutDiagnostics.RecordQosZeroRoute(direct: false);
+                    MqttZeroEventLoop shard =
+                        TryPrepareFastPublish(
+                        context,
+                        context.Session,
+                        connection,
+                        candidate,
+                        publishPacketIdentifier,
+                        out MqttZeroInboundShardWork shardWork);
+                    if (!shard.TryEnqueue(shardWork))
+                    {
+                        try
+                        {
+                            await shard.EnqueueAsync(
+                                shardWork,
+                                context.ConnectionLifetime.Token)
+                                .ConfigureAwait(false);
+                        }
+                        catch
+                        {
+                            shardWork.Release();
+                            throw;
+                        }
+                    }
+                }
+                finally
+                {
+                    candidate.Release();
+                    context.CurrentOwnedPublishLease = null;
+                }
+
+                context.Buffer = context.Buffer.Slice(publishConsumed);
+                return MqttZeroInboundBufferAction.Handled;
+            }
+
+            if (candidate.QualityOfServiceLevel ==
+                    MqttQualityOfServiceLevel.AtLeastOnce &&
+                CanDispatchInbound)
+            {
+                await OwnInboundLeaseAsync(
+                    candidate,
+                    context.ConnectionLifetime.Token).ConfigureAwait(false);
+                MqttZeroInboundBufferAction qosOneAction =
+                    await ProcessQosOnePublishDirectAsync(
+                        context.Session!,
+                        connection,
+                        candidate,
+                        context.ConnectionLifetime.Token)
+                        .ConfigureAwait(false);
+                context.CurrentOwnedPublishLease = null;
+                if (qosOneAction == MqttZeroInboundBufferAction.Stop)
+                {
+                    return MqttZeroInboundBufferAction.Stop;
+                }
+
+                context.Buffer = context.Buffer.Slice(publishConsumed);
+                return MqttZeroInboundBufferAction.Handled;
+            }
+
+            MqttZeroInboundBufferAction action;
+            try
+            {
+                action = await context.InvokeShardCommandAsync(
+                    ShardSet[context.Session.ShardId],
+                    context.CachedOwnedPublishInvocation,
+                    context.ConnectionLifetime.Token).ConfigureAwait(false);
+            }
+            finally
+            {
+                context.CurrentOwnedPublishLease = null;
+            }
+            if (action == MqttZeroInboundBufferAction.Stop)
+            {
+                return MqttZeroInboundBufferAction.Stop;
             }
 
             context.Buffer = context.Buffer.Slice(publishConsumed);
-            return InboundBufferAction.Handled;
+            return MqttZeroInboundBufferAction.Handled;
         }
         catch (MqttZeroBufferPoolExhaustedException)
         {
             await connection.CloseAsync(
                 MqttReasonCode.QuotaExceeded,
                 context.ConnectionLifetime.Token).ConfigureAwait(false);
-            return InboundBufferAction.Stop;
+            return MqttZeroInboundBufferAction.Stop;
         }
     }
 
@@ -319,15 +434,61 @@ public sealed partial class MqttZeroBroker
         return true;
     }
 
-    private async ValueTask<InboundBufferAction> ProcessOwnedPublishAsync(
+    private async ValueTask<MqttZeroInboundBufferAction> ProcessOwnedPublishAsync(
         AcceptedConnectionContext context,
         MqttZeroMessageLease lease,
-        ushort inboundPacketIdentifier)
+        ushort inboundPacketIdentifier,
+        CancellationToken cancellationToken)
     {
-        MqttZeroClientConnection connection = context.Connection!;
-        MqttZeroSessionState session = context.Session!;
-        CancellationToken cancellationToken = context.ConnectionLifetime.Token;
         await OwnInboundLeaseAsync(lease, cancellationToken).ConfigureAwait(false);
+        return await ProcessOwnedPublishCoreAsync(
+            context.Session!,
+            context.Connection!,
+            lease,
+            inboundPacketIdentifier,
+            releaseLease: true,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask<MqttZeroInboundBufferAction>
+        ProcessQosOnePublishDirectAsync(
+        MqttZeroSessionState session,
+        MqttZeroClientConnection connection,
+        MqttZeroMessageLease lease,
+        CancellationToken cancellationToken)
+    {
+        bool transferred = false;
+        try
+        {
+            PublishDispatchResult result =
+                await DispatchQosOnePublishAsync(
+                    session,
+                    connection,
+                    lease,
+                    cancellationToken).ConfigureAwait(false);
+            transferred = result == PublishDispatchResult.Transferred;
+            return result == PublishDispatchResult.Stop
+                ? MqttZeroInboundBufferAction.Stop
+                : MqttZeroInboundBufferAction.Handled;
+        }
+        finally
+        {
+            if (!transferred)
+            {
+                lease.Release();
+            }
+        }
+    }
+
+    private async ValueTask<MqttZeroInboundBufferAction>
+        ProcessOwnedPublishCoreAsync(
+        MqttZeroSessionState session,
+        MqttZeroClientConnection connection,
+        MqttZeroMessageLease lease,
+        ushort inboundPacketIdentifier,
+        bool releaseLease,
+        CancellationToken cancellationToken)
+    {
         bool transferred = false;
         try
         {
@@ -339,7 +500,9 @@ public sealed partial class MqttZeroBroker
                     connection,
                     lease,
                     inboundPacketIdentifier,
-                    cancellationToken).ConfigureAwait(false);
+                    releaseSourceLease: releaseLease,
+                    cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
             }
             else if (lease.QualityOfServiceLevel ==
                     MqttQualityOfServiceLevel.AtLeastOnce &&
@@ -353,7 +516,7 @@ public sealed partial class MqttZeroBroker
                 transferred = result == PublishDispatchResult.Transferred;
                 if (result == PublishDispatchResult.Stop)
                 {
-                    return InboundBufferAction.Stop;
+                    return MqttZeroInboundBufferAction.Stop;
                 }
             }
             else
@@ -365,14 +528,199 @@ public sealed partial class MqttZeroBroker
                     cancellationToken).ConfigureAwait(false);
             }
 
-            return InboundBufferAction.Handled;
+            return MqttZeroInboundBufferAction.Handled;
         }
         finally
         {
-            if (!transferred)
+            if (releaseLease && !transferred)
             {
                 lease.Release();
             }
+        }
+    }
+
+    private MqttZeroEventLoop TryPrepareFastPublish(
+        AcceptedConnectionContext context,
+        MqttZeroSessionState session,
+        MqttZeroClientConnection connection,
+        MqttZeroMessageLease lease,
+        ushort packetIdentifier,
+        out MqttZeroInboundShardWork shardWork)
+    {
+        TaskCompletionSource completion = context.BeginPendingPublish();
+        MqttZeroInboundWork work = MqttZeroInboundWork.Rent(
+            lease,
+            session,
+            connection,
+            packetIdentifier,
+            context.CachedPendingPublishCompleted,
+            completion);
+        try
+        {
+            shardWork = MqttZeroInboundShardWork.Rent(
+                work,
+                context.CachedPendingPublishInvocation,
+                context.CachedInboundShardFailure);
+        }
+        catch
+        {
+            work.Release();
+            throw;
+        }
+
+        return ShardSet[session.ShardId];
+    }
+
+    private bool CanRouteQosZeroDirectly(
+        AcceptedConnectionContext context,
+        MqttZeroMessageLease lease)
+    {
+        bool anyStoreEnabled =
+            _sessionStore.IsEnabled ||
+            _messageStore.IsEnabled ||
+            _retainedMessageStore.IsEnabled;
+        bool anyExtensionRegistered =
+            _publishInterceptors.Length != 0 ||
+            _enqueueInterceptors.Length != 0 ||
+            _deliveryObservers.Length != 0;
+        return MqttZeroQosZeroDirectRouting.CanRoute(
+            context.PendingPublishCount,
+            lease.RetainFlag,
+            anyStoreEnabled,
+            anyExtensionRegistered);
+    }
+
+    private async ValueTask ProcessQueuedFastPublishAsync(
+        MqttZeroInboundWork work,
+        CancellationToken cancellationToken)
+    {
+        MqttZeroClientConnection? connection = work.SenderConnection;
+        try
+        {
+            MqttZeroInboundBufferAction action =
+                await ProcessOwnedPublishCoreAsync(
+                    work.Sender,
+                    connection ??
+                        throw new InvalidOperationException(
+                            "The fast publisher connection is unavailable."),
+                    work.Lease,
+                    checked((ushort)work.MessageId),
+                    releaseLease: false,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (action == MqttZeroInboundBufferAction.Stop)
+            {
+                await connection.CloseAsync(
+                    MqttReasonCode.UnspecifiedError,
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch
+        {
+            if (connection != null &&
+                !cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await connection.CloseAsync(
+                        MqttReasonCode.UnspecifiedError,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    connection.Abort();
+                }
+            }
+
+            throw;
+        }
+    }
+
+    private async ValueTask EnqueueAcknowledgementAsync(
+        AcceptedConnectionContext context,
+        MqttZeroSessionState session,
+        MqttZeroClientConnection connection,
+        MqttZeroAcknowledgementView acknowledgement,
+        CancellationToken cancellationToken)
+    {
+        TaskCompletionSource completion = context.BeginAcknowledgement();
+        MqttZeroAcknowledgementWork? work = null;
+        MqttZeroAcknowledgementShardWork? shardWork = null;
+        try
+        {
+            work = MqttZeroAcknowledgementWork.Rent(
+                session,
+                connection,
+                acknowledgement,
+                context.CachedAcknowledgementCompleted,
+                completion);
+            if (_fanoutDiagnostics.Enabled)
+            {
+                work.EnqueuedTimestampTicks =
+                    System.Diagnostics.Stopwatch.GetTimestamp();
+            }
+
+            shardWork = MqttZeroAcknowledgementShardWork.Rent(
+                work,
+                context.CachedAcknowledgementInvocation,
+                context.CachedInboundShardFailure);
+            MqttZeroEventLoop shard = ShardSet[session.ShardId];
+            if (!shard.TryEnqueue(shardWork))
+            {
+                await shard.EnqueueAsync(
+                    shardWork,
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch
+        {
+            if (shardWork != null)
+            {
+                shardWork.Release();
+            }
+            else if (work != null)
+            {
+                work.Release();
+            }
+
+            throw;
+        }
+    }
+
+    private async ValueTask ProcessQueuedAcknowledgementAsync(
+        MqttZeroAcknowledgementWork work,
+        CancellationToken cancellationToken)
+    {
+        if (work.EnqueuedTimestampTicks != 0)
+        {
+            _fanoutDiagnostics.RecordAcknowledgementQueue(
+                work.EnqueuedTimestampTicks);
+        }
+
+        try
+        {
+            await ProcessAcknowledgementCoreAsync(
+                work.Session,
+                work.Connection,
+                work.Acknowledgement,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await work.Connection.CloseAsync(
+                        MqttReasonCode.UnspecifiedError,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    work.Connection.Abort();
+                }
+            }
+
+            throw;
         }
     }
 
@@ -465,7 +813,7 @@ public sealed partial class MqttZeroBroker
         return PublishDispatchResult.Transferred;
     }
 
-    private async ValueTask<InboundBufferAction> ProcessAcknowledgementAsync(
+    private async ValueTask<MqttZeroInboundBufferAction> ProcessAcknowledgementAsync(
         AcceptedConnectionContext context)
     {
         if (context.Session == null ||
@@ -474,7 +822,7 @@ public sealed partial class MqttZeroBroker
             !MqttPacketCodec.IsAcknowledgementPacketType(
                 (MqttPacketType)(context.Buffer.Slice(0, 1).FirstSpan[0] >> 4)))
         {
-            return InboundBufferAction.NotHandled;
+            return MqttZeroInboundBufferAction.NotHandled;
         }
 
         MqttZeroClientConnection connection = context.Connection;
@@ -488,13 +836,33 @@ public sealed partial class MqttZeroBroker
                 _timeProvider,
                 acknowledgementConsumed,
                 false);
-            await ProcessAcknowledgementOnShardAsync(
-                session,
-                connection,
-                acknowledgement,
-                context.ConnectionLifetime.Token).ConfigureAwait(false);
+            if (acknowledgement.PacketType == MqttPacketType.PubAck)
+            {
+                await EnqueueAcknowledgementAsync(
+                    context,
+                    session,
+                    connection,
+                    acknowledgement,
+                    context.ConnectionLifetime.Token).ConfigureAwait(false);
+            }
+            else
+            {
+                context.CurrentAcknowledgement = acknowledgement;
+                try
+                {
+                    await context.InvokeShardCommandAsync(
+                        ShardSet[session.ShardId],
+                        context.CachedSynchronousAcknowledgementInvocation,
+                        context.ConnectionLifetime.Token).ConfigureAwait(false);
+                }
+                finally
+                {
+                    context.CurrentAcknowledgement = default;
+                }
+            }
+
             context.Buffer = context.Buffer.Slice(acknowledgementConsumed);
-            return InboundBufferAction.Handled;
+            return MqttZeroInboundBufferAction.Handled;
         }
 
         if (MqttPacketCodec.TryGetPacketLength(
@@ -506,18 +874,23 @@ public sealed partial class MqttZeroBroker
             await connection.CloseAsync(
                 MqttReasonCode.ProtocolError,
                 context.ConnectionLifetime.Token).ConfigureAwait(false);
-            return InboundBufferAction.Stop;
+            return MqttZeroInboundBufferAction.Stop;
         }
 
-        return InboundBufferAction.NotHandled;
+        return MqttZeroInboundBufferAction.NotHandled;
     }
 
-    private async ValueTask ProcessAcknowledgementOnShardAsync(
+    private async ValueTask ProcessAcknowledgementCoreAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
         MqttZeroAcknowledgementView acknowledgement,
         CancellationToken cancellationToken)
     {
+        MqttZeroShardOwnership.EnsureCurrent(
+            session.ShardId,
+            nameof(ProcessAcknowledgementCoreAsync),
+            _fanoutDiagnostics);
+        _fanoutDiagnostics.RecordAcknowledgement();
         switch (acknowledgement.PacketType)
         {
             case MqttPacketType.PubAck:
@@ -585,10 +958,16 @@ public sealed partial class MqttZeroBroker
         context.CloseRegistration = attachment.Connection.ClosedToken.Register(
             CancelAcceptedConnection,
             context.ConnectionLifetime);
-        StartEgress(
-            attachment.Session,
-            attachment.Connection,
-            context.ConnectionLifetime.Token);
+        await ShardSet[context.SessionShardId].InvokeAsync(
+            _ =>
+            {
+                StartEgress(
+                    attachment.Session,
+                    attachment.Connection,
+                    context.ConnectionLifetime.Token);
+                return ValueTask.FromResult(true);
+            },
+            context.ConnectionLifetime.Token).ConfigureAwait(false);
         context.Buffer = context.Buffer.Slice(consumed);
         return true;
     }
@@ -648,6 +1027,10 @@ public sealed partial class MqttZeroBroker
         context.CloseRegistration.Dispose();
         try
         {
+            await context.WaitForPendingPublishesAsync()
+                .ConfigureAwait(false);
+            await context.WaitForAcknowledgementsAsync()
+                .ConfigureAwait(false);
             await DetachAcceptedConnectionAsync(context).ConfigureAwait(false);
         }
         catch (Exception exception)
@@ -739,13 +1122,6 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    private enum InboundBufferAction
-    {
-        NotHandled,
-        Handled,
-        Stop
-    }
-
     private enum PublishDispatchResult
     {
         NotTransferred,
@@ -755,7 +1131,13 @@ public sealed partial class MqttZeroBroker
 
     private sealed class AcceptedConnectionContext : IDisposable
     {
+        public const int MaximumPendingPublishesInFlight = 16;
+
         private readonly MqttZeroBroker _broker;
+        private readonly MqttZeroShardCommand<
+            MqttZeroInboundBufferAction> _shardCommand = new();
+        private readonly MqttZeroPendingDrain _acknowledgementDrain = new();
+        private readonly MqttZeroPendingDrain _pendingPublishDrain = new();
 
         public AcceptedConnectionContext(
             MqttZeroBroker broker,
@@ -781,6 +1163,20 @@ public sealed partial class MqttZeroBroker
             ConnectTimeout.CancelAfter(_broker._options.ConnectTimeout);
             CachedConnectInvocation = InvokeConnectAsync;
             CachedPacketInvocation = InvokePacketOnShardAsync;
+            CachedOwnedPublishInvocation =
+                InvokeOwnedPublishOnShardAsync;
+            CachedPendingPublishCompleted =
+                CompletePendingPublish;
+            CachedPendingPublishInvocation =
+                broker.ProcessQueuedFastPublishAsync;
+            CachedInboundShardFailure =
+                broker.HandleConnectionWorkFailure;
+            CachedAcknowledgementCompleted =
+                CompleteAcknowledgement;
+            CachedAcknowledgementInvocation =
+                broker.ProcessQueuedAcknowledgementAsync;
+            CachedSynchronousAcknowledgementInvocation =
+                InvokeAcknowledgementOnShardAsync;
         }
 
         public PipeReader Input { get; }
@@ -841,6 +1237,106 @@ public sealed partial class MqttZeroBroker
             CachedPacketInvocation
         { get; }
 
+        public Func<
+            CancellationToken,
+            ValueTask<MqttZeroInboundBufferAction>>
+            CachedOwnedPublishInvocation
+        { get; }
+
+        public Action<TaskCompletionSource> CachedPendingPublishCompleted { get; }
+
+        public Func<
+            MqttZeroInboundWork,
+            CancellationToken,
+            ValueTask>
+            CachedPendingPublishInvocation
+        { get; }
+
+        public Action<Exception> CachedInboundShardFailure { get; }
+
+        public Action<TaskCompletionSource> CachedAcknowledgementCompleted { get; }
+
+        public Func<
+            MqttZeroAcknowledgementWork,
+            CancellationToken,
+            ValueTask>
+            CachedAcknowledgementInvocation
+        { get; }
+
+        public Func<
+            CancellationToken,
+            ValueTask<MqttZeroInboundBufferAction>>
+            CachedSynchronousAcknowledgementInvocation
+        { get; }
+
+        public MqttZeroMessageLease? CurrentOwnedPublishLease
+        { get; set; }
+
+        public ushort CurrentOwnedPublishPacketIdentifier
+        { get; set; }
+
+        public MqttZeroAcknowledgementView CurrentAcknowledgement
+        { get; set; }
+
+        public int PendingPublishCount
+        {
+            get
+            {
+                return _pendingPublishDrain.Count;
+            }
+        }
+
+        public TaskCompletionSource BeginPendingPublish()
+        {
+            return _pendingPublishDrain.Begin();
+        }
+
+        public void CompletePendingPublish(TaskCompletionSource token)
+        {
+            _pendingPublishDrain.Complete(token);
+        }
+
+        public ValueTask WaitForPendingPublishesAsync()
+        {
+            return _pendingPublishDrain.WaitAsync();
+        }
+
+        public TaskCompletionSource BeginAcknowledgement()
+        {
+            return _acknowledgementDrain.Begin();
+        }
+
+        public void CompleteAcknowledgement(TaskCompletionSource token)
+        {
+            _acknowledgementDrain.Complete(token);
+        }
+
+        public ValueTask WaitForAcknowledgementsAsync()
+        {
+            return _acknowledgementDrain.WaitAsync();
+        }
+
+        public ValueTask<MqttZeroInboundBufferAction>
+            InvokeShardCommandAsync(
+            MqttZeroEventLoop shard,
+            Func<
+                CancellationToken,
+                ValueTask<MqttZeroInboundBufferAction>> operation,
+            CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(shard);
+            ArgumentNullException.ThrowIfNull(operation);
+            if (shard.IsCurrent)
+            {
+                return operation(cancellationToken);
+            }
+
+            _shardCommand.Prepare(operation, cancellationToken);
+            return shard.InvokeAsync(
+                _shardCommand,
+                cancellationToken);
+        }
+
         public void Dispose()
         {
             ConnectTimeout.Dispose();
@@ -891,6 +1387,54 @@ public sealed partial class MqttZeroBroker
                 cancellationToken).ConfigureAwait(false);
             return true;
         }
+
+        private ValueTask<MqttZeroInboundBufferAction>
+            InvokeOwnedPublishOnShardAsync(
+            CancellationToken cancellationToken)
+        {
+            MqttZeroMessageLease lease =
+                CurrentOwnedPublishLease ??
+                throw new InvalidOperationException(
+                    "The owned PUBLISH lease is not available.");
+            return _broker.ProcessOwnedPublishAsync(
+                this,
+                lease,
+                CurrentOwnedPublishPacketIdentifier,
+                cancellationToken);
+        }
+
+        private ValueTask<MqttZeroInboundBufferAction>
+            InvokeAcknowledgementOnShardAsync(
+            CancellationToken cancellationToken)
+        {
+            MqttZeroClientConnection connection = Connection ??
+                throw new InvalidOperationException(
+                    "The MQTT connection is not available.");
+            MqttZeroSessionState session = Session ??
+                throw new InvalidOperationException(
+                    "The MQTT session is not available.");
+            return InvokeAcknowledgementCoreAsync(
+                session,
+                connection,
+                CurrentAcknowledgement,
+                cancellationToken);
+        }
+
+        private async ValueTask<MqttZeroInboundBufferAction>
+            InvokeAcknowledgementCoreAsync(
+            MqttZeroSessionState session,
+            MqttZeroClientConnection connection,
+            MqttZeroAcknowledgementView acknowledgement,
+            CancellationToken cancellationToken)
+        {
+            await _broker.ProcessAcknowledgementCoreAsync(
+                session,
+                connection,
+                acknowledgement,
+                cancellationToken).ConfigureAwait(false);
+            return MqttZeroInboundBufferAction.Handled;
+        }
+
     }
 
     private sealed class ConnectTransaction
@@ -981,7 +1525,7 @@ public sealed partial class MqttZeroBroker
 
         public MqttZeroSessionState? PreviousPumpSession { get; set; }
 
-        public MqttZeroEgressActor? PreviousPump { get; set; }
+        public MqttZeroSessionEgress? PreviousPump { get; set; }
 
         public bool PreviousPumpStopped { get; set; }
 
@@ -1003,6 +1547,10 @@ public sealed partial class MqttZeroBroker
         int sessionShardId,
         CancellationToken cancellationToken)
     {
+        MqttZeroShardOwnership.EnsureCurrent(
+            sessionShardId,
+            nameof(ConnectAsync),
+            _fanoutDiagnostics);
         ConnectTransaction transaction = new(
             this,
             connectPacket,
@@ -1021,20 +1569,7 @@ public sealed partial class MqttZeroBroker
             return null;
         }
 
-        SessionMutationLease mutation;
         try
-        {
-            mutation = await AcquireSessionMutationAsync(
-                clientId,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch
-        {
-            await newConnection.DisposeAsync().ConfigureAwait(false);
-            throw;
-        }
-
-        using (mutation)
         {
             try
             {
@@ -1081,6 +1616,11 @@ public sealed partial class MqttZeroBroker
                 await newConnection.DisposeAsync().ConfigureAwait(false);
                 throw;
             }
+        }
+        catch
+        {
+            await newConnection.DisposeAsync().ConfigureAwait(false);
+            throw;
         }
     }
 
@@ -1185,32 +1725,35 @@ public sealed partial class MqttZeroBroker
             }
 
             SelectConnectionSession(transaction, existing);
-            lock (transaction.Session.SyncRoot)
+            MqttZeroSessionLifecycleSnapshot lifecycle =
+                transaction.Session.Lifecycle;
+            MqttZeroClientConnection? currentConnection =
+                lifecycle.Connection;
+            if (currentConnection != null)
             {
-                MqttZeroClientConnection? currentConnection =
-                    transaction.Session.Connection;
-                if (currentConnection != null)
+                transaction.OldConnection = currentConnection;
+                if (lifecycle.WillMessage != null &&
+                    lifecycle.WillMessage.DelayInterval == 0)
                 {
-                    transaction.OldConnection = currentConnection;
-                    if (transaction.Session.WillMessage != null &&
-                        transaction.Session.WillMessage.DelayInterval == 0)
-                    {
-                        transaction.TakeoverWill =
-                            transaction.Session.WillMessage;
-                    }
+                    transaction.TakeoverWill =
+                        lifecycle.WillMessage;
                 }
-
-                transaction.Session.Connection = transaction.NewConnection;
-                transaction.Session.CleanStart = connectPacket.CleanStart;
-                transaction.Session.ExpiryInterval =
-                    transaction.EffectiveExpiry;
-                transaction.Session.DisconnectedAt = null;
-                transaction.Session.WillDueAt = null;
-                transaction.Session.WillMessage = connectPacket.HasWill
-                    ? new MqttZeroWillMessage(connectPacket)
-                    : null;
             }
 
+            MqttZeroWillMessage? willMessage =
+                connectPacket.HasWill
+                    ? new MqttZeroWillMessage(connectPacket)
+                    : null;
+            transaction.Session.UpdateLifecycle(
+                _ => lifecycle with
+                {
+                    Connection = transaction.NewConnection,
+                    CleanStart = connectPacket.CleanStart,
+                    ExpiryInterval = transaction.EffectiveExpiry,
+                    DisconnectedAt = null,
+                    WillDueAt = null,
+                    WillMessage = willMessage
+                });
             RegisterSessionDeadlines(transaction.Session);
         }
     }
@@ -1226,18 +1769,16 @@ public sealed partial class MqttZeroBroker
         {
             transaction.ReplacedSession = existing;
             transaction.ReplacingSession = true;
-            lock (existing.SyncRoot)
+            MqttZeroSessionLifecycleSnapshot lifecycle =
+                existing.Lifecycle;
+            transaction.OldConnection = lifecycle.Connection;
+            transaction.PreviousPumpSession = existing;
+            transaction.PreviousPump = existing.TakeEgress();
+            if (transaction.OldConnection != null &&
+                lifecycle.WillMessage != null &&
+                lifecycle.WillMessage.DelayInterval == 0)
             {
-                transaction.OldConnection = existing.Connection;
-                transaction.PreviousPumpSession = existing;
-                transaction.PreviousPump = existing.Egress;
-                existing.Egress = null;
-                if (transaction.OldConnection != null &&
-                    existing.WillMessage != null &&
-                    existing.WillMessage.DelayInterval == 0)
-                {
-                    transaction.TakeoverWill = existing.WillMessage;
-                }
+                transaction.TakeoverWill = lifecycle.WillMessage;
             }
 
             transaction.Session = CreateSessionState(transaction.ClientId);
@@ -1260,17 +1801,20 @@ public sealed partial class MqttZeroBroker
 
         transaction.Session = existing;
         transaction.SessionPresent = true;
-        lock (existing.SyncRoot)
-        {
-            transaction.PreviousCleanStart = existing.CleanStart;
-            transaction.PreviousExpiryInterval = existing.ExpiryInterval;
-            transaction.PreviousDisconnectedAt = existing.DisconnectedAt;
-            transaction.PreviousWillMessage = existing.WillMessage;
-            transaction.PreviousWillDueAt = existing.WillDueAt;
-            transaction.PreviousPumpSession = existing;
-            transaction.PreviousPump = existing.Egress;
-            existing.Egress = null;
-        }
+        MqttZeroSessionLifecycleSnapshot restoreLifecycle =
+            existing.Lifecycle;
+        transaction.PreviousCleanStart =
+            restoreLifecycle.CleanStart;
+        transaction.PreviousExpiryInterval =
+            restoreLifecycle.ExpiryInterval;
+        transaction.PreviousDisconnectedAt =
+            restoreLifecycle.DisconnectedAt;
+        transaction.PreviousWillMessage =
+            restoreLifecycle.WillMessage;
+        transaction.PreviousWillDueAt =
+            restoreLifecycle.WillDueAt;
+        transaction.PreviousPumpSession = existing;
+        transaction.PreviousPump = existing.TakeEgress();
     }
 
     private async ValueTask PersistSessionAsync(
@@ -1307,10 +1851,7 @@ public sealed partial class MqttZeroBroker
                     "The MQTT session changed while the connection was being established.");
             }
 
-            lock (previous.SyncRoot)
-            {
-                previous.Connection = null;
-            }
+            previous.Connection = null;
 
             _sessions[transaction.ClientId] = transaction.Session;
             return;
@@ -1343,7 +1884,7 @@ public sealed partial class MqttZeroBroker
 
         if (transaction.ReplacedSession != null)
         {
-            ReleaseSessionMessages(transaction.ReplacedSession);
+            ReleaseSessionMessagesCore(transaction.ReplacedSession);
         }
 
         MqttZeroConnectedClient connectedClient = new(
@@ -1492,7 +2033,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroSessionState? replacedSession,
         MqttZeroClientConnection? oldConnection,
         MqttZeroSessionState? previousPumpSession,
-        MqttZeroEgressActor? previousPump,
+        MqttZeroSessionEgress? previousPump,
         bool previousPumpStopped,
         bool previousCleanStart,
         uint previousExpiryInterval,
@@ -1572,10 +2113,11 @@ public sealed partial class MqttZeroBroker
             }
         }
 
-        lock (replacedSession.SyncRoot)
-        {
-            replacedSession.Connection = restore.OldConnection;
-        }
+        replacedSession.UpdateLifecycle(
+            current => current with
+            {
+                Connection = restore.OldConnection
+            });
 
         if (registerDeadlines)
         {
@@ -1621,10 +2163,10 @@ public sealed partial class MqttZeroBroker
 
         if (removeDeadlines)
         {
-            RemoveSessionDeadlines(session.ClientId);
+            RemoveSessionDeadlines(session);
         }
 
-        ReleaseSessionMessages(session);
+        ReleaseSessionMessagesCore(session);
         if (!newSessionPersisted)
         {
             return;
@@ -1652,15 +2194,16 @@ public sealed partial class MqttZeroBroker
         MqttZeroSessionRestoreState restore,
         bool persistRestoredSession)
     {
-        lock (session.SyncRoot)
-        {
-            session.Connection = restore.OldConnection;
-            session.CleanStart = restore.PreviousCleanStart;
-            session.ExpiryInterval = restore.PreviousExpiryInterval;
-            session.DisconnectedAt = restore.PreviousDisconnectedAt;
-            session.WillMessage = restore.PreviousWillMessage;
-            session.WillDueAt = restore.PreviousWillDueAt;
-        }
+        session.UpdateLifecycle(
+            current => current with
+            {
+                Connection = restore.OldConnection,
+                CleanStart = restore.PreviousCleanStart,
+                ExpiryInterval = restore.PreviousExpiryInterval,
+                DisconnectedAt = restore.PreviousDisconnectedAt,
+                WillMessage = restore.PreviousWillMessage,
+                WillDueAt = restore.PreviousWillDueAt
+            });
 
         RestoreSessionEgress(
             restore.PreviousPumpSession,
@@ -1689,7 +2232,7 @@ public sealed partial class MqttZeroBroker
     private void RestoreSessionEgress(
         MqttZeroSessionState? session,
         MqttZeroClientConnection? connection,
-        MqttZeroEgressActor? pump,
+        MqttZeroSessionEgress? pump,
         bool pumpStopped)
     {
         if (session == null || connection == null)
@@ -1699,15 +2242,9 @@ public sealed partial class MqttZeroBroker
 
         if (!pumpStopped && pump != null)
         {
-            lock (session.SyncRoot)
+            if (!session.TryAttachEgress(connection, pump))
             {
-                if (!ReferenceEquals(session.Connection, connection) ||
-                    session.Egress != null)
-                {
-                    return;
-                }
-
-                session.Egress = pump;
+                return;
             }
 
             pump.Signal();
@@ -1780,96 +2317,4 @@ public sealed partial class MqttZeroBroker
         }
     }
 
-    private async ValueTask<SessionMutationLease> AcquireSessionMutationAsync(
-        string clientId,
-        CancellationToken cancellationToken)
-    {
-        SessionMutationLock mutationLock;
-        lock (_sessionGate)
-        {
-            if (!_sessionMutationLocks.TryGetValue(
-                    clientId,
-                    out SessionMutationLock? existingLock))
-            {
-                mutationLock = new SessionMutationLock();
-                _sessionMutationLocks.Add(clientId, mutationLock);
-            }
-            else
-            {
-                mutationLock = existingLock;
-            }
-
-            mutationLock.ReferenceCount++;
-        }
-
-        try
-        {
-            await mutationLock.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch
-        {
-            ReleaseSessionMutationReference(clientId, mutationLock);
-            throw;
-        }
-
-        return new SessionMutationLease(this, clientId, mutationLock);
-    }
-
-    private void ReleaseSessionMutation(SessionMutationLease lease)
-    {
-        lease.MutationLock.Gate.Release();
-        ReleaseSessionMutationReference(lease.ClientId, lease.MutationLock);
-    }
-
-    private void ReleaseSessionMutationReference(
-        string clientId,
-        SessionMutationLock mutationLock)
-    {
-        lock (_sessionGate)
-        {
-            mutationLock.ReferenceCount--;
-            if (mutationLock.ReferenceCount == 0 &&
-                _sessionMutationLocks.TryGetValue(clientId, out SessionMutationLock? current) &&
-                ReferenceEquals(current, mutationLock))
-            {
-                _sessionMutationLocks.Remove(clientId);
-                mutationLock.Gate.Dispose();
-            }
-        }
-    }
-
-    private sealed class SessionMutationLock
-    {
-        public SemaphoreSlim Gate { get; } = new(1, 1);
-
-        public int ReferenceCount { get; set; }
-    }
-
-    private sealed class SessionMutationLease : IDisposable
-    {
-        private readonly MqttZeroBroker _broker;
-        private int _disposed;
-
-        public SessionMutationLease(
-            MqttZeroBroker broker,
-            string clientId,
-            SessionMutationLock mutationLock)
-        {
-            _broker = broker;
-            ClientId = clientId;
-            MutationLock = mutationLock;
-        }
-
-        public string ClientId { get; }
-
-        public SessionMutationLock MutationLock { get; }
-
-        public void Dispose()
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) == 0)
-            {
-                _broker.ReleaseSessionMutation(this);
-            }
-        }
-    }
 }

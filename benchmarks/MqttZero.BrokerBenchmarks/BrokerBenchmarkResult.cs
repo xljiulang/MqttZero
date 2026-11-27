@@ -56,5 +56,7 @@ internal sealed class BrokerBenchmarkResult
 
     public double MeasurementDrainMilliseconds { get; init; }
 
+    public double DrainRatio { get; init; }
+
     public string? FirstError { get; init; }
 }

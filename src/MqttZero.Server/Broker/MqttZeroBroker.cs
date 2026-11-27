@@ -24,10 +24,10 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
 {
-    // Lock hierarchy: _lifecycleGate -> _routeMutationGate -> session.SyncRoot,
-    // and _retainedMutationGate -> _retainedGate. _sessionGate, _retainedGate
-    // and session.SyncRoot are leaves. Every write to one PipeWriter must run
-    // through the owning connection's write gate or on its session shard.
+    // Lock hierarchy: _lifecycleGate -> _routeMutationGate, and
+    // _retainedMutationGate -> _retainedGate. _sessionGate and _retainedGate
+    // are leaves. Every write to one PipeWriter must run through the owning
+    // connection's write gate or on its session shard.
     private readonly object _sessionGate = new();
     private readonly MqttZeroBufferPool _bufferPool;
     private readonly IMqttZeroPublishInterceptor[] _publishInterceptors;
@@ -49,21 +49,13 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly MqttZeroSharedGroupCursors _sharedGroupCursors = new();
     private readonly Dictionary<MqttZeroSharedGroupKey, int>
         _sharedGroupReferences = [];
-    private readonly List<(
-        MqttZeroClientConnection Connection,
-        MqttZeroEgressActor? Pump)> _keepAliveExpired = [];
-    private readonly List<(MqttZeroSessionState Session, MqttZeroWillMessage Will)> _dueWills = [];
-    private readonly List<MqttZeroSessionState> _expiredSessions = [];
-    private readonly List<string> _expiredRetainedTopics = [];
     private readonly ConcurrentDictionary<long, CancellationTokenSource> _acceptedConnections = new();
-    private readonly Dictionary<string, SessionMutationLock> _sessionMutationLocks = [];
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _retainedMutationGate = new(1, 1);
     private readonly SemaphoreSlim _routeMutationGate = new(1, 1);
     private readonly object _retainedGate = new();
     private readonly MqttZeroFanoutDiagnostics _fanoutDiagnostics = new();
-    private readonly MqttZeroRouteEpochManager _routeEpochs = new();
-    private readonly MqttZeroDeadlineQueue _deadlines = new();
+    private readonly MqttZeroRouteEpochManager _routeEpochs;
     private MqttZeroFanoutDispatcher? _fanoutDispatcher;
     private MqttZeroRoutePlanBufferPool? _qosZeroPlanBuffers;
     private MqttZeroRoutePlannerLanes? _routePlannerLanes;
@@ -75,15 +67,12 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private TaskCompletionSource _connectionsDrained =
         CreateCompletedDrainSignal();
     private long _nextAcceptedConnectionId;
-    private CancellationTokenSource? _maintenanceCancellation;
-    private Task? _maintenanceTask;
     private int _activeConnectionCount;
     private int _connectedClientCount;
     private int _disposed;
     private long _publishedWillCount;
     private long _retainedBytes;
     private int _stopping;
-    private int _fanoutFailed;
     private int _state;
     private long _nextMessageId;
 
@@ -167,6 +156,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         _messageStore = messageStore ?? throw new ArgumentNullException(nameof(messageStore));
         _retainedMessageStore = retainedMessageStore ??
             throw new ArgumentNullException(nameof(retainedMessageStore));
+        _routeEpochs = new MqttZeroRouteEpochManager(_sharedGroupCursors);
     }
 
     internal static MqttZeroBroker Create(
@@ -291,7 +281,10 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
             MqttZeroInboundShardWork.PoolCountForTest,
             MqttZeroFanoutOperation.PoolCountForTest,
             MqttZeroFanoutBatchWork.PoolCountForTest,
-            MqttZeroFanoutScheduledBatch.PoolCountForTest);
+            MqttZeroFanoutScheduledBatch.PoolCountForTest,
+            MqttZeroAcknowledgementWork.PoolCountForTest,
+            MqttZeroAcknowledgementShardWork.PoolCountForTest,
+            MqttZero.Server.Egress.MqttZeroControlPostWork.PoolCountForTest);
         return new MqttZeroBrokerMemorySnapshot(
             buffers.RentedBytes,
             buffers.CachedBytes,
@@ -301,7 +294,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
             routePlans.RetainedBytes,
             _sharedGroupCursors.Count,
             objectPools,
-            _deadlines.Count);
+            Volatile.Read(ref _shardSet)?.PendingTimerCount ?? 0);
     }
 
     /// <summary>

@@ -37,7 +37,6 @@ public sealed class RoutePlannerTests
             epoch,
             "route/topic"u8,
             null,
-            new MqttZeroSharedGroupCursors(),
             8,
             buffer);
 
@@ -75,7 +74,6 @@ public sealed class RoutePlannerTests
             epoch,
             "fanout/topic"u8,
             null,
-            new MqttZeroSharedGroupCursors(),
             8,
             buffer);
 
@@ -112,7 +110,6 @@ public sealed class RoutePlannerTests
             epoch,
             "route/topic"u8,
             sender,
-            new MqttZeroSharedGroupCursors(),
             8,
             buffer);
 
@@ -146,7 +143,6 @@ public sealed class RoutePlannerTests
             epoch,
             "route/topic"u8,
             null,
-            new MqttZeroSharedGroupCursors(),
             8,
             buffer);
 
@@ -179,7 +175,6 @@ public sealed class RoutePlannerTests
             epoch,
             "route/topic"u8,
             sender,
-            new MqttZeroSharedGroupCursors(),
             8,
             buffer);
 
@@ -226,7 +221,6 @@ public sealed class RoutePlannerTests
                 epoch,
                 "route/topic"u8,
                 sender,
-                cursors,
                 8,
                 buffer);
             Assert.Equal(1, plan.TotalDeliveryCount);
@@ -265,14 +259,12 @@ public sealed class RoutePlannerTests
             firstEpoch,
             "route/topic"u8,
             null,
-            cursors,
             4,
             buffer);
         MqttZeroRoutePlan replacement = MqttZeroRoutePlanner.Plan(
             secondEpoch,
             "route/topic"u8,
             null,
-            cursors,
             4,
             buffer);
 
@@ -296,7 +288,6 @@ public sealed class RoutePlannerTests
                 epoch,
                 "route/topic"u8,
                 null,
-                cursors,
                 8,
                 buffer);
         }
@@ -309,7 +300,6 @@ public sealed class RoutePlannerTests
                 epoch,
                 "route/topic"u8,
                 null,
-                cursors,
                 8,
                 buffer);
             delivered += plan.TotalDeliveryCount;
@@ -347,7 +337,6 @@ public sealed class RoutePlannerTests
                 epoch,
                 "route/topic"u8,
                 null,
-                cursors,
                 8,
                 buffer);
         }
@@ -360,7 +349,6 @@ public sealed class RoutePlannerTests
                 epoch,
                 "route/topic"u8,
                 null,
-                cursors,
                 8,
                 buffer);
             delivered += plan.TotalDeliveryCount;
@@ -388,7 +376,6 @@ public sealed class RoutePlannerTests
                 epoch,
                 "route/topic"u8,
                 null,
-                new MqttZeroSharedGroupCursors(),
                 2,
                 buffer);
         });

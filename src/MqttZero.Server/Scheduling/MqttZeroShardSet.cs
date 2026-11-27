@@ -9,13 +9,20 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
     private readonly MqttZeroEgressScheduler[] _egressSchedulers;
     private readonly MqttZeroFanoutScheduler[] _fanoutSchedulers;
     private readonly MqttZeroSessionShardMap _sessionShardMap;
+    private readonly MqttZeroShardTimerWheel[] _timerWheels;
     private int _disposed;
     private int _stopped;
 
     public MqttZeroShardSet(
         int shardCount,
         int queueCapacity,
-        MqttZeroFanoutDiagnostics? fanoutDiagnostics = null)
+        MqttZeroFanoutDiagnostics? fanoutDiagnostics = null,
+        TimeProvider? timeProvider = null,
+        TimeSpan? timerTickInterval = null,
+        Func<
+            MqttZeroTimerNode,
+            CancellationToken,
+            ValueTask>? timerCallback = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(shardCount);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(queueCapacity);
@@ -25,6 +32,17 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
             new MqttZeroEgressScheduler[shardCount];
         _fanoutSchedulers =
             new MqttZeroFanoutScheduler[shardCount];
+        _timerWheels =
+            new MqttZeroShardTimerWheel[shardCount];
+        TimeProvider resolvedTimeProvider =
+            timeProvider ?? TimeProvider.System;
+        TimeSpan resolvedTimerTickInterval =
+            timerTickInterval ?? TimeSpan.FromMilliseconds(500);
+        Func<
+            MqttZeroTimerNode,
+            CancellationToken,
+            ValueTask> resolvedTimerCallback =
+            timerCallback ?? IgnoreTimerAsync;
         for (int index = 0; index < _shards.Length; index++)
         {
             _shards[index] = new MqttZeroEventLoop(
@@ -38,6 +56,13 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
                 _shards[index],
                 queueCapacity,
                 fanoutDiagnostics);
+            _timerWheels[index] = new MqttZeroShardTimerWheel(
+                _shards[index],
+                resolvedTimeProvider,
+                resolvedTimerTickInterval,
+                resolvedTimerCallback,
+                fanoutDiagnostics);
+            _timerWheels[index].Start();
         }
     }
 
@@ -85,6 +110,25 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         return _fanoutSchedulers[shardId];
     }
 
+    public MqttZeroShardTimerWheel GetTimerWheel(int shardId)
+    {
+        return _timerWheels[shardId];
+    }
+
+    public int PendingTimerCount
+    {
+        get
+        {
+            int count = 0;
+            for (int index = 0; index < _timerWheels.Length; index++)
+            {
+                count += _timerWheels[index].Count;
+            }
+
+            return count;
+        }
+    }
+
     public async ValueTask StopAsync()
     {
         if (Interlocked.Exchange(ref _stopped, 1) != 0)
@@ -92,6 +136,18 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
             return;
         }
 
+        await StopTimersAsync().ConfigureAwait(false);
+        Task[] fanoutSchedulerStopTasks =
+            new Task[_fanoutSchedulers.Length];
+        for (int index = 0;
+            index < _fanoutSchedulers.Length;
+            index++)
+        {
+            fanoutSchedulerStopTasks[index] =
+                _fanoutSchedulers[index].StopAsync().AsTask();
+        }
+
+        await Task.WhenAll(fanoutSchedulerStopTasks).ConfigureAwait(false);
         Task[] schedulerStopTasks =
             new Task[_egressSchedulers.Length];
         for (int index = 0; index < _egressSchedulers.Length; index++)
@@ -101,15 +157,6 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         }
 
         await Task.WhenAll(schedulerStopTasks).ConfigureAwait(false);
-        Task[] fanoutSchedulerStopTasks =
-            new Task[_fanoutSchedulers.Length];
-        for (int index = 0; index < _fanoutSchedulers.Length; index++)
-        {
-            fanoutSchedulerStopTasks[index] =
-                _fanoutSchedulers[index].StopAsync().AsTask();
-        }
-
-        await Task.WhenAll(fanoutSchedulerStopTasks).ConfigureAwait(false);
         Task[] stopTasks = new Task[_shards.Length];
         for (int index = 0; index < _shards.Length; index++)
         {
@@ -117,6 +164,19 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         }
 
         await Task.WhenAll(stopTasks).ConfigureAwait(false);
+    }
+
+    internal async ValueTask StopTimersAsync()
+    {
+        Task[] timerStopTasks =
+            new Task[_timerWheels.Length];
+        for (int index = 0; index < _timerWheels.Length; index++)
+        {
+            timerStopTasks[index] =
+                _timerWheels[index].StopAsync().AsTask();
+        }
+
+        await Task.WhenAll(timerStopTasks).ConfigureAwait(false);
     }
 
     public async ValueTask DisposeAsync()
@@ -127,6 +187,13 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         }
 
         await StopAsync().ConfigureAwait(false);
+        for (int index = 0; index < _timerWheels.Length; index++)
+        {
+            await _timerWheels[index]
+                .DisposeAsync()
+                .ConfigureAwait(false);
+        }
+
         for (int index = 0;
             index < _egressSchedulers.Length;
             index++)
@@ -149,5 +216,12 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         {
             await _shards[index].DisposeAsync().ConfigureAwait(false);
         }
+    }
+
+    private static ValueTask IgnoreTimerAsync(
+        MqttZeroTimerNode node,
+        CancellationToken cancellationToken)
+    {
+        return ValueTask.CompletedTask;
     }
 }

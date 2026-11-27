@@ -13,4 +13,6 @@ internal sealed class BrokerAbRoundResult
     public required BenchmarkProcessObservation BrokerObservation { get; init; }
 
     public required BenchmarkProcessObservation ClientObservation { get; init; }
+
+    public BrokerControlProbeSnapshot? ControlProbe { get; init; }
 }

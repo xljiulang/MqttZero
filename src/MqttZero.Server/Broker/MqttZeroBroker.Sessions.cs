@@ -4,6 +4,7 @@ using MqttZero.Protocol;
 using MqttZero.Server.Clients;
 using MqttZero.Server.Egress;
 using MqttZero.Server.Routing;
+using MqttZero.Server.Scheduling;
 using MqttZero.Server.Sessions;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -22,48 +23,97 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection connection,
         bool cleanDisconnect)
     {
-        using SessionMutationLease mutation = await AcquireSessionMutationAsync(
-            session.ClientId,
-            CancellationToken.None).ConfigureAwait(false);
-        DateTimeOffset now = _timeProvider.GetUtcNow();
-        bool removeSession = false;
-        MqttZeroEgressActor? pump;
-
-        lock (session.SyncRoot)
+        MqttZeroShardSet? shards = Volatile.Read(ref _shardSet);
+        if (shards == null)
         {
-            if (!ReferenceEquals(session.Connection, connection))
-            {
-                return;
-            }
-
-            pump = session.Egress;
-            session.Egress = null;
-            session.Connection = null;
-            session.DisconnectedAt = now;
-            uint expiryInterval = session.ExpiryInterval;
-            if (cleanDisconnect || Volatile.Read(ref _stopping) != 0)
-            {
-                session.WillDueAt = null;
-                session.WillMessage = null;
-            }
-            else if (session.WillMessage != null)
-            {
-                uint delay = session.WillMessage.DelayInterval;
-                if (expiryInterval > 0)
-                {
-                    delay = Math.Min(delay, expiryInterval);
-                }
-
-                session.WillDueAt = now.AddSeconds(delay);
-            }
-
-            if (expiryInterval == 0 && session.WillDueAt == null)
-            {
-                removeSession = true;
-            }
+            await DetachConnectionOnShardAsync(
+                session,
+                connection,
+                cleanDisconnect,
+                CancellationToken.None).ConfigureAwait(false);
+            return;
         }
 
-        RegisterSessionDeadlines(session);
+        MqttZeroEventLoop shard = shards[session.ShardId];
+        if (shard.IsCurrent)
+        {
+            await DetachConnectionOnShardAsync(
+                session,
+                connection,
+                cleanDisconnect,
+                CancellationToken.None).ConfigureAwait(false);
+            return;
+        }
+
+        await shard.InvokeAsync(
+            async token =>
+            {
+                await DetachConnectionOnShardAsync(
+                    session,
+                    connection,
+                    cleanDisconnect,
+                    token).ConfigureAwait(false);
+                return true;
+            },
+            CancellationToken.None).ConfigureAwait(false);
+    }
+
+    private async ValueTask DetachConnectionOnShardAsync(
+        MqttZeroSessionState session,
+        MqttZeroClientConnection connection,
+        bool cleanDisconnect,
+        CancellationToken cancellationToken)
+    {
+        EnsureSessionShard(
+            session,
+            nameof(DetachConnectionOnShardAsync));
+        DateTimeOffset now = _timeProvider.GetUtcNow();
+        bool removeSession = false;
+        MqttZeroSessionLifecycleSnapshot lifecycle =
+            session.Lifecycle;
+        if (!ReferenceEquals(
+                lifecycle.Connection,
+                connection))
+        {
+            return;
+        }
+
+        MqttZeroSessionEgress? pump = session.TakeEgress();
+        uint expiryInterval = lifecycle.ExpiryInterval;
+        DateTimeOffset? willDueAt = null;
+        MqttZeroWillMessage? willMessage =
+            lifecycle.WillMessage;
+        if (cleanDisconnect || Volatile.Read(ref _stopping) != 0)
+        {
+            willMessage = null;
+        }
+        else if (willMessage != null)
+        {
+            uint delay = willMessage.DelayInterval;
+            if (expiryInterval > 0)
+            {
+                delay = Math.Min(delay, expiryInterval);
+            }
+
+            willDueAt = now.AddSeconds(delay);
+        }
+
+        session.UpdateLifecycle(
+            _ => lifecycle with
+            {
+                Connection = null,
+                DisconnectedAt = now,
+                WillDueAt = willDueAt,
+                WillMessage = willMessage
+            });
+        if (expiryInterval == 0 && willDueAt == null)
+        {
+            removeSession = true;
+        }
+
+        await RegisterSessionDeadlinesOnShardAsync(
+            session,
+            CancellationToken.None).ConfigureAwait(false);
         if (pump != null)
         {
             connection.Abort();
@@ -74,7 +124,9 @@ public sealed partial class MqttZeroBroker
         {
             try
             {
-                await SaveSessionAsync(session, CancellationToken.None).ConfigureAwait(false);
+                await SaveSessionAsync(
+                    session,
+                    cancellationToken).ConfigureAwait(false);
             }
             catch
             {
@@ -95,12 +147,12 @@ public sealed partial class MqttZeroBroker
                         .ConfigureAwait(false);
                 }
 
-                ReleaseSessionMessages(session);
+                ReleaseSessionMessagesCore(session);
                 try
                 {
                     await DeleteClientPersistenceAsync(
                         session.ClientId,
-                        CancellationToken.None).ConfigureAwait(false);
+                        cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception exception)
                 {
@@ -136,7 +188,7 @@ public sealed partial class MqttZeroBroker
                 {
                     await DeleteClientPersistenceAsync(
                         session.ClientId,
-                        CancellationToken.None).ConfigureAwait(false);
+                        cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception)
                 {
@@ -150,13 +202,13 @@ public sealed partial class MqttZeroBroker
                     throw;
                 }
 
-                ReleaseSessionMessages(session);
+                ReleaseSessionMessagesCore(session);
             }
         }
     }
 
     private static async ValueTask StopEgressAsync(
-        MqttZeroEgressActor? pump)
+        MqttZeroSessionEgress? pump)
     {
         if (pump != null)
         {
@@ -166,23 +218,32 @@ public sealed partial class MqttZeroBroker
 
     private static bool IsSessionExpired(MqttZeroSessionState session, DateTimeOffset now)
     {
-        if (session.Connection != null || !session.DisconnectedAt.HasValue)
+        MqttZeroSessionLifecycleSnapshot lifecycle =
+            session.Lifecycle;
+        if (lifecycle.Connection != null ||
+            !lifecycle.DisconnectedAt.HasValue)
         {
             return false;
         }
 
-        return session.ExpiryInterval == 0 ||
-            now >= session.DisconnectedAt.Value.AddSeconds(session.ExpiryInterval);
+        return lifecycle.ExpiryInterval == 0 ||
+            now >= lifecycle.DisconnectedAt.Value.AddSeconds(
+                lifecycle.ExpiryInterval);
     }
 
-    private int GetInflightLimit(MqttZeroClientConnection? connection)
+    private void EnsureSessionShard(
+        MqttZeroSessionState session,
+        string operation)
     {
-        if (connection == null)
+        if (Volatile.Read(ref _shardSet) == null)
         {
-            return _options.MaxInflight;
+            return;
         }
 
-        return Math.Min(_options.MaxInflight, connection.ReceiveMaximum);
+        MqttZeroShardOwnership.EnsureCurrent(
+            session.ShardId,
+            operation,
+            _fanoutDiagnostics);
     }
 
     private uint ClampSessionExpiry(uint requestedExpiry)

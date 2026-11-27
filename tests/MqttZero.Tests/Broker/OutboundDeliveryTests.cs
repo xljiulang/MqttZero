@@ -54,7 +54,7 @@ namespace MqttZero.Tests.Broker
             RebuildRoutes(broker);
 
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroEgressActor pump = broker.StartEgress(
+            MqttZeroSessionEgress pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);
@@ -141,7 +141,7 @@ namespace MqttZero.Tests.Broker
             RebuildRoutes(broker);
 
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroEgressActor pump = broker.StartEgress(
+            MqttZeroSessionEgress pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);
@@ -243,7 +243,7 @@ namespace MqttZero.Tests.Broker
             RebuildRoutes(broker);
 
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroEgressActor pump = broker.StartEgress(
+            MqttZeroSessionEgress pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);
@@ -366,7 +366,7 @@ namespace MqttZero.Tests.Broker
             }
 
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroEgressActor pump = broker.StartEgress(
+            MqttZeroSessionEgress pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);
@@ -437,7 +437,7 @@ namespace MqttZero.Tests.Broker
             AddSession(broker, receiver);
             RebuildRoutes(broker);
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroEgressActor pump = broker.StartEgress(
+            MqttZeroSessionEgress pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);
@@ -569,7 +569,7 @@ namespace MqttZero.Tests.Broker
             }
 
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroEgressActor pump = broker.StartEgress(
+            MqttZeroSessionEgress pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);
@@ -705,7 +705,7 @@ namespace MqttZero.Tests.Broker
             }
 
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroEgressActor pump = broker.StartEgress(
+            MqttZeroSessionEgress pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);
@@ -802,12 +802,12 @@ namespace MqttZero.Tests.Broker
                 32,
                 1024 * 1024,
                 TimeProvider.System);
-            int egressBatchCount = 0;
-            await using MqttZeroEgressActor egress = new(
+            int egressFrameCount = 0;
+            await using MqttZeroSessionEgress egress = new(
                 scheduler,
                 async (frames, cancellationToken) =>
                 {
-                    Interlocked.Increment(ref egressBatchCount);
+                    Interlocked.Add(ref egressFrameCount, frames.Count);
                     await Task.CompletedTask.ConfigureAwait(false);
                 },
                 _ => ValueTask.FromResult(false),
@@ -834,7 +834,22 @@ namespace MqttZero.Tests.Broker
                     },
                     TestContext.Current.CancellationToken);
 
-                Assert.Equal(3, Volatile.Read(ref egressBatchCount));
+                // PUBACK is handed to the egress without waiting for the write,
+                // so the third frame may arrive asynchronously and may share the
+                // batch with CONNACK.
+                for (int attempt = 0; attempt < 100; attempt++)
+                {
+                    if (Volatile.Read(ref egressFrameCount) == 3)
+                    {
+                        break;
+                    }
+
+                    await Task.Delay(
+                        TimeSpan.FromMilliseconds(10),
+                        TestContext.Current.CancellationToken);
+                }
+
+                Assert.Equal(3, Volatile.Read(ref egressFrameCount));
             }
             finally
             {
@@ -962,12 +977,9 @@ namespace MqttZero.Tests.Broker
                 secondReleased = true;
 
                 Assert.Equal(1, receiver.PendingMessages.Count);
-                lock (receiver.SyncRoot)
-                {
-                    MqttZeroQueuedMessage queued =
-                        receiver.PendingMessages.Dequeue();
-                    queued.Release();
-                }
+                MqttZeroQueuedMessage queued =
+                    receiver.PendingMessages.Dequeue();
+                queued.Release();
 
                 Assert.Equal(0, bufferPool.RentedBytes);
             }
@@ -1056,10 +1068,7 @@ namespace MqttZero.Tests.Broker
                     publisherConnection,
                     first,
                     TestContext.Current.CancellationToken);
-                lock (receiver.SyncRoot)
-                {
-                    receiver.Connection = secondConnection;
-                }
+                receiver.Connection = secondConnection;
 
                 await broker.RoutePublishLeaseAsync(
                     publisher,
@@ -1068,14 +1077,11 @@ namespace MqttZero.Tests.Broker
                     TestContext.Current.CancellationToken);
 
                 Assert.Equal(2, receiver.PendingMessages.Count);
-                lock (receiver.SyncRoot)
+                while (receiver.PendingMessages.Count > 0)
                 {
-                    while (receiver.PendingMessages.Count > 0)
-                    {
-                        MqttZeroQueuedMessage queued =
-                            receiver.PendingMessages.Dequeue();
-                        queued.Release();
-                    }
+                    MqttZeroQueuedMessage queued =
+                        receiver.PendingMessages.Dequeue();
+                    queued.Release();
                 }
             }
             finally
@@ -1197,7 +1203,7 @@ namespace MqttZero.Tests.Broker
                 cancellationToken);
 
             using CancellationTokenSource pumpLifetime = new();
-            MqttZeroEgressActor pump = broker.StartEgress(
+            MqttZeroSessionEgress pump = broker.StartEgress(
                 receiver,
                 subscriberConnection,
                 pumpLifetime.Token);

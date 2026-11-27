@@ -357,6 +357,9 @@ namespace MqttZero.Tests.Broker
                 broker,
                 "clean-rollback",
                 TestContext.Current.CancellationToken);
+            await WaitUntilAsync(
+                () => broker.ActiveConnectionCount == 0,
+                TestContext.Current.CancellationToken);
             sessionStore.FailNextSave = true;
 
             using TcpClient rejected = new();

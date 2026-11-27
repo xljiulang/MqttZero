@@ -207,13 +207,19 @@ namespace MqttZero.Tests.Broker
             Assert.Equal(0, allocated);
         }
         [Fact]
-        public async Task BrokerQosOnePublishAndPubAckDoNotAllocateAfterWarmup()
+        public async Task BrokerQosOneQueueEnqueueDoesNotAllocateAfterWarmup()
         {
             MqttZeroBroker broker = MqttZeroBroker.Create(
-                new MqttZeroOptions(),
+                new MqttZeroOptions
+                {
+                    EventLoopShardCount = 2
+                },
                 TimeProvider.System);
             await broker.StartAsync(TestContext.Current.CancellationToken);
-            MqttZeroSessionState receiver = new("qos-receiver");
+            MqttZeroSessionState receiver = new(
+                "qos-receiver",
+                1000,
+                1);
             receiver.Subscriptions.Add(new MqttZeroSubscription(
                 "hot/#"u8.ToArray(),
                 MqttQualityOfServiceLevel.AtLeastOnce,
@@ -231,7 +237,8 @@ namespace MqttZero.Tests.Broker
                 32,
                 1024 * 1024,
                 TimeProvider.System,
-                bufferPool);
+                bufferPool,
+                shardId: 1);
             receiver.Connection = receiverConnection;
             FieldInfo sessionsField = typeof(MqttZeroBroker).GetField(
                 "_sessions",
@@ -240,26 +247,6 @@ namespace MqttZero.Tests.Broker
                 (ConcurrentDictionary<string, MqttZeroSessionState>)sessionsField.GetValue(broker)!;
             Assert.True(sessions.TryAdd(receiver.ClientId, receiver));
             await broker.ResetRouteEpochFromSessionsAsync();
-            FieldInfo shardSetField = typeof(MqttZeroBroker).GetField(
-                "_shardSet",
-                BindingFlags.Instance | BindingFlags.NonPublic)!;
-            MqttZeroShardSet shardSet =
-                (MqttZeroShardSet)shardSetField.GetValue(broker)!;
-            MqttZeroFanoutScheduler fanoutScheduler =
-                shardSet.GetFanoutScheduler(0);
-
-            AllocationPipeWriter senderWriter = new(16 * 1024);
-            MqttZeroClientConnection senderConnection = new(
-                senderWriter,
-                new IPEndPoint(IPAddress.Loopback, 0),
-                false,
-                false,
-                0,
-                32,
-                1024 * 1024,
-                TimeProvider.System,
-                bufferPool);
-            MqttZeroSessionState sender = new("qos-sender");
             MqttPublishPacket packet = new()
             {
                 TopicName = new ReadOnlySequence<byte>("hot/topic"u8.ToArray()),
@@ -271,93 +258,105 @@ namespace MqttZero.Tests.Broker
             MqttPacketCodec.Encode(packet, encodedWriter);
             ReadOnlySequence<byte> encodedPublish = new(encodedWriter.WrittenMemory);
             CancellationToken cancellationToken = TestContext.Current.CancellationToken;
-
-            for (int index = 0; index < 10; index++)
-            {
-                await RouteQosOnePublishAndAcknowledgeAsync(
-                    broker,
-                    sender,
-                    senderConnection,
-                    receiver,
-                    receiverConnection,
-                    encodedPublish,
-                    senderWriter,
-                    receiverWriter,
-                    bufferPool,
-                    fanoutScheduler,
-                    cancellationToken);
-            }
-
-            WaitForFanoutSchedulerIdle(fanoutScheduler);
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int index = 0; index < 1000; index++)
-            {
-                await RouteQosOnePublishAndAcknowledgeAsync(
-                    broker,
-                    sender,
-                    senderConnection,
-                    receiver,
-                    receiverConnection,
-                    encodedPublish,
-                    senderWriter,
-                    receiverWriter,
-                    bufferPool,
-                    fanoutScheduler,
-                    cancellationToken);
-            }
-
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.Empty(receiver.InflightMessages);
-            await broker.DisposeAsync();
-            Assert.Equal(0, allocated);
-        }
-        private static async ValueTask RouteQosOnePublishAndAcknowledgeAsync(
-            MqttZeroBroker broker,
-            MqttZeroSessionState sender,
-            MqttZeroClientConnection senderConnection,
-            MqttZeroSessionState receiver,
-            MqttZeroClientConnection receiverConnection,
-            ReadOnlySequence<byte> encodedPublish,
-            AllocationPipeWriter senderWriter,
-            AllocationPipeWriter receiverWriter,
-            MqttZeroBufferPool bufferPool,
-            MqttZeroFanoutScheduler fanoutScheduler,
-            CancellationToken cancellationToken)
-        {
             if (!MqttPublishPacketCodec.TryDecode(
                 encodedPublish,
                 out MqttZeroPublishView view,
                 out _))
             {
-                throw new InvalidOperationException("The QoS 1 benchmark PUBLISH could not be decoded.");
+                throw new InvalidOperationException(
+                    "The QoS 1 benchmark PUBLISH could not be decoded.");
             }
 
-            senderWriter.Reset();
-            receiverWriter.Reset();
-            MqttZeroMessageLease lease = broker.CreateMessageLease(senderConnection, view);
-            try
+            MqttZeroMessageLease sharedLease =
+                broker.CreateMessageLease(receiverConnection, view);
+            sharedLease.EnsureOwned();
+
+            await broker.Shards![1].InvokeAsync(
+                token =>
+                {
+                    for (int index = 0; index < 10; index++)
+                    {
+                        RouteQosOnePublish(
+                            broker,
+                            receiver,
+                            sharedLease,
+                            token);
+                    }
+
+                    return ValueTask.FromResult(true);
+                },
+                cancellationToken);
+            long allocated = await broker.Shards[1].InvokeAsync(
+                token =>
+                {
+                    long before =
+                        GC.GetAllocatedBytesForCurrentThread();
+                    for (int index = 0; index < 1000; index++)
+                    {
+                        RouteQosOnePublish(
+                            broker,
+                            receiver,
+                            sharedLease,
+                            token);
+                    }
+
+                    return ValueTask.FromResult(
+                        GC.GetAllocatedBytesForCurrentThread() -
+                        before);
+                },
+                cancellationToken);
+            Assert.Empty(receiver.InflightMessages);
+            sharedLease.Release();
+            WaitForPoolIdle(bufferPool);
+            await broker.DisposeAsync();
+            Assert.Equal(0, allocated);
+        }
+        private static void RouteQosOnePublish(
+            MqttZeroBroker broker,
+            MqttZeroSessionState receiver,
+            MqttZeroMessageLease lease,
+            CancellationToken cancellationToken)
+        {
+            ValueTask route = broker.DeliverLeaseToSessionForTestAsync(
+                receiver,
+                lease,
+                cancellationToken);
+            if (!route.IsCompletedSuccessfully)
             {
-                await broker.RoutePublishLeaseAsync(
-                    sender,
-                    senderConnection,
-                    lease,
-                    cancellationToken);
-            }
-            finally
-            {
-                lease.Release();
+                throw new InvalidOperationException(
+                    "The test enqueue unexpectedly became asynchronous.");
             }
 
-            WaitForPendingMessage(receiver);
-            lock (receiver.SyncRoot)
+            route.GetAwaiter().GetResult();
+            MqttZeroQueuedMessage queued =
+                receiver.PendingMessages.Dequeue();
+            queued.Release();
+        }
+
+        private static void DrainPendingMessages(
+            MqttZeroSessionState receiver,
+            int expectedCount)
+        {
+            long deadline = Stopwatch.GetTimestamp() +
+                (Stopwatch.Frequency * 5);
+            while (receiver.PendingMessages.Count < expectedCount)
+            {
+                if (Stopwatch.GetTimestamp() >= deadline)
+                {
+                    throw new TimeoutException(
+                        $"Expected {expectedCount} queued messages, " +
+                        $"but found {receiver.PendingMessages.Count}.");
+                }
+
+                Thread.Yield();
+            }
+
+            while (receiver.PendingMessages.Count > 0)
             {
                 MqttZeroQueuedMessage queued =
                     receiver.PendingMessages.Dequeue();
                 queued.Release();
             }
-
-            WaitForPoolIdle(bufferPool);
-            WaitForFanoutSchedulerIdle(fanoutScheduler);
         }
 
         private static void WaitForPoolIdle(
@@ -401,12 +400,9 @@ namespace MqttZero.Tests.Broker
                 (Stopwatch.Frequency * 5);
             while (Stopwatch.GetTimestamp() < deadline)
             {
-                lock (receiver.SyncRoot)
+                if (receiver.PendingMessages.Count > 0)
                 {
-                    if (receiver.PendingMessages.Count > 0)
-                    {
-                        return;
-                    }
+                    return;
                 }
 
                 Thread.Yield();
@@ -464,32 +460,39 @@ namespace MqttZero.Tests.Broker
             ReadOnlySequence<byte> encodedPublish = new(encodedWriter.WrittenMemory);
             CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-            for (int index = 0; index < 10; index++)
-            {
-                receiverWriter.Reset();
-                await RouteEncodedPublishAsync(
-                    broker,
-                    sender,
-                    receiver,
-                    receiverConnection,
-                    encodedPublish,
-                    cancellationToken);
-            }
+            long allocated = await broker.Shards![0].InvokeAsync(
+                async token =>
+                {
+                    for (int index = 0; index < 10; index++)
+                    {
+                        receiverWriter.Reset();
+                        await RouteEncodedPublishAsync(
+                            broker,
+                            sender,
+                            receiver,
+                            receiverConnection,
+                            encodedPublish,
+                            token);
+                    }
 
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int index = 0; index < 1000; index++)
-            {
-                receiverWriter.Reset();
-                await RouteEncodedPublishAsync(
-                    broker,
-                    sender,
-                    receiver,
-                    receiverConnection,
-                    encodedPublish,
-                    cancellationToken);
-            }
+                    long before =
+                        GC.GetAllocatedBytesForCurrentThread();
+                    for (int index = 0; index < 1000; index++)
+                    {
+                        receiverWriter.Reset();
+                        await RouteEncodedPublishAsync(
+                            broker,
+                            sender,
+                            receiver,
+                            receiverConnection,
+                            encodedPublish,
+                            token);
+                    }
 
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+                    return GC.GetAllocatedBytesForCurrentThread() -
+                        before;
+                },
+                cancellationToken);
             await broker.DisposeAsync();
             Assert.Equal(0, allocated);
         }
@@ -524,17 +527,14 @@ namespace MqttZero.Tests.Broker
                 lease.Release();
             }
 
-            lock (receiver.SyncRoot)
+            if (receiver.PendingMessages.Count == 0)
             {
-                if (receiver.PendingMessages.Count == 0)
-                {
-                    throw new InvalidOperationException("The PUBLISH was not queued.");
-                }
-
-                MqttZeroQueuedMessage queued =
-                    receiver.PendingMessages.Dequeue();
-                queued.Release();
+                throw new InvalidOperationException("The PUBLISH was not queued.");
             }
+
+            MqttZeroQueuedMessage queued =
+                receiver.PendingMessages.Dequeue();
+            queued.Release();
         }
 
     }

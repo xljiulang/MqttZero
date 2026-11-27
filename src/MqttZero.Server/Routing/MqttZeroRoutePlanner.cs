@@ -8,12 +8,10 @@ internal static class MqttZeroRoutePlanner
         MqttZeroRouteEpoch epoch,
         ReadOnlySpan<byte> topic,
         MqttZeroSessionState? sender,
-        MqttZeroSharedGroupCursors cursors,
         int shardCount,
         MqttZeroRoutePlanBuffer buffer)
     {
         ArgumentNullException.ThrowIfNull(epoch);
-        ArgumentNullException.ThrowIfNull(cursors);
         ArgumentNullException.ThrowIfNull(buffer);
         buffer.BeginPlan(shardCount);
         PlanNode(
@@ -22,7 +20,7 @@ internal static class MqttZeroRoutePlanner
             true,
             sender,
             buffer);
-        buffer.PlanSharedGroups(sender, cursors);
+        buffer.PlanSharedGroups(sender);
         return buffer.CreatePlan();
     }
 

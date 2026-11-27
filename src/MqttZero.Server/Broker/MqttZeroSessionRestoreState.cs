@@ -13,7 +13,7 @@ internal readonly struct MqttZeroSessionRestoreState
         MqttZeroSessionState? replacedSession,
         MqttZeroClientConnection? oldConnection,
         MqttZeroSessionState? previousPumpSession,
-        MqttZeroEgressActor? previousPump,
+        MqttZeroSessionEgress? previousPump,
         bool previousPumpStopped,
         bool previousCleanStart,
         uint previousExpiryInterval,
@@ -39,7 +39,7 @@ internal readonly struct MqttZeroSessionRestoreState
 
     public MqttZeroSessionState? PreviousPumpSession { get; }
 
-    public MqttZeroEgressActor? PreviousPump { get; }
+    public MqttZeroSessionEgress? PreviousPump { get; }
 
     public bool PreviousPumpStopped { get; }
 

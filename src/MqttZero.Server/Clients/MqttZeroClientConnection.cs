@@ -23,7 +23,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     private readonly PipeWriter _writer;
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly DateTimeOffset _connectedAt;
-    private MqttZeroEgressActor? _egress;
+    private MqttZeroSessionEgress? _egress;
     private MqttZeroTopicAliasTable? _inboundTopicAliases;
     private readonly TimeProvider _timeProvider;
     private int _disposed;
@@ -80,7 +80,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
 
     internal int ShardId { get; set; }
 
-    internal MqttZeroEgressActor? Egress
+    internal MqttZeroSessionEgress? Egress
     {
         get
         {
@@ -88,7 +88,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
-    internal void AttachEgress(MqttZeroEgressActor egress)
+    internal void AttachEgress(MqttZeroSessionEgress egress)
     {
         ArgumentNullException.ThrowIfNull(egress);
         _egress = egress;
@@ -314,7 +314,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
 
     internal async ValueTask SendPublishBatchAsync(
         IReadOnlyList<MqttZeroQueuedMessage> messages,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool duplicate = false)
     {
         if (messages.Count == 0)
         {
@@ -327,7 +328,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             {
                 await SendPublishAsync(
                     messages[index],
-                    false,
+                    duplicate,
                     cancellationToken).ConfigureAwait(false);
             }
 
@@ -337,7 +338,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         int encodedBytes;
         using (await EnterWriteAsync(cancellationToken).ConfigureAwait(false))
         {
-            encodedBytes = WritePublishBatch(messages);
+            encodedBytes = WritePublishBatch(messages, duplicate);
             _ = await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -364,7 +365,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     }
 
     private int WritePublishBatch(
-        IReadOnlyList<MqttZeroQueuedMessage> messages)
+        IReadOnlyList<MqttZeroQueuedMessage> messages,
+        bool duplicate = false)
     {
         int encodedBytes = 0;
         for (int index = 0; index < messages.Count; index++)
@@ -376,7 +378,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 message.Lease.PayloadSequence,
                 message.QualityOfServiceLevel,
                 message.PacketIdentifier,
-                false,
+                duplicate,
                 message.Retain,
                 GetRemainingMessageExpiry(message.ExpiresAt),
                 null,
@@ -512,7 +514,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             MqttPacketHeader.GetFirstByte(MqttPacketType.PubAck),
             packetIdentifier,
             reasonCode,
-            cancellationToken);
+            cancellationToken,
+            waitForWrite: false);
     }
 
     public ValueTask SendPubRecAsync(
@@ -536,7 +539,21 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             MqttPacketHeader.GetFirstByte(MqttPacketType.PubRel),
             packetIdentifier,
             reasonCode,
-            cancellationToken);
+            cancellationToken,
+            coalesceOnShard: true);
+    }
+
+    internal ValueTask SendPubRelWithoutWaitingAsync(
+        ushort packetIdentifier,
+        CancellationToken cancellationToken)
+    {
+        return SendAckDirectAsync(
+            MqttPacketHeader.GetFirstByte(MqttPacketType.PubRel),
+            packetIdentifier,
+            MqttReasonCode.Success,
+            cancellationToken,
+            waitForWrite: false,
+            coalesceOnShard: true);
     }
 
     public ValueTask SendPubCompAsync(
@@ -548,7 +565,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             MqttPacketHeader.GetFirstByte(MqttPacketType.PubComp),
             packetIdentifier,
             reasonCode,
-            cancellationToken);
+            cancellationToken,
+            coalesceOnShard: true);
     }
 
     public async ValueTask SendPingRespAsync(CancellationToken cancellationToken)
@@ -1007,7 +1025,9 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         byte firstByte,
         ushort packetIdentifier,
         MqttReasonCode reasonCode,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool waitForWrite = true,
+        bool coalesceOnShard = false)
     {
         bool includeReason = reasonCode != MqttReasonCode.Success;
         int encodedLength = includeReason ? 6 : 4;
@@ -1029,7 +1049,11 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 includeReason,
                 reasonCode);
             frame.Writer.Advance(encodedLength);
-            await PostControlFrameAsync(frame, cancellationToken)
+            await PostControlFrameAsync(
+                frame,
+                cancellationToken,
+                waitForWrite,
+                coalesceOnShard)
                 .ConfigureAwait(false);
             return;
         }
@@ -1153,7 +1177,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     private MqttZeroEgressControlFrame? TryRentEgressControlFrame(
         int encodedLength)
     {
-        MqttZeroEgressActor? egress = _egress;
+        MqttZeroSessionEgress? egress = _egress;
         if (egress == null || egress.IsStopping)
         {
             return null;
@@ -1164,16 +1188,20 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
 
     private async ValueTask PostControlFrameAsync(
         MqttZeroEgressControlFrame frame,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool waitForWrite = true,
+        bool coalesceOnShard = false)
     {
         bool ownsFrame = true;
         try
         {
-            MqttZeroEgressActor egress = _egress ??
-                throw new ObjectDisposedException(nameof(MqttZeroEgressActor));
+            MqttZeroSessionEgress egress = _egress ??
+                throw new ObjectDisposedException(nameof(MqttZeroSessionEgress));
             ownsFrame = !await egress.PostControlAsync(
                 frame,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                waitForWrite,
+                coalesceOnShard).ConfigureAwait(false);
         }
         finally
         {

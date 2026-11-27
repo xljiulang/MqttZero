@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace MqttZero.Server.Scheduling;
 
@@ -11,7 +12,7 @@ internal sealed class MqttZeroEventLoop :
     private const int MaximumWorkItemsPerDrain = 1024;
     private static readonly long DrainBudgetTimestampTicks =
         Math.Max(1, Stopwatch.Frequency / 2000);
-    private static readonly AsyncLocal<int?> CurrentShardId = new();
+    private static readonly AsyncLocal<int?> CurrentShardIdState = new();
 
     private readonly ConcurrentQueue<MqttZeroShardWork> _queue = new();
     private readonly ConcurrentQueue<MqttZeroShardWork> _lowPriorityQueue =
@@ -51,7 +52,15 @@ internal sealed class MqttZeroEventLoop :
     {
         get
         {
-            return CurrentShardId.Value == ShardId;
+            return CurrentShardId == ShardId;
+        }
+    }
+
+    internal static int? CurrentShardId
+    {
+        get
+        {
+            return CurrentShardIdState.Value;
         }
     }
 
@@ -108,6 +117,35 @@ internal sealed class MqttZeroEventLoop :
         return await invocation.Task
             .WaitAsync(cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder<>))]
+    public async ValueTask<T> InvokeAsync<T>(
+        MqttZeroShardCommand<T> command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (IsCurrent)
+        {
+            return await command
+                .ExecuteInlineAsync()
+                .ConfigureAwait(false);
+        }
+
+        try
+        {
+            if (!TryEnqueue(command))
+            {
+                await EnqueueAsync(command, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception)
+        {
+            command.Fail(exception);
+        }
+
+        return await command.Completion.ConfigureAwait(false);
     }
 
     public MqttZeroShardDiagnostics GetSnapshot()
@@ -178,8 +216,8 @@ internal sealed class MqttZeroEventLoop :
 
     private async Task DrainAsync()
     {
-        int previousShardId = CurrentShardId.Value ?? -1;
-        CurrentShardId.Value = ShardId;
+        int previousShardId = CurrentShardIdState.Value ?? -1;
+        CurrentShardIdState.Value = ShardId;
         long drainStarted = Stopwatch.GetTimestamp();
         int processedCount = 0;
         try
@@ -217,7 +255,7 @@ internal sealed class MqttZeroEventLoop :
         {
             long drainElapsed = Stopwatch.GetTimestamp() - drainStarted;
             UpdateMaximumDrain(drainElapsed);
-            CurrentShardId.Value =
+            CurrentShardIdState.Value =
                 previousShardId >= 0 ? previousShardId : null;
             Volatile.Write(ref _scheduled, 0);
             Thread.MemoryBarrier();

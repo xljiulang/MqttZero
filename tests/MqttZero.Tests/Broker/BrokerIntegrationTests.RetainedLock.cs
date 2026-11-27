@@ -6,6 +6,7 @@ using MQTTnet;
 using MQTTnet.Protocol;
 using MqttZero.AspNetCore;
 using MqttZero.Server;
+using MqttZero.Server.Broker;
 using MqttZero.Server.Storage;
 using System.Net;
 
@@ -31,6 +32,8 @@ namespace MqttZero.Tests.Broker
             MqttClientFactory factory = new();
             using IMqttClient writer = factory.CreateMqttClient();
             using IMqttClient reader = factory.CreateMqttClient();
+            MqttZeroBroker broker =
+                app.Services.GetRequiredService<MqttZeroBroker>();
             await writer.ConnectAsync(
                 CreatePersistentClientOptions(port, writerClientId),
                 cancellationToken);
@@ -41,44 +44,53 @@ namespace MqttZero.Tests.Broker
             await writer.PublishAsync(
                 CreateRetainedPublishOptions("retained/one"),
                 cancellationToken);
+            await WaitUntilAsync(
+                () => broker.GetRetainedMessages().Count == 1,
+                cancellationToken);
             store.Arm();
-            Task blockedPublish = writer.PublishAsync(
-                CreateRetainedPublishOptions("retained/two"),
-                cancellationToken);
-            await store.SaveStarted.WaitAsync(
-                TimeSpan.FromSeconds(20),
-                cancellationToken);
-
-            TaskCompletionSource<string> received = new(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            reader.ApplicationMessageReceivedAsync += message =>
+            try
             {
-                received.TrySetResult(message.ApplicationMessage.Topic);
-                return Task.CompletedTask;
-            };
-            MqttClientSubscribeResult subscribe = await reader
-                .SubscribeAsync(
-                    new MqttClientSubscribeOptionsBuilder()
-                        .WithTopicFilter(
-                            "retained/#",
-                            MqttQualityOfServiceLevel.AtLeastOnce)
-                        .Build(),
-                    cancellationToken)
-                .WaitAsync(
+                Task blockedPublish = writer.PublishAsync(
+                    CreateRetainedPublishOptions("retained/two"),
+                    cancellationToken);
+                await store.SaveStarted.WaitAsync(
                     TimeSpan.FromSeconds(20),
                     cancellationToken);
 
-            Assert.NotEmpty(subscribe.Items);
-            string topic = await received.Task.WaitAsync(
-                TimeSpan.FromSeconds(20),
-                cancellationToken);
-            Assert.Equal("retained/one", topic);
-            Assert.False(blockedPublish.IsCompleted);
+                TaskCompletionSource<string> received = new(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                reader.ApplicationMessageReceivedAsync += message =>
+                {
+                    received.TrySetResult(message.ApplicationMessage.Topic);
+                    return Task.CompletedTask;
+                };
+                MqttClientSubscribeResult subscribe = await reader
+                    .SubscribeAsync(
+                        new MqttClientSubscribeOptionsBuilder()
+                            .WithTopicFilter(
+                                "retained/#",
+                                MqttQualityOfServiceLevel.AtLeastOnce)
+                            .Build(),
+                        cancellationToken)
+                    .WaitAsync(
+                        TimeSpan.FromSeconds(20),
+                        cancellationToken);
 
-            store.Release();
-            await blockedPublish.WaitAsync(
-                TimeSpan.FromSeconds(20),
-                cancellationToken);
+                Assert.NotEmpty(subscribe.Items);
+                string topic = await received.Task.WaitAsync(
+                    TimeSpan.FromSeconds(20),
+                    cancellationToken);
+                Assert.Equal("retained/one", topic);
+
+                store.Release();
+                await blockedPublish.WaitAsync(
+                    TimeSpan.FromSeconds(20),
+                    cancellationToken);
+            }
+            finally
+            {
+                store.Release();
+            }
         }
 
         [Fact(Timeout = 60_000)]

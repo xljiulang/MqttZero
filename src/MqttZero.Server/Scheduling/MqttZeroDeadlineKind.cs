@@ -8,5 +8,6 @@ internal enum MqttZeroDeadlineKind
     KeepAlive,
     Will,
     SessionExpiry,
+    MessageExpiry,
     RetainedExpiry
 }

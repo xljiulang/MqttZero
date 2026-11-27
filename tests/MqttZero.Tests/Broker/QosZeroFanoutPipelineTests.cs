@@ -73,7 +73,6 @@ public sealed class QosZeroFanoutPipelineTests
                     epoch,
                     "pipeline/topic"u8,
                     null,
-                    cursors,
                     2,
                     buffer);
                 await dispatcher.DispatchQosZeroAsync(

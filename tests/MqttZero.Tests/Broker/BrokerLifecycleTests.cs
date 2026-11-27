@@ -22,7 +22,7 @@ namespace MqttZero.Tests.Broker
     public sealed class BrokerLifecycleTests
     {
         [Fact(Timeout = 30_000)]
-        public async Task BackgroundFanoutFailureStopsNewConnections()
+        public async Task BackgroundFanoutFailureKeepsTheBrokerRunning()
         {
             ThrowingEnqueueInterceptor interceptor = new();
             await using MqttZeroBroker broker =
@@ -32,9 +32,10 @@ namespace MqttZero.Tests.Broker
 
             await PublishQosOneToSubscriberAsync(broker);
             await interceptor.WaitForFailureAsync();
-            await WaitUntilAsync(
-                () => broker.State != MqttZeroBrokerState.Running,
+            await Task.Delay(
+                TimeSpan.FromMilliseconds(200),
                 TestContext.Current.CancellationToken);
+            Assert.Equal(MqttZeroBrokerState.Running, broker.State);
 
             await broker.StopAsync(TestContext.Current.CancellationToken)
                 .AsTask()

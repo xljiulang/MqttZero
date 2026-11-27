@@ -135,6 +135,10 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
         arguments,
         "memory-probe-ms",
         0);
+    int controlProbeMilliseconds = GetInt(
+        arguments,
+        "control-probe-ms",
+        0);
     CancellationTokenSource lifetime = new();
     Console.CancelKeyPress += (_, eventArgs) =>
     {
@@ -192,6 +196,18 @@ static async Task ServeAsync(Dictionary<string, string> arguments)
             _ = Task.Run(
                 () => ReadProbeCommandsAsync(
                     probeState,
+                    lifetime.Token),
+                CancellationToken.None);
+        }
+
+        if (controlProbeMilliseconds > 0)
+        {
+            MqttZeroBroker controlBroker =
+                app.Services.GetRequiredService<MqttZeroBroker>();
+            _ = Task.Run(
+                () => RunControlProbeAsync(
+                    controlBroker,
+                    controlProbeMilliseconds,
                     lifetime.Token),
                 CancellationToken.None);
         }
@@ -557,6 +573,10 @@ static async Task RunAbAsync(
         arguments,
         "max-delivery-p99-regression-percent",
         5);
+    double maximumDeliveryP99Microseconds = GetInt(
+        arguments,
+        "delivery-p99-absolute-us",
+        0);
     bool allowPacketFragmentation = GetBool(
         arguments,
         "fragmentation",
@@ -578,6 +598,10 @@ static async Task RunAbAsync(
 
     List<BrokerAbRoundResult> results = [];
     int port = startPort;
+    bool diagnostics = GetBool(arguments, "diagnostics", false);
+    int controlProbeMilliseconds = diagnostics
+        ? Math.Max(100, GetInt(arguments, "control-probe-ms", 1000))
+        : 0;
     for (int round = 1; round <= rounds; round++)
     {
         BrokerAbVariantInfo[] order = round % 2 == 1
@@ -596,11 +620,29 @@ static async Task RunAbAsync(
                 allowPacketFragmentation,
                 runtimeConfiguration,
                 variant.Topology!,
-                variant.Egress!);
+                variant.Egress!,
+                controlProbeMilliseconds: controlProbeMilliseconds,
+                diagnostics: diagnostics);
             long started = Stopwatch.GetTimestamp();
             try
             {
                 await WaitForReadyAsync(serverProcess);
+                BrokerControlProbeCollector? controlProbe = diagnostics
+                    ? new BrokerControlProbeCollector()
+                    : null;
+                using CancellationTokenSource? controlProbeLifetime =
+                    diagnostics
+                        ? new CancellationTokenSource()
+                        : null;
+                Task? controlProbeTask = null;
+                if (controlProbe != null)
+                {
+                    controlProbeTask = ReadControlProbeLinesAsync(
+                        serverProcess.StandardError,
+                        controlProbe,
+                        controlProbeLifetime!.Token);
+                }
+
                 BenchmarkRunOptions options = new(
                     subscribers,
                     publishers,
@@ -633,6 +675,18 @@ static async Task RunAbAsync(
                     BenchmarkObservationCapture.CaptureProcess(
                         clientProcess,
                         Stopwatch.GetElapsedTime(started));
+                if (controlProbeTask != null)
+                {
+                    controlProbeLifetime!.Cancel();
+                    try
+                    {
+                        await controlProbeTask.ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                    }
+                }
+
                 results.Add(new BrokerAbRoundResult
                 {
                     Round = round,
@@ -640,7 +694,8 @@ static async Task RunAbAsync(
                     Commit = variant.Commit,
                     Result = result,
                     BrokerObservation = brokerObservation,
-                    ClientObservation = clientObservation
+                    ClientObservation = clientObservation,
+                    ControlProbe = controlProbe?.Latest
                 });
                 Console.Error.WriteLine(
                     FormattableString.Invariant(
@@ -661,7 +716,8 @@ static async Task RunAbAsync(
         candidate,
         results,
         minimumGainPercent / 100d,
-        maximumP99RegressionPercent / 100d);
+        maximumP99RegressionPercent / 100d,
+        maximumDeliveryP99Microseconds);
     BrokerAbReport report = new(
         environment,
         baseline,
@@ -873,13 +929,6 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
         diagnosticsSnapshot.EgressBatchByteCount,
         averageEgressBatchMessages,
         diagnosticsSnapshot.EgressFlushStartCount,
-        diagnosticsSnapshot.SessionLockWaitCount,
-        ToAverageMicroseconds(
-            diagnosticsSnapshot.TotalSessionLockWaitTicks,
-            diagnosticsSnapshot.SessionLockWaitCount),
-        ToAverageMicroseconds(
-            diagnosticsSnapshot.MaxSessionLockWaitTicks,
-            1),
         ToAverageMicroseconds(
             diagnosticsSnapshot.TotalPendingSelectionTicks,
             diagnosticsSnapshot.EgressDataBatchCount),
@@ -891,7 +940,20 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
             diagnosticsSnapshot.EncodedPublishCount),
         ToAverageMicroseconds(
             diagnosticsSnapshot.TotalPublishWriteTicks,
-            diagnosticsSnapshot.EgressDataBatchCount));
+            diagnosticsSnapshot.EgressDataBatchCount),
+        diagnosticsSnapshot.ControlFrameCount,
+        diagnosticsSnapshot.ControlFrameDirectCount,
+        diagnosticsSnapshot.ControlFrameQueuedCount,
+        diagnosticsSnapshot.ControlBatchCount,
+        diagnosticsSnapshot.ControlBatchFrameSum,
+        diagnosticsSnapshot.ControlBatchFrameMax,
+        diagnosticsSnapshot.TotalControlWriteTicks,
+        diagnosticsSnapshot.MaxControlWriteTicks,
+        diagnosticsSnapshot.AckWorkCount,
+        diagnosticsSnapshot.TotalAckWorkQueueTicks,
+        diagnosticsSnapshot.MaxAckWorkQueueTicks,
+        diagnosticsSnapshot.QosZeroDirectCount,
+        diagnosticsSnapshot.QosZeroDeferredCount);
     OutboundBenchmarkResult result = new(
         PublishedMessages: loopResult.PublishedMessages,
         ReceivedMessages: Interlocked.Read(ref receivedMessages),
@@ -1416,6 +1478,103 @@ static async Task ReadProbeLinesAsync(
     }
 }
 
+static async Task RunControlProbeAsync(
+    MqttZeroBroker broker,
+    int intervalMilliseconds,
+    CancellationToken cancellationToken)
+{
+    const string Prefix = "CONTROL ";
+    while (!cancellationToken.IsCancellationRequested)
+    {
+        MqttZeroFanoutDiagnosticsSnapshot snapshot =
+            broker.GetFanoutDiagnosticsForTest();
+        BrokerControlProbeSnapshot probe = new(
+            Stopwatch.GetTimestamp(),
+            snapshot.PublishCount,
+            snapshot.DeliveryCount,
+            snapshot.ControlFrameCount,
+            snapshot.ControlFrameDirectCount,
+            snapshot.ControlFrameQueuedCount,
+            snapshot.ControlBatchCount,
+            snapshot.ControlBatchFrameSum,
+            snapshot.ControlBatchFrameMax,
+            snapshot.TotalControlWriteTicks,
+            snapshot.MaxControlWriteTicks,
+            snapshot.AckWorkCount,
+            snapshot.TotalAckWorkQueueTicks,
+            snapshot.MaxAckWorkQueueTicks,
+            snapshot.QosZeroDirectCount,
+            snapshot.QosZeroDeferredCount,
+            snapshot.EgressDataBatchCount,
+            snapshot.EgressBatchMessageCount,
+            snapshot.EgressFlushStartCount,
+            snapshot.FlushWaitCount,
+            snapshot.MaxPendingQueueDepth);
+        Console.Error.WriteLine(
+            Prefix + JsonSerializer.Serialize(
+                probe,
+                BrokerControlProbeJsonContext.Default
+                    .BrokerControlProbeSnapshot));
+        try
+        {
+            await Task.Delay(
+                intervalMilliseconds,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+    }
+}
+
+static async Task ReadControlProbeLinesAsync(
+    StreamReader reader,
+    BrokerControlProbeCollector collector,
+    CancellationToken cancellationToken)
+{
+    const string Prefix = "CONTROL ";
+    while (!cancellationToken.IsCancellationRequested)
+    {
+        string? line;
+        try
+        {
+            line = await reader.ReadLineAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (line == null)
+        {
+            return;
+        }
+
+        if (!line.StartsWith(Prefix, StringComparison.Ordinal))
+        {
+            continue;
+        }
+
+        try
+        {
+            BrokerControlProbeSnapshot? probe =
+                JsonSerializer.Deserialize(
+                    line.AsSpan(Prefix.Length),
+                    BrokerControlProbeJsonContext.Default
+                        .BrokerControlProbeSnapshot);
+            if (probe != null)
+            {
+                collector.Observe(probe);
+            }
+        }
+        catch (JsonException)
+        {
+        }
+    }
+}
+
 static async Task<BrokerMemoryProbeSnapshot> WaitForFreshProbeAsync(
     Process serverProcess,
     BenchmarkMemoryProbeCollector collector,
@@ -1499,6 +1658,9 @@ static async Task RunMemoryProbeAsync(
             snapshot.ObjectPools.FanoutOperationCount,
             snapshot.ObjectPools.FanoutBatchWorkCount,
             snapshot.ObjectPools.FanoutScheduledBatchCount,
+            snapshot.ObjectPools.AcknowledgementWorkCount,
+            snapshot.ObjectPools.AcknowledgementShardWorkCount,
+            snapshot.ObjectPools.ControlPostWorkCount,
             GC.GetTotalMemory(forceFullCollection: false),
             process.WorkingSet64,
             GC.GetTotalAllocatedBytes(precise: false),
@@ -1646,7 +1808,9 @@ static Process StartServerProcess(
     BenchmarkTopologyOptions topologyOptions,
     BenchmarkEgressOptions egressOptions,
     long maxBufferedBytes = 0,
-    int memoryProbeMilliseconds = 0)
+    int memoryProbeMilliseconds = 0,
+    int controlProbeMilliseconds = 0,
+    bool diagnostics = false)
 {
     ProcessStartInfo startInfo = new()
     {
@@ -1699,6 +1863,16 @@ static Process StartServerProcess(
         startInfo.ArgumentList.Add(
             memoryProbeMilliseconds.ToString(CultureInfo.InvariantCulture));
     }
+
+    if (controlProbeMilliseconds > 0)
+    {
+        startInfo.ArgumentList.Add("--control-probe-ms");
+        startInfo.ArgumentList.Add(
+            controlProbeMilliseconds.ToString(CultureInfo.InvariantCulture));
+    }
+
+    startInfo.ArgumentList.Add("--diagnostics");
+    startInfo.ArgumentList.Add(diagnostics ? "true" : "false");
 
     foreach (KeyValuePair<string, string> variable in
         runtimeConfiguration.CreateBrokerEnvironmentVariables())
