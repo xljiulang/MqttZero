@@ -46,6 +46,9 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
     {
     }
 
+    /// <summary>
+    /// PoolCountForTest 的值。
+    /// </summary>
     internal static int PoolCountForTest
     {
         get
@@ -54,6 +57,9 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
         }
     }
 
+    /// <summary>
+    /// Completion 的值。
+    /// </summary>
     internal ValueTask<bool> Completion
     {
         get
@@ -228,6 +234,7 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
         }
     }
 
+    /// <inheritdoc/>
     bool IValueTaskSource<bool>.GetResult(short token)
     {
         try
@@ -240,12 +247,14 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
         }
     }
 
+    /// <inheritdoc/>
     ValueTaskSourceStatus IValueTaskSource<bool>.GetStatus(
         short token)
     {
         return _completion.GetStatus(token);
     }
 
+    /// <inheritdoc/>
     void IValueTaskSource<bool>.OnCompleted(
         Action<object?> continuation,
         object? state,

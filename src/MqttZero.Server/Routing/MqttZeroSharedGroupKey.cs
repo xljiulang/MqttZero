@@ -49,6 +49,9 @@ internal readonly struct MqttZeroSharedGroupKey :
             subscription.MatchFilter);
     }
 
+    /// <summary>
+    /// Group 的值。
+    /// </summary>
     public ReadOnlySpan<byte> Group
     {
         get
@@ -57,6 +60,9 @@ internal readonly struct MqttZeroSharedGroupKey :
         }
     }
 
+    /// <summary>
+    /// Filter 的值。
+    /// </summary>
     public ReadOnlySpan<byte> Filter
     {
         get

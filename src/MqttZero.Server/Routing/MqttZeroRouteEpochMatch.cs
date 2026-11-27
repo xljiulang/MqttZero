@@ -17,6 +17,9 @@ internal ref struct MqttZeroRouteEpochMatch
         _deliveries = [];
     }
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     public int Count
     {
         get
@@ -25,6 +28,9 @@ internal ref struct MqttZeroRouteEpochMatch
         }
     }
 
+    /// <summary>
+    /// 按索引获取元素。
+    /// </summary>
     public MqttZeroDeliveryCandidate this[int index]
     {
         get

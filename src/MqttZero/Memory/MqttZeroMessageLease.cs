@@ -72,6 +72,9 @@ internal sealed class MqttZeroMessageLease : IDisposable
     /// </summary>
     public ReadOnlySequence<byte> PayloadSequence { get; private set; }
 
+    /// <summary>
+    /// IsBorrowed 的值。
+    /// </summary>
     public bool IsBorrowed
     {
         get
@@ -110,6 +113,9 @@ internal sealed class MqttZeroMessageLease : IDisposable
     /// </summary>
     public ushort PacketIdentifier { get; set; }
 
+    /// <summary>
+    /// PoolCountForTest 的值。
+    /// </summary>
     internal static int PoolCountForTest
     {
         get

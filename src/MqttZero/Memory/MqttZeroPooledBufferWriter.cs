@@ -24,6 +24,9 @@ internal sealed class MqttZeroPooledBufferWriter : IBufferWriter<byte>, IDisposa
         _buffer = bufferPool.Rent(minimumLength);
     }
 
+    /// <summary>
+    /// WrittenMemory 的值。
+    /// </summary>
     public ReadOnlyMemory<byte> WrittenMemory
     {
         get
@@ -32,6 +35,9 @@ internal sealed class MqttZeroPooledBufferWriter : IBufferWriter<byte>, IDisposa
         }
     }
 
+    /// <summary>
+    /// WrittenCount 的值。
+    /// </summary>
     public int WrittenCount
     {
         get

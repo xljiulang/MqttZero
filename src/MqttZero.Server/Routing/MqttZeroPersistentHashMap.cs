@@ -36,6 +36,9 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
         _root = root;
     }
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     public int Count
     {
         get
@@ -44,6 +47,9 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
         }
     }
 
+    /// <summary>
+    /// Root 的值。
+    /// </summary>
     internal MqttZeroPersistentHashMapNode<TKey, TValue>? Root
     {
         get
@@ -185,6 +191,9 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
             }
         }
 
+        /// <summary>
+        /// Current 的值。
+        /// </summary>
         public MqttZeroPersistentHashMapEntry<TKey, TValue> Current
         {
             get

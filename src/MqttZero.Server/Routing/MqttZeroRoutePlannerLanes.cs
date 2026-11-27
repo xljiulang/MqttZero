@@ -28,6 +28,9 @@ internal sealed class MqttZeroRoutePlannerLanes : IDisposable
     /// </summary>
     public int Count { get; }
 
+    /// <summary>
+    /// 按索引获取元素。
+    /// </summary>
     public MqttZeroRoutePlanBuffer this[int shardId]
     {
         get

@@ -98,6 +98,9 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
             SessionShardMap.GetShardId(clientId));
     }
 
+    /// <summary>
+    /// ShardSet 的值。
+    /// </summary>
     private MqttZeroShardSet ShardSet
     {
         get
@@ -108,6 +111,9 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// SessionShardMap 的值。
+    /// </summary>
     private MqttZeroSessionShardMap SessionShardMap
     {
         get
@@ -240,6 +246,9 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// ShardCount 的值。
+    /// </summary>
     internal int ShardCount
     {
         get
@@ -248,6 +257,9 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Shards 的值。
+    /// </summary>
     internal MqttZeroShardSet? Shards
     {
         get
@@ -256,6 +268,9 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// RouteEpoch 的值。
+    /// </summary>
     internal MqttZeroRouteEpoch RouteEpoch
     {
         get
@@ -264,6 +279,9 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// RetainedTopicTrieForTest 的值。
+    /// </summary>
     internal MqttZeroRetainedTopicTrie RetainedTopicTrieForTest
     {
         get
@@ -272,6 +290,9 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 获取Fanout诊断Test。
+    /// </summary>
     internal MqttZeroFanoutDiagnosticsSnapshot
         GetFanoutDiagnosticsForTest()
     {

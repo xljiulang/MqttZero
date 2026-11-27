@@ -42,6 +42,9 @@ internal sealed class MqttZeroRetainedTopicNode
     /// </summary>
     public MqttZeroRetainedMessage? Message { get; }
 
+    /// <summary>
+    /// ExactChildren 的值。
+    /// </summary>
     public ReadOnlySpan<MqttZeroRetainedTopicChild> ExactChildren
     {
         get
@@ -50,6 +53,9 @@ internal sealed class MqttZeroRetainedTopicNode
         }
     }
 
+    /// <summary>
+    /// IsEmpty 的值。
+    /// </summary>
     public bool IsEmpty
     {
         get

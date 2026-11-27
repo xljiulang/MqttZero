@@ -12,6 +12,9 @@ internal sealed class MqttZeroPacketWriter : IBufferWriter<byte>
     private int _length;
     private int _position;
 
+    /// <summary>
+    /// WrittenCount 的值。
+    /// </summary>
     public int WrittenCount
     {
         get
@@ -20,6 +23,9 @@ internal sealed class MqttZeroPacketWriter : IBufferWriter<byte>
         }
     }
 
+    /// <summary>
+    /// WrittenMemory 的值。
+    /// </summary>
     public ReadOnlyMemory<byte> WrittenMemory
     {
         get

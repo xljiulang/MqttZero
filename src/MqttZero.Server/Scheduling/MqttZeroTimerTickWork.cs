@@ -16,6 +16,9 @@ internal sealed class MqttZeroTimerTickWork : MqttZeroShardWork
         _wheel = wheel;
     }
 
+    /// <summary>
+    /// IsLowPriority 的值。
+    /// </summary>
     public override bool IsLowPriority
     {
         get

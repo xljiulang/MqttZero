@@ -42,6 +42,9 @@ internal sealed class MqttZeroRoutePlanBufferPool : IDisposable
     /// </summary>
     public Action<MqttZeroRoutePlanBuffer> ReturnCallback { get; }
 
+    /// <summary>
+    /// AvailableCount 的值。
+    /// </summary>
     public int AvailableCount
     {
         get
@@ -50,6 +53,9 @@ internal sealed class MqttZeroRoutePlanBufferPool : IDisposable
         }
     }
 
+    /// <summary>
+    /// InUseCount 的值。
+    /// </summary>
     public int InUseCount
     {
         get

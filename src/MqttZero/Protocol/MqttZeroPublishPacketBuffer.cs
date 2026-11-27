@@ -30,6 +30,9 @@ internal readonly struct MqttZeroPublishPacketBuffer
     /// </summary>
     public ReadOnlySequence<byte> Payload { get; }
 
+    /// <summary>
+    /// Length 的值。
+    /// </summary>
     public int Length
     {
         get

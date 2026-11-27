@@ -43,6 +43,9 @@ internal sealed class MqttZeroRouteEndpoint
     /// </summary>
     public SharedRouteMap? SharedEntries { get; }
 
+    /// <summary>
+    /// IsEmpty 的值。
+    /// </summary>
     public bool IsEmpty
     {
         get

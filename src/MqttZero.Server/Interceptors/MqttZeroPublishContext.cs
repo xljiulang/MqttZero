@@ -49,6 +49,9 @@ public sealed class MqttZeroPublishContext
     /// <summary>Gets or sets an optional result reason string.</summary>
     public string? ReasonString { get; set; }
 
+    /// <summary>
+    /// PoolCountForTest 的值。
+    /// </summary>
     internal static int PoolCountForTest
     {
         get

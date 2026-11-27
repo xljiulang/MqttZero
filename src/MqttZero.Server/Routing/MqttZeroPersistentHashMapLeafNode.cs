@@ -22,6 +22,9 @@ internal sealed class MqttZeroPersistentHashMapLeafNode<TKey, TValue> :
         Hash = hash;
     }
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     public override int Count
     {
         get

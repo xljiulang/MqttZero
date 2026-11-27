@@ -28,6 +28,9 @@ internal sealed class MqttZeroPersistentHashMapBitmapNode<TKey, TValue> :
         _count = count;
     }
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     public override int Count
     {
         get
@@ -36,6 +39,9 @@ internal sealed class MqttZeroPersistentHashMapBitmapNode<TKey, TValue> :
         }
     }
 
+    /// <summary>
+    /// 执行 Children 对应的处理。
+    /// </summary>
     internal ReadOnlySpan<MqttZeroPersistentHashMapNode<TKey, TValue>>
         Children
     {

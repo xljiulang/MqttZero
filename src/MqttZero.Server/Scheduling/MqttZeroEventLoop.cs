@@ -60,6 +60,9 @@ internal sealed class MqttZeroEventLoop :
     /// </summary>
     public int ShardId { get; }
 
+    /// <summary>
+    /// IsCurrent 的值。
+    /// </summary>
     public bool IsCurrent
     {
         get
@@ -68,6 +71,9 @@ internal sealed class MqttZeroEventLoop :
         }
     }
 
+    /// <summary>
+    /// CurrentShardId 的值。
+    /// </summary>
     internal static int? CurrentShardId
     {
         get
@@ -256,6 +262,7 @@ internal sealed class MqttZeroEventLoop :
         _queueSpace.Dispose();
     }
 
+    /// <inheritdoc/>
     void IThreadPoolWorkItem.Execute()
     {
         _ = DrainAsync();

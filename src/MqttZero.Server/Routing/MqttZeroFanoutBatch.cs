@@ -32,6 +32,9 @@ internal struct MqttZeroFanoutBatch
     /// </summary>
     public int Count { get; private set; }
 
+    /// <summary>
+    /// 按索引获取元素。
+    /// </summary>
     public MqttZeroPlannedDelivery this[int index]
     {
         get

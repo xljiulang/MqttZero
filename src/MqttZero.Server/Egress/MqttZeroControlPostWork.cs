@@ -22,6 +22,9 @@ internal sealed class MqttZeroControlPostWork : MqttZeroShardWork
     {
     }
 
+    /// <summary>
+    /// PoolCountForTest 的值。
+    /// </summary>
     internal static int PoolCountForTest
     {
         get

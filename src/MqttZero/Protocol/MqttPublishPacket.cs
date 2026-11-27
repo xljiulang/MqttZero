@@ -61,6 +61,9 @@ public sealed class MqttPublishPacket : MqttPacket
     /// </summary>
     public bool Retain { get; set; }
 
+    /// <summary>
+    /// MessageExpiryInterval 的值。
+    /// </summary>
     internal uint? MessageExpiryInterval
     {
         get
@@ -82,6 +85,9 @@ public sealed class MqttPublishPacket : MqttPacket
         }
     }
 
+    /// <summary>
+    /// SubscriptionIdentifier 的值。
+    /// </summary>
     internal uint? SubscriptionIdentifier
     {
         get

@@ -22,6 +22,9 @@ internal sealed class MqttZeroFanoutScheduledBatch
     {
     }
 
+    /// <summary>
+    /// PoolCountForTest 的值。
+    /// </summary>
     internal static int PoolCountForTest
     {
         get
@@ -30,6 +33,9 @@ internal sealed class MqttZeroFanoutScheduledBatch
         }
     }
 
+    /// <summary>
+    /// Operation 的值。
+    /// </summary>
     internal MqttZeroFanoutOperation Operation
     {
         get
@@ -40,6 +46,9 @@ internal sealed class MqttZeroFanoutScheduledBatch
         }
     }
 
+    /// <summary>
+    /// ShardId 的值。
+    /// </summary>
     internal int ShardId
     {
         get

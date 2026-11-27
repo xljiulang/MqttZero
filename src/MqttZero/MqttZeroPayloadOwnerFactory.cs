@@ -95,6 +95,9 @@ public static class MqttZeroPayloadOwnerFactory
         /// </summary>
         public static EmptyPayloadOwner Instance { get; } = new();
 
+        /// <summary>
+        /// Payload 的值。
+        /// </summary>
         public override ReadOnlySequence<byte> Payload
         {
             get

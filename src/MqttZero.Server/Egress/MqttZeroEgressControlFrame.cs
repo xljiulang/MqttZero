@@ -36,6 +36,9 @@ internal sealed class MqttZeroEgressControlFrame : IValueTaskSource, IDisposable
             encodedLength);
     }
 
+    /// <summary>
+    /// Writer 的值。
+    /// </summary>
     public MqttZeroPooledBufferWriter Writer
     {
         get
@@ -44,6 +47,9 @@ internal sealed class MqttZeroEgressControlFrame : IValueTaskSource, IDisposable
         }
     }
 
+    /// <summary>
+    /// EncodedMemory 的值。
+    /// </summary>
     public ReadOnlyMemory<byte> EncodedMemory
     {
         get
@@ -52,6 +58,9 @@ internal sealed class MqttZeroEgressControlFrame : IValueTaskSource, IDisposable
         }
     }
 
+    /// <summary>
+    /// EncodedLength 的值。
+    /// </summary>
     public int EncodedLength
     {
         get

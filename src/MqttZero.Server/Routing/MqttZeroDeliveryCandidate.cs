@@ -38,6 +38,9 @@ internal readonly struct MqttZeroDeliveryCandidate
     /// </summary>
     public ReadOnlyMemory<uint> SubscriptionIdentifiers { get; }
 
+    /// <summary>
+    /// QualityOfServiceLevel 的值。
+    /// </summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel
     {
         get

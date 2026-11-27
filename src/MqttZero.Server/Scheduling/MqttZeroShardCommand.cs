@@ -24,6 +24,9 @@ internal sealed class MqttZeroShardCommand<T> :
     private int _state;
     private short _version;
 
+    /// <summary>
+    /// Completion 的值。
+    /// </summary>
     internal ValueTask<T> Completion
     {
         get

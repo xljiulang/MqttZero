@@ -47,6 +47,9 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         _work = new MqttZeroFanoutSchedulerWork(this);
     }
 
+    /// <summary>
+    /// EnqueuedCount 的值。
+    /// </summary>
     internal long EnqueuedCount
     {
         get
@@ -55,6 +58,9 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// IsIdle 的值。
+    /// </summary>
     internal bool IsIdle
     {
         get

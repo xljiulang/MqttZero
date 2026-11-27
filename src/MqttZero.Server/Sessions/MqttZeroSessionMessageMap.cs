@@ -11,6 +11,9 @@ internal sealed class MqttZeroSessionMessageMap<T> :
     private readonly Dictionary<ushort, T> _items = [];
     private int _count;
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     public int Count
     {
         get
@@ -19,6 +22,9 @@ internal sealed class MqttZeroSessionMessageMap<T> :
         }
     }
 
+    /// <summary>
+    /// Values 的值。
+    /// </summary>
     public IEnumerable<T> Values
     {
         get
@@ -27,6 +33,9 @@ internal sealed class MqttZeroSessionMessageMap<T> :
         }
     }
 
+    /// <summary>
+    /// 按索引获取元素。
+    /// </summary>
     public T this[ushort key]
     {
         get
@@ -129,6 +138,7 @@ internal sealed class MqttZeroSessionMessageMap<T> :
         return _items.GetEnumerator();
     }
 
+    /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();

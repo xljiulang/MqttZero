@@ -56,6 +56,9 @@ internal sealed class MqttZeroBufferPool : IDisposable
         }
     }
 
+    /// <summary>
+    /// Shared 的值。
+    /// </summary>
     public static MqttZeroBufferPool Shared
     {
         get
@@ -64,6 +67,9 @@ internal sealed class MqttZeroBufferPool : IDisposable
         }
     }
 
+    /// <summary>
+    /// RentedBytes 的值。
+    /// </summary>
     public long RentedBytes
     {
         get

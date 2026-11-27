@@ -60,6 +60,9 @@ internal sealed class MqttZeroQueuedMessage
     {
     }
 
+    /// <summary>
+    /// PoolCountForTest 的值。
+    /// </summary>
     internal static int PoolCountForTest
     {
         get
@@ -68,6 +71,9 @@ internal sealed class MqttZeroQueuedMessage
         }
     }
 
+    /// <summary>
+    /// Lease 的值。
+    /// </summary>
     internal MqttZeroMessageLease Lease
     {
         get
@@ -76,6 +82,9 @@ internal sealed class MqttZeroQueuedMessage
         }
     }
 
+    /// <summary>
+    /// Topic 的值。
+    /// </summary>
     public ReadOnlyMemory<byte> Topic
     {
         get
@@ -84,6 +93,9 @@ internal sealed class MqttZeroQueuedMessage
         }
     }
 
+    /// <summary>
+    /// Payload 的值。
+    /// </summary>
     public ReadOnlyMemory<byte> Payload
     {
         get
@@ -92,6 +104,9 @@ internal sealed class MqttZeroQueuedMessage
         }
     }
 
+    /// <summary>
+    /// Properties 的值。
+    /// </summary>
     public ReadOnlyMemory<byte> Properties
     {
         get

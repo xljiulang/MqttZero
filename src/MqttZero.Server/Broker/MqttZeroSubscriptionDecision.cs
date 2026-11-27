@@ -38,6 +38,9 @@ internal readonly struct MqttZeroSubscriptionDecision
     /// </summary>
     public bool Existed { get; }
 
+    /// <summary>
+    /// CloseConnection 的值。
+    /// </summary>
     public bool CloseConnection
     {
         get

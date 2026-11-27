@@ -10,6 +10,9 @@ internal sealed class MqttZeroSubscriptionCollection :
 {
     private MqttZeroSubscription[] _items = [];
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     public int Count
     {
         get
@@ -18,6 +21,9 @@ internal sealed class MqttZeroSubscriptionCollection :
         }
     }
 
+    /// <summary>
+    /// 按索引获取元素。
+    /// </summary>
     public MqttZeroSubscription this[int index]
     {
         get
@@ -97,6 +103,7 @@ internal sealed class MqttZeroSubscriptionCollection :
             .GetEnumerator();
     }
 
+    /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator()
     {
         return GetEnumerator();

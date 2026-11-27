@@ -42,6 +42,9 @@ internal struct MqttZeroPlannedDelivery
     /// </summary>
     public MqttZeroSessionState Session { get; }
 
+    /// <summary>
+    /// QualityOfServiceLevel 的值。
+    /// </summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel
     {
         get
@@ -50,6 +53,9 @@ internal struct MqttZeroPlannedDelivery
         }
     }
 
+    /// <summary>
+    /// RetainAsPublished 的值。
+    /// </summary>
     public bool RetainAsPublished
     {
         get
@@ -58,6 +64,9 @@ internal struct MqttZeroPlannedDelivery
         }
     }
 
+    /// <summary>
+    /// SubscriptionIdentifiers 的值。
+    /// </summary>
     public ReadOnlySpan<uint> SubscriptionIdentifiers
     {
         get
@@ -68,6 +77,9 @@ internal struct MqttZeroPlannedDelivery
         }
     }
 
+    /// <summary>
+    /// SubscriptionIdentifiersMemory 的值。
+    /// </summary>
     internal ReadOnlyMemory<uint> SubscriptionIdentifiersMemory
     {
         get

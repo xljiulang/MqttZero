@@ -31,6 +31,9 @@ internal sealed class MqttZeroRouteEpochManager
             cursors);
     }
 
+    /// <summary>
+    /// Current 的值。
+    /// </summary>
     public MqttZeroRouteEpoch Current
     {
         get

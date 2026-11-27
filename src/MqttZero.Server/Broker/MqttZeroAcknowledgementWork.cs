@@ -23,6 +23,9 @@ internal sealed class MqttZeroAcknowledgementWork
     {
     }
 
+    /// <summary>
+    /// PoolCountForTest 的值。
+    /// </summary>
     internal static int PoolCountForTest
     {
         get
@@ -31,6 +34,9 @@ internal sealed class MqttZeroAcknowledgementWork
         }
     }
 
+    /// <summary>
+    /// Acknowledgement 的值。
+    /// </summary>
     public MqttZeroAcknowledgementView Acknowledgement
     { get; private set; }
 

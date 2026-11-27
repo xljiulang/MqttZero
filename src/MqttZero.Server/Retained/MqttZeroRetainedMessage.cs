@@ -32,6 +32,9 @@ internal sealed class MqttZeroRetainedMessage
     /// </summary>
     public MqttZeroMessageLease Lease { get; }
 
+    /// <summary>
+    /// Topic 的值。
+    /// </summary>
     public ReadOnlyMemory<byte> Topic
     {
         get
@@ -40,6 +43,9 @@ internal sealed class MqttZeroRetainedMessage
         }
     }
 
+    /// <summary>
+    /// Payload 的值。
+    /// </summary>
     public ReadOnlyMemory<byte> Payload
     {
         get
@@ -58,6 +64,9 @@ internal sealed class MqttZeroRetainedMessage
     /// </summary>
     public DateTimeOffset? ExpiresAt { get; }
 
+    /// <summary>
+    /// ByteLength 的值。
+    /// </summary>
     public long ByteLength
     {
         get

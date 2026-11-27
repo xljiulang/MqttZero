@@ -5,6 +5,9 @@ namespace MqttZero.Server.Storage;
 /// </summary>
 internal sealed class MqttZeroNoopMessageStore : IMqttZeroMessageStore
 {
+    /// <summary>
+    /// IsEnabled 的值。
+    /// </summary>
     public bool IsEnabled
     {
         get

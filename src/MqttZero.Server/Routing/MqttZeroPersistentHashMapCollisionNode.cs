@@ -22,6 +22,9 @@ internal sealed class MqttZeroPersistentHashMapCollisionNode<TKey, TValue> :
         _entries = entries;
     }
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     public override int Count
     {
         get
@@ -30,6 +33,9 @@ internal sealed class MqttZeroPersistentHashMapCollisionNode<TKey, TValue> :
         }
     }
 
+    /// <summary>
+    /// 条目。
+    /// </summary>
     internal ReadOnlySpan<MqttZeroPersistentHashMapEntry<TKey, TValue>>
         Entries
     {

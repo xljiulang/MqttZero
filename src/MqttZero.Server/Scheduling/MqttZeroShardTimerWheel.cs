@@ -74,6 +74,9 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         _tickWork = new MqttZeroTimerTickWork(this);
     }
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     internal int Count
     {
         get
@@ -82,6 +85,9 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// ShardId 的值。
+    /// </summary>
     internal int ShardId
     {
         get

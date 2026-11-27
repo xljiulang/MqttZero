@@ -56,6 +56,9 @@ internal sealed class MqttZeroRouteTrieNode
     /// </summary>
     public MqttZeroRouteTrieNode? MultiLevel { get; }
 
+    /// <summary>
+    /// ExactChildren 的值。
+    /// </summary>
     public ReadOnlySpan<MqttZeroRouteChild> ExactChildren
     {
         get
@@ -64,6 +67,9 @@ internal sealed class MqttZeroRouteTrieNode
         }
     }
 
+    /// <summary>
+    /// IsEmpty 的值。
+    /// </summary>
     public bool IsEmpty
     {
         get

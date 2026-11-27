@@ -16,6 +16,9 @@ internal readonly struct MqttZeroTopicSegment : IEquatable<MqttZeroTopicSegment>
         _bytes = bytes;
     }
 
+    /// <summary>
+    /// Span 的值。
+    /// </summary>
     public ReadOnlySpan<byte> Span
     {
         get

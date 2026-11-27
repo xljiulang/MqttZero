@@ -78,6 +78,9 @@ internal sealed class MqttZeroFanoutDiagnostics
         _enabled = enabled;
     }
 
+    /// <summary>
+    /// Enabled 的值。
+    /// </summary>
     public bool Enabled
     {
         get

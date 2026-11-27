@@ -21,6 +21,9 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 public sealed partial class MqttZeroBroker
 {
+    /// <summary>
+    /// UseFastFanoutDelivery 的值。
+    /// </summary>
     private bool UseFastFanoutDelivery
     {
         get
@@ -1068,6 +1071,9 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// CanDispatchInbound 的值。
+    /// </summary>
     internal bool CanDispatchInbound
     {
         get
@@ -1076,6 +1082,9 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// CanDispatchInboundQos2 的值。
+    /// </summary>
     private bool CanDispatchInboundQos2
     {
         get

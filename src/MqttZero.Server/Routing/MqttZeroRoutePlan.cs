@@ -27,6 +27,9 @@ internal readonly struct MqttZeroRoutePlan
         TotalDeliveryCount = totalDeliveryCount;
     }
 
+    /// <summary>
+    /// Batches 的值。
+    /// </summary>
     public ReadOnlySpan<MqttZeroFanoutBatch> Batches
     {
         get

@@ -76,6 +76,9 @@ internal sealed class MqttZeroTimerNode
     /// </summary>
     internal MqttZeroShardTimerWheel? Wheel { get; set; }
 
+    /// <summary>
+    /// IsScheduled 的值。
+    /// </summary>
     internal bool IsScheduled
     {
         get

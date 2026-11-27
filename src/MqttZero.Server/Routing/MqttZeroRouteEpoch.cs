@@ -8,6 +8,9 @@ namespace MqttZero.Server.Routing;
 /// </summary>
 internal sealed class MqttZeroRouteEpoch
 {
+    /// <summary>
+    /// Empty 的值。
+    /// </summary>
     public static MqttZeroRouteEpoch Empty
     {
         get

@@ -29,6 +29,9 @@ internal sealed class MqttZeroMessageQueue
     /// </summary>
     public int Capacity { get; }
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     public int Count
     {
         get
@@ -37,6 +40,9 @@ internal sealed class MqttZeroMessageQueue
         }
     }
 
+    /// <summary>
+    /// ExpiryIndexCountForTest 的值。
+    /// </summary>
     internal int ExpiryIndexCountForTest
     {
         get
@@ -45,6 +51,9 @@ internal sealed class MqttZeroMessageQueue
         }
     }
 
+    /// <summary>
+    /// Head 的值。
+    /// </summary>
     private MqttZeroQueuedMessage Head
     {
         get
@@ -67,6 +76,9 @@ internal sealed class MqttZeroMessageQueue
                 "The MQTT message queue link is corrupted.");
     }
 
+    /// <summary>
+    /// 按索引获取元素。
+    /// </summary>
     public MqttZeroQueuedMessage this[int index]
     {
         get

@@ -498,6 +498,9 @@ public sealed partial class MqttZeroBroker
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 处理QosOne发布Direct。
+    /// </summary>
     private async ValueTask<MqttZeroInboundBufferAction>
         ProcessQosOnePublishDirectAsync(
         MqttZeroSessionState session,
@@ -528,6 +531,9 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 处理Owned发布。
+    /// </summary>
     private async ValueTask<MqttZeroInboundBufferAction>
         ProcessOwnedPublishCoreAsync(
         MqttZeroSessionState session,
@@ -1461,14 +1467,23 @@ public sealed partial class MqttZeroBroker
         /// </summary>
         public long CurrentPacketConsumed { get; set; }
 
+        /// <summary>
+        /// Cached连接Invocation。
+        /// </summary>
         public Func<CancellationToken, ValueTask<ConnectionAttachment?>>
             CachedConnectInvocation
         { get; }
 
+        /// <summary>
+        /// Cached报文Invocation。
+        /// </summary>
         public Func<CancellationToken, ValueTask<bool>>
             CachedPacketInvocation
         { get; }
 
+        /// <summary>
+        /// 缓存的分片内发布处理回调，复用委托避免逐条发布分配。
+        /// </summary>
         public Func<
             CancellationToken,
             ValueTask<MqttZeroInboundBufferAction>>
@@ -1480,6 +1495,9 @@ public sealed partial class MqttZeroBroker
         /// </summary>
         public Action<TaskCompletionSource> CachedPendingPublishCompleted { get; }
 
+        /// <summary>
+        /// 缓存的延迟发布工作项处理回调。
+        /// </summary>
         public Func<
             MqttZeroInboundWork,
             CancellationToken,
@@ -1497,6 +1515,9 @@ public sealed partial class MqttZeroBroker
         /// </summary>
         public Action<TaskCompletionSource> CachedAcknowledgementCompleted { get; }
 
+        /// <summary>
+        /// 缓存的确认工作项处理回调。
+        /// </summary>
         public Func<
             MqttZeroAcknowledgementWork,
             CancellationToken,
@@ -1504,21 +1525,36 @@ public sealed partial class MqttZeroBroker
             CachedAcknowledgementInvocation
         { get; }
 
+        /// <summary>
+        /// 缓存的同步确认处理回调，用于不经过工作项的快速路径。
+        /// </summary>
         public Func<
             CancellationToken,
             ValueTask<MqttZeroInboundBufferAction>>
             CachedSynchronousAcknowledgementInvocation
         { get; }
 
+        /// <summary>
+        /// CurrentOwnedPublishLease 的值。
+        /// </summary>
         public MqttZeroMessageLease? CurrentOwnedPublishLease
         { get; set; }
 
+        /// <summary>
+        /// CurrentOwnedPublishPacketIdentifier 的值。
+        /// </summary>
         public ushort CurrentOwnedPublishPacketIdentifier
         { get; set; }
 
+        /// <summary>
+        /// CurrentAcknowledgement 的值。
+        /// </summary>
         public MqttZeroAcknowledgementView CurrentAcknowledgement
         { get; set; }
 
+        /// <summary>
+        /// PendingPublishCount 的值。
+        /// </summary>
         public int PendingPublishCount
         {
             get
@@ -1581,6 +1617,9 @@ public sealed partial class MqttZeroBroker
             return _acknowledgementDrain.WaitAsync();
         }
 
+        /// <summary>
+        /// 调用分片Command。
+        /// </summary>
         public ValueTask<MqttZeroInboundBufferAction>
             InvokeShardCommandAsync(
             MqttZeroEventLoop shard,
@@ -1666,6 +1705,9 @@ public sealed partial class MqttZeroBroker
             return true;
         }
 
+        /// <summary>
+        /// 调用Owned发布On分片。
+        /// </summary>
         private ValueTask<MqttZeroInboundBufferAction>
             InvokeOwnedPublishOnShardAsync(
             CancellationToken cancellationToken)
@@ -1681,6 +1723,9 @@ public sealed partial class MqttZeroBroker
                 cancellationToken);
         }
 
+        /// <summary>
+        /// 调用确认On分片。
+        /// </summary>
         private ValueTask<MqttZeroInboundBufferAction>
             InvokeAcknowledgementOnShardAsync(
             CancellationToken cancellationToken)
@@ -1698,6 +1743,9 @@ public sealed partial class MqttZeroBroker
                 cancellationToken);
         }
 
+        /// <summary>
+        /// 调用确认。
+        /// </summary>
         private async ValueTask<MqttZeroInboundBufferAction>
             InvokeAcknowledgementCoreAsync(
             MqttZeroSessionState session,

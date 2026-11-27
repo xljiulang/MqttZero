@@ -139,6 +139,9 @@ public sealed class MqttConnectPacket : MqttPacket
     /// </summary>
     public ReadOnlySequence<byte> WillPayload { get; set; }
 
+    /// <summary>
+    /// WillMessageExpiryInterval 的值。
+    /// </summary>
     internal uint WillMessageExpiryInterval
     {
         get

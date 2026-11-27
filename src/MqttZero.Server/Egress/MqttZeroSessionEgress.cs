@@ -102,6 +102,9 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
             OnFlushCompleted);
     }
 
+    /// <summary>
+    /// State 的值。
+    /// </summary>
     internal MqttZeroSessionEgressState State
     {
         get
@@ -111,6 +114,9 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// IsStopping 的值。
+    /// </summary>
     internal bool IsStopping
     {
         get
@@ -119,6 +125,9 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// StateData 的值。
+    /// </summary>
     internal MqttZeroSessionEgressBufferState StateData
     {
         get

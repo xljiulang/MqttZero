@@ -13,6 +13,9 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 public sealed partial class MqttZeroBroker
 {
+    /// <summary>
+    /// SharedSubscriptionPrefix 的值。
+    /// </summary>
     private static ReadOnlySpan<byte> SharedSubscriptionPrefix
     {
         get

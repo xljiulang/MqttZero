@@ -113,6 +113,9 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 订阅Connected客户端。
+    /// </summary>
     private async ValueTask<IReadOnlyList<MqttZeroSubscribeResult>>
         SubscribeConnectedClientCoreAsync(
         MqttZeroSessionState session,
@@ -236,6 +239,9 @@ public sealed partial class MqttZeroBroker
         }
     }
 
+    /// <summary>
+    /// 退订Connected客户端。
+    /// </summary>
     private async ValueTask<IReadOnlyList<MqttZeroUnsubscribeResult>>
         UnsubscribeConnectedClientCoreAsync(
         MqttZeroSessionState session,

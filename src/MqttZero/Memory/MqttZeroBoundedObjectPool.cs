@@ -33,6 +33,9 @@ internal sealed class MqttZeroBoundedObjectPool<T>
     /// </summary>
     public int Capacity { get; }
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     public int Count
     {
         get

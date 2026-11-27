@@ -62,6 +62,9 @@ internal sealed class MqttZeroSharedRouteEntries
     /// </summary>
     public MqttZeroSharedGroupCursor Cursor { get; }
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     public int Count
     {
         get
@@ -70,6 +73,9 @@ internal sealed class MqttZeroSharedRouteEntries
         }
     }
 
+    /// <summary>
+    /// 组内订阅者到订阅项的不可变映射。
+    /// </summary>
     internal MqttZeroPersistentHashMap<
         MqttZeroSessionState,
         MqttZeroSubscription> Entries

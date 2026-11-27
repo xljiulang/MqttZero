@@ -78,6 +78,9 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     public int Count
     {
         get
@@ -86,6 +89,9 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 按索引获取元素。
+    /// </summary>
     public MqttZeroEventLoop this[int shardId]
     {
         get
@@ -151,6 +157,9 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         return _timerWheels[shardId];
     }
 
+    /// <summary>
+    /// PendingTimerCount 的值。
+    /// </summary>
     public int PendingTimerCount
     {
         get

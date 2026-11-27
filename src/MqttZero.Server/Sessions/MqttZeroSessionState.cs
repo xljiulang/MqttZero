@@ -88,18 +88,30 @@ internal sealed class MqttZeroSessionState
     /// </summary>
     public MqttZeroMessageQueue PendingMessages { get; }
 
+    /// <summary>
+    /// 在途消息。
+    /// </summary>
     public MqttZeroSessionMessageMap<MqttZeroQueuedMessage>
         InflightMessages
     { get; } = new();
 
+    /// <summary>
+    /// 入站Qos2消息。
+    /// </summary>
     public MqttZeroSessionMessageMap<MqttZeroMessageLease>
         InboundQos2Messages
     { get; } = new();
 
+    /// <summary>
+    /// Routed入站Qos2消息。
+    /// </summary>
     public MqttZeroSessionMessageMap<MqttReasonCode>
         RoutedInboundQos2Messages
     { get; } = new();
 
+    /// <summary>
+    /// Connection 的值。
+    /// </summary>
     public MqttZeroClientConnection? Connection
     {
         get
@@ -118,6 +130,9 @@ internal sealed class MqttZeroSessionState
         }
     }
 
+    /// <summary>
+    /// Egress 的值。
+    /// </summary>
     public MqttZeroSessionEgress? Egress
     {
         get
@@ -130,6 +145,9 @@ internal sealed class MqttZeroSessionState
         }
     }
 
+    /// <summary>
+    /// CleanStart 的值。
+    /// </summary>
     public bool CleanStart
     {
         get
@@ -148,6 +166,9 @@ internal sealed class MqttZeroSessionState
         }
     }
 
+    /// <summary>
+    /// ExpiryInterval 的值。
+    /// </summary>
     public uint ExpiryInterval
     {
         get
@@ -166,6 +187,9 @@ internal sealed class MqttZeroSessionState
         }
     }
 
+    /// <summary>
+    /// DisconnectedAt 的值。
+    /// </summary>
     public DateTimeOffset? DisconnectedAt
     {
         get
@@ -184,6 +208,9 @@ internal sealed class MqttZeroSessionState
         }
     }
 
+    /// <summary>
+    /// WillMessage 的值。
+    /// </summary>
     public MqttZeroWillMessage? WillMessage
     {
         get
@@ -202,6 +229,9 @@ internal sealed class MqttZeroSessionState
         }
     }
 
+    /// <summary>
+    /// WillDueAt 的值。
+    /// </summary>
     public DateTimeOffset? WillDueAt
     {
         get
@@ -220,6 +250,9 @@ internal sealed class MqttZeroSessionState
         }
     }
 
+    /// <summary>
+    /// Lifecycle 的值。
+    /// </summary>
     internal MqttZeroSessionLifecycleSnapshot Lifecycle
     {
         get

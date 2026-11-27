@@ -25,6 +25,9 @@ internal sealed class MqttZeroEgressControlFramePool : IDisposable
             throw new ArgumentNullException(nameof(bufferPool));
     }
 
+    /// <summary>
+    /// RetainedCount 的值。
+    /// </summary>
     public int RetainedCount
     {
         get

@@ -11,6 +11,9 @@ internal sealed class MqttZeroSharedGroupCursors
         MqttZeroSharedGroupKey,
         MqttZeroSharedGroupCursor> _cursors = new();
 
+    /// <summary>
+    /// Count 的值。
+    /// </summary>
     public int Count
     {
         get

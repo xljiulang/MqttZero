@@ -20,6 +20,9 @@ internal sealed class MqttZeroShardInvocation<T> : MqttZeroShardWork
             nameof(operation));
     }
 
+    /// <summary>
+    /// Task 的值。
+    /// </summary>
     public Task<T> Task
     {
         get

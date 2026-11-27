@@ -108,6 +108,9 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     /// </summary>
     internal int ShardId { get; set; }
 
+    /// <summary>
+    /// Egress 的值。
+    /// </summary>
     internal MqttZeroSessionEgress? Egress
     {
         get
@@ -171,6 +174,9 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     /// </summary>
     public MqttZeroClientConnectionInfo ClientInfo { get; set; } = null!;
 
+    /// <summary>
+    /// HasPendingControlWrites 的值。
+    /// </summary>
     internal bool HasPendingControlWrites
     {
         get
@@ -218,6 +224,9 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     /// </summary>
     public bool IsReadingIncompletePacket { get; set; }
 
+    /// <summary>
+    /// IsClosed 的值。
+    /// </summary>
     internal bool IsClosed
     {
         get
@@ -227,6 +236,9 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// ClosedToken 的值。
+    /// </summary>
     public CancellationToken ClosedToken
     {
         get

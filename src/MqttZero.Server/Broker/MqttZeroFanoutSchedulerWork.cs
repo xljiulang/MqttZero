@@ -19,6 +19,9 @@ internal sealed class MqttZeroFanoutSchedulerWork : MqttZeroShardWork
         _scheduler = scheduler;
     }
 
+    /// <summary>
+    /// IsLowPriority 的值。
+    /// </summary>
     public override bool IsLowPriority
     {
         get

@@ -10,6 +10,9 @@ internal abstract class MqttZeroShardWork
     /// </summary>
     internal long EnqueuedTimestamp { get; private set; }
 
+    /// <summary>
+    /// IsLowPriority 的值。
+    /// </summary>
     public virtual bool IsLowPriority
     {
         get

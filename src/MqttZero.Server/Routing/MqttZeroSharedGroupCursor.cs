@@ -7,6 +7,9 @@ internal sealed class MqttZeroSharedGroupCursor
 {
     private int _value;
 
+    /// <summary>
+    /// Value 的值。
+    /// </summary>
     internal int Value
     {
         get

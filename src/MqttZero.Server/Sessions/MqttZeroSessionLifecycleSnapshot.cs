@@ -13,6 +13,9 @@ internal sealed record MqttZeroSessionLifecycleSnapshot(
     MqttZeroWillMessage? WillMessage,
     DateTimeOffset? WillDueAt)
 {
+    /// <summary>
+    /// IsConnected 的值。
+    /// </summary>
     internal bool IsConnected
     {
         get
