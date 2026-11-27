@@ -77,26 +77,36 @@ establish leadership over MQTTnet, and no such claim is made.
 
 ## MQTTnet Comparison Status
 
-The last two same-machine comparisons used the MQTTnet client on 8 logical
-cores:
+Three same-machine comparisons used 8 logical cores:
 
-- `perf/baseline/compare-8core-2026-11-26.md`: all three cells below the strict
-  gate (`0.973`, `0.866`, `0.865`).
-- `perf/baseline/compare-8core-2026-11-27.md`: two cells at or above parity
-  (`1.040`, `1.029`) and QoS 1 / 100 / 64 KiB still behind (`0.896`).
+- `perf/baseline/compare-8core-2026-11-26.md` (MQTTnet client): all three cells
+  below the strict gate (`0.973`, `0.866`, `0.865`).
+- `perf/baseline/compare-8core-2026-11-27.md` (MQTTnet client): two cells at or
+  above parity (`1.040`, `1.029`), QoS 1 / 100 / 64 KiB behind (`0.896`).
+- `perf/baseline/compare-8core-raw-client-2026-11-27.md` (raw client): `0.981`,
+  `0.998` and `0.909` throughput with delivery p99 ratios of `0.504`, `0.692`
+  and `0.385`.
 
-MQTTnet's own absolute throughput moved 16–46 percent between those two days on
-an unchanged MQTTnet build, so neither sample supports a cross-date comparison.
-Two samples also cannot satisfy the three-repetition leadership gate. Treat
-both records as dated, same-machine evidence only.
+The load client is a first-order variable. Switching only the client from
+MQTTnet to the benchmark-only raw client raised single-broker throughput by
+1.7–2.6x and moved all three ratios toward 1.0. The “two cells above parity”
+result therefore reflects the MQTTnet client's per-message cost rather than a
+broker advantage. Latency is consistent across both clients: MQTTZero keeps a
+lower delivery p99 in every raw-client cell.
+
+MQTTnet's own absolute throughput also moved 16–46 percent between 11-26 and
+11-27 on an unchanged MQTTnet build, so no cross-date comparison is valid. No
+sample satisfies the three-repetition leadership gate; treat every record as
+dated, same-machine evidence only.
 
 ## Next Performance Step
 
 No further refactoring is planned on the shard or egress scheduling paths. The
 remaining gaps need new evidence first:
 
-1. QoS 1 / 100 / 64 KiB is the only cell behind MQTTnet in both samples.
-   Re-measure it on a quiet machine with more repetitions before changing code.
+1. QoS 1 / 100 / 64 KiB is behind MQTTnet in all three samples (`0.896`,
+   `0.909`). Re-measure it on a quiet machine with more repetitions, and with a
+   client whose per-message cost is not the dominant term, before changing code.
 2. Keep the pooled QoS0 and PUBACK paths unchanged unless a repeatable
    exception is found.
 3. Do not pipeline QoS2 PUBLISH unless the full PUBREC/PUBREL persistence and

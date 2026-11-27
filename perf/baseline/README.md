@@ -186,6 +186,13 @@
   QoS 1 / 100 / 64 KiB is still behind (`0.896`). MQTTnet's own absolute
   throughput moved 16–46 percent between the two days, so the samples cannot be
   compared across dates. Evidence: `compare-8core-2026-11-27.md`.
+- The same-day comparison was repeated with the benchmark-only raw client to
+  remove MQTTnet client overhead. Single-broker throughput rose 1.7–2.6x and
+  the three ratios moved to `0.981`, `0.998` and `0.909`, so the two-cell
+  parity seen with the MQTTnet client was client-side amplification rather than
+  a broker advantage. MQTTZero keeps a lower delivery p99 in all three cells
+  (`0.504`, `0.692`, `0.385`). QoS 2 is not covered because the raw client
+  implements QoS 0/1 only. Evidence: `compare-8core-raw-client-2026-11-27.md`.
 - `codec-0.3.0-alpha.1.*`
 - `routing-0.3.0-alpha.1.*`
 - `memory-transport-0.3.0-alpha.1.*`
