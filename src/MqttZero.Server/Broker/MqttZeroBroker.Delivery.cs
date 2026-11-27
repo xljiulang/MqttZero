@@ -385,6 +385,9 @@ public sealed partial class MqttZeroBroker
     /// <param name="cancellationToken">取消令牌。</param>
     /// <param name="copySubscriptionIdentifiers">copy订阅标识符。</param>
     /// <returns>表示异步操作的任务。</returns>
+    /// <remarks>
+    /// 必须在会话所属分片上调用。会话连接在每次 await 之后重新读取，因为连接可能在等待期间被接管或断开。
+    /// </remarks>
     private async ValueTask EnqueueLeaseAsync(
         MqttZeroSessionState session,
         MqttZeroMessageLease lease,

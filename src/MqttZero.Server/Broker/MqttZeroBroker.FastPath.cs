@@ -45,6 +45,9 @@ public sealed partial class MqttZeroBroker
     /// <param name="cancellationToken">取消令牌。</param>
     /// <param name="scheduleQosZeroWithoutWaiting">对应的 scheduleQosZeroWithoutWaiting。</param>
     /// <returns>表示异步操作的任务。</returns>
+    /// <remarks>
+    /// 租约由调用方持有，本方法只在内部临时借用；返回前必须完成投递与发布者确认。
+    /// </remarks>
     private async ValueTask RoutePublishLeaseFastAsync(
         MqttZeroSessionState sender,
         MqttZeroClientConnection senderConnection,

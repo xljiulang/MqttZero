@@ -257,6 +257,9 @@ public sealed partial class MqttZeroBroker
     /// </summary>
     /// <param name="context">上下文。</param>
     /// <returns>异步操作的结果。</returns>
+    /// <remarks>
+    /// 运行在连接读线程而不是分片线程；返回 Handled 之前必须已经切片 <c>context.Buffer</c>。
+    /// </remarks>
     private async ValueTask<MqttZeroInboundBufferAction> ProcessFastPublishAsync(
         AcceptedConnectionContext context)
     {

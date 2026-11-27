@@ -552,6 +552,9 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     /// <param name="services">服务。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>异步操作的结果。</returns>
+    /// <remarks>
+    /// 必须在会话所属分片上调用，方法内的所有权断言会拒绝跨分片执行；批次循环留在本方法内以复用时间预算计算。
+    /// </remarks>
     private async ValueTask<bool> DrainQueuedMessagesAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
