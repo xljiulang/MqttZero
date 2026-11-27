@@ -170,14 +170,31 @@ internal sealed class MqttZeroQueuedMessage
         uint? subscriptionIdentifier,
         DateTimeOffset? expiresAt)
     {
-        return RentWithIdentifiers(
-            lease,
-            qualityOfServiceLevel,
-            retain,
-            subscriptionIdentifier.HasValue
-                ? new[] { subscriptionIdentifier.Value }
-                : ReadOnlyMemory<uint>.Empty,
-            expiresAt);
+        if (!subscriptionIdentifier.HasValue)
+        {
+            return RentWithIdentifiers(
+                lease,
+                qualityOfServiceLevel,
+                retain,
+                ReadOnlyMemory<uint>.Empty,
+                expiresAt);
+        }
+
+        uint[] buffer = ArrayPool<uint>.Shared.Rent(1);
+        try
+        {
+            buffer[0] = subscriptionIdentifier.Value;
+            return RentWithCopiedIdentifiers(
+                lease,
+                qualityOfServiceLevel,
+                retain,
+                new ReadOnlyMemory<uint>(buffer, 0, 1),
+                expiresAt);
+        }
+        finally
+        {
+            ArrayPool<uint>.Shared.Return(buffer);
+        }
     }
 
     /// <summary>

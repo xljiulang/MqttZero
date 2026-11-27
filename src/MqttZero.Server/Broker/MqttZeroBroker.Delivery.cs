@@ -239,15 +239,35 @@ public sealed partial class MqttZeroBroker
         uint? subscriptionIdentifier,
         CancellationToken cancellationToken)
     {
-        await EnqueuePacketAsync(
-            session,
-            source,
-            qos,
-            retain,
-            subscriptionIdentifier.HasValue
-                ? new[] { subscriptionIdentifier.Value }
-                : ReadOnlyMemory<uint>.Empty,
-            cancellationToken).ConfigureAwait(false);
+        if (!subscriptionIdentifier.HasValue)
+        {
+            await EnqueuePacketAsync(
+                session,
+                source,
+                qos,
+                retain,
+                ReadOnlyMemory<uint>.Empty,
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        uint[] buffer = ArrayPool<uint>.Shared.Rent(1);
+        try
+        {
+            buffer[0] = subscriptionIdentifier.Value;
+            await EnqueuePacketAsync(
+                session,
+                source,
+                qos,
+                retain,
+                new ReadOnlyMemory<uint>(buffer, 0, 1),
+                cancellationToken,
+                copySubscriptionIdentifiers: true).ConfigureAwait(false);
+        }
+        finally
+        {
+            ArrayPool<uint>.Shared.Return(buffer);
+        }
     }
 
     /// <summary>
@@ -259,6 +279,7 @@ public sealed partial class MqttZeroBroker
     /// <param name="retain">保留。</param>
     /// <param name="subscriptionIdentifiers">订阅标识符。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="copySubscriptionIdentifiers">是否把标识符复制到队列消息自有缓冲区。</param>
     /// <returns>表示异步操作的任务。</returns>
     private async ValueTask EnqueuePacketAsync(
         MqttZeroSessionState session,
@@ -266,7 +287,8 @@ public sealed partial class MqttZeroBroker
         MqttQualityOfServiceLevel qos,
         bool retain,
         ReadOnlyMemory<uint> subscriptionIdentifiers,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool copySubscriptionIdentifiers = false)
     {
         ReadOnlySequence<byte> properties = MqttPublishPropertiesCodec.Encode(
             source.Properties);
@@ -289,7 +311,8 @@ public sealed partial class MqttZeroBroker
                 retain,
                 subscriptionIdentifiers,
                 null,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                copySubscriptionIdentifiers).ConfigureAwait(false);
         }
         finally
         {
@@ -317,16 +340,37 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection? senderConnection,
         CancellationToken cancellationToken)
     {
-        await EnqueueLeaseAsync(
-            session,
-            lease,
-            qos,
-            retain,
-            subscriptionIdentifier.HasValue
-                ? new[] { subscriptionIdentifier.Value }
-                : ReadOnlyMemory<uint>.Empty,
-            senderConnection,
-            cancellationToken).ConfigureAwait(false);
+        if (!subscriptionIdentifier.HasValue)
+        {
+            await EnqueueLeaseAsync(
+                session,
+                lease,
+                qos,
+                retain,
+                ReadOnlyMemory<uint>.Empty,
+                senderConnection,
+                cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        uint[] buffer = ArrayPool<uint>.Shared.Rent(1);
+        try
+        {
+            buffer[0] = subscriptionIdentifier.Value;
+            await EnqueueLeaseAsync(
+                session,
+                lease,
+                qos,
+                retain,
+                new ReadOnlyMemory<uint>(buffer, 0, 1),
+                senderConnection,
+                cancellationToken,
+                copySubscriptionIdentifiers: true).ConfigureAwait(false);
+        }
+        finally
+        {
+            ArrayPool<uint>.Shared.Return(buffer);
+        }
     }
 
     /// <summary>
