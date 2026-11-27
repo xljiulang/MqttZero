@@ -66,6 +66,25 @@ public sealed class PendingDrainTests
     }
 
     [Fact]
+    public void CountIsVisibleToTheCallerThatRegisteredTheWork()
+    {
+        MqttZeroPendingDrain drain = new();
+        Assert.Equal(0, drain.Count);
+
+        TaskCompletionSource first = drain.Begin();
+        Assert.Equal(1, drain.Count);
+
+        TaskCompletionSource second = drain.Begin();
+        Assert.Equal(2, drain.Count);
+
+        drain.Complete(first);
+        Assert.Equal(1, drain.Count);
+
+        drain.Complete(second);
+        Assert.Equal(0, drain.Count);
+    }
+
+    [Fact]
     public async Task WaitReturnsImmediatelyWhenIdle()
     {
         MqttZeroPendingDrain drain = new();

@@ -8,6 +8,7 @@ internal sealed class MqttZeroPendingDrain
 {
     private readonly object _gate = new();
     private TaskCompletionSource? _completion;
+    private int _countMirror;
     private int _outstanding;
 
     /// <summary>
@@ -17,10 +18,7 @@ internal sealed class MqttZeroPendingDrain
     {
         get
         {
-            lock (_gate)
-            {
-                return _outstanding;
-            }
+            return Volatile.Read(ref _countMirror);
         }
     }
 
@@ -33,6 +31,7 @@ internal sealed class MqttZeroPendingDrain
         lock (_gate)
         {
             _outstanding++;
+            Volatile.Write(ref _countMirror, _outstanding);
             _completion ??= new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             return _completion;
@@ -56,6 +55,7 @@ internal sealed class MqttZeroPendingDrain
             }
 
             _outstanding--;
+            Volatile.Write(ref _countMirror, _outstanding);
             if (_outstanding == 0)
             {
                 completed = token;
