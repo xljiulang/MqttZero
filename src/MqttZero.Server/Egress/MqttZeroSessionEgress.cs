@@ -404,6 +404,7 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
                 await ResumeInflightMessagesAsync(
                     session,
                     connection,
+                    _stateData.OutboundBatch,
                     cancellationToken).ConfigureAwait(false);
             }
 
@@ -423,27 +424,39 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     private static async ValueTask ResumeInflightMessagesAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
+        List<MqttZeroQueuedMessage> batch,
         CancellationToken cancellationToken)
     {
-        List<MqttZeroQueuedMessage> inflight =
-            [.. session.InflightMessages.Values];
-
-        foreach (MqttZeroQueuedMessage message in inflight)
+        batch.Clear();
+        foreach (MqttZeroQueuedMessage message in session.InflightMessages.Values)
         {
             if (message.State == MqttZeroOutboundState.AwaitPubComp)
             {
-                await connection.SendPubRelAsync(
+                await connection.SendPubRelWithoutWaitingAsync(
                     message.PacketIdentifier,
-                    MqttReasonCode.Success,
                     cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                await connection.SendPublishAsync(
-                    message,
-                    true,
-                    cancellationToken).ConfigureAwait(false);
+                batch.Add(message);
             }
+        }
+
+        if (batch.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await connection.SendPublishBatchAsync(
+                batch,
+                cancellationToken,
+                duplicate: true).ConfigureAwait(false);
+        }
+        finally
+        {
+            batch.Clear();
         }
     }
 

@@ -314,7 +314,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
 
     internal async ValueTask SendPublishBatchAsync(
         IReadOnlyList<MqttZeroQueuedMessage> messages,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool duplicate = false)
     {
         if (messages.Count == 0)
         {
@@ -327,7 +328,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             {
                 await SendPublishAsync(
                     messages[index],
-                    false,
+                    duplicate,
                     cancellationToken).ConfigureAwait(false);
             }
 
@@ -337,7 +338,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         int encodedBytes;
         using (await EnterWriteAsync(cancellationToken).ConfigureAwait(false))
         {
-            encodedBytes = WritePublishBatch(messages);
+            encodedBytes = WritePublishBatch(messages, duplicate);
             _ = await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -364,7 +365,8 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     }
 
     private int WritePublishBatch(
-        IReadOnlyList<MqttZeroQueuedMessage> messages)
+        IReadOnlyList<MqttZeroQueuedMessage> messages,
+        bool duplicate = false)
     {
         int encodedBytes = 0;
         for (int index = 0; index < messages.Count; index++)
@@ -376,7 +378,7 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
                 message.Lease.PayloadSequence,
                 message.QualityOfServiceLevel,
                 message.PacketIdentifier,
-                false,
+                duplicate,
                 message.Retain,
                 GetRemainingMessageExpiry(message.ExpiresAt),
                 null,
@@ -538,6 +540,18 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             packetIdentifier,
             reasonCode,
             cancellationToken);
+    }
+
+    internal ValueTask SendPubRelWithoutWaitingAsync(
+        ushort packetIdentifier,
+        CancellationToken cancellationToken)
+    {
+        return SendAckDirectAsync(
+            MqttPacketHeader.GetFirstByte(MqttPacketType.PubRel),
+            packetIdentifier,
+            MqttReasonCode.Success,
+            cancellationToken,
+            waitForWrite: false);
     }
 
     public ValueTask SendPubCompAsync(
