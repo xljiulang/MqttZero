@@ -2,7 +2,7 @@
   <PropertyGroup>
     <RootNamespace>MqttZero</RootNamespace>
     <AssemblyName>MqttZero</AssemblyName>
-    <Description>Shared MQTT 5 protocol and memory primitives for MQTTZero clients and servers.</Description>
+    <Description>Shared MQTT 5 value types and memory primitives for MQTTZero servers.</Description>
     <PackageId>MqttZero</PackageId>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IsPackable>true</IsPackable>

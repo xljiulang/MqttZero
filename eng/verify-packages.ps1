@@ -2,7 +2,13 @@ $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $packageDirectory = Join-Path $repositoryRoot 'artifacts/packages'
-$packageVersion = '0.12.0-alpha.1'
+$propsPath = Join-Path $repositoryRoot 'Directory.Build.props'
+$propsVersion = (Select-String -LiteralPath $propsPath -Pattern '<Version>([^<]+)</Version>').Matches
+if (-not $propsVersion -or $propsVersion.Count -eq 0) {
+    throw "Could not read <Version> from '$propsPath'."
+}
+
+$packageVersion = $propsVersion[0].Groups[1].Value
 New-Item -ItemType Directory -Force -Path $packageDirectory | Out-Null
 Get-ChildItem -LiteralPath $packageDirectory -Filter '*.nupkg' -File |
     Remove-Item -Force

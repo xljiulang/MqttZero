@@ -139,7 +139,7 @@ Will、离线队列与 QoS 1/2 重发保留，完整矩阵见
 [`docs/protocol/mqtt5-properties.md`](docs/protocol/mqtt5-properties.md)。
 
 “按 Topic 路由”和“向单个客户端发送”是两件事：前者用 `IMqttZeroBroker.PublishAsync`，
-经过订阅匹配、Retained 与离线队列；后者用 `MqttZeroConnectedClient.SendPublishAsync`，
+经过订阅匹配、Retained 与离线队列；后者用 `MqttZeroConnectedClient.TrySendPublishAsync`，
 只向该连接写一条 PUBLISH，不路由、不更新 Retained。
 
 ### 扩展点
