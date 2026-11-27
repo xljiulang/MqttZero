@@ -1200,7 +1200,7 @@ public sealed partial class MqttZeroBroker
     /// 处理连接工作项失败。
     /// </summary>
     /// <param name="exception">异常。</param>
-    private void HandleConnectionWorkFailure(Exception exception)
+    internal void HandleConnectionWorkFailure(Exception exception)
     {
         MqttZeroBrokerLogging.LogInboundDispatcherFailure(
             _logger,

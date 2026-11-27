@@ -25,7 +25,7 @@ public sealed partial class MqttZeroBroker
     /// <param name="packet">报文。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>表示异步操作的任务。</returns>
-    private async ValueTask ProcessPacketAsync(
+    internal async ValueTask ProcessPacketAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
         MqttPacket packet,

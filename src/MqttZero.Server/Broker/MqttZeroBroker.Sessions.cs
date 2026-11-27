@@ -322,7 +322,7 @@ public sealed partial class MqttZeroBroker
     /// </summary>
     /// <param name="requestedExpiry">对应的 requestedExpiry。</param>
     /// <returns>对应的结果。</returns>
-    private uint ClampSessionExpiry(uint requestedExpiry)
+    internal uint ClampSessionExpiry(uint requestedExpiry)
     {
         if (!_options.MaxSessionExpiryInterval.HasValue)
         {

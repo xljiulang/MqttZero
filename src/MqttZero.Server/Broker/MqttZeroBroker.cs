@@ -81,6 +81,48 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     }
 
     /// <summary>
+    /// 获取 Broker 配置。
+    /// </summary>
+    internal MqttZeroOptions BrokerOptions
+    {
+        get
+        {
+            return _options;
+        }
+    }
+
+    /// <summary>
+    /// 获取 Broker 使用的时间提供者。
+    /// </summary>
+    internal TimeProvider BrokerTimeProvider
+    {
+        get
+        {
+            return _timeProvider;
+        }
+    }
+
+    /// <summary>
+    /// 获取 Broker 使用的缓冲区池。
+    /// </summary>
+    internal MqttZeroBufferPool BufferPool
+    {
+        get
+        {
+            return _bufferPool;
+        }
+    }
+
+    /// <summary>
+    /// 分配下一个已受理连接标识。
+    /// </summary>
+    /// <returns>递增后的连接标识。</returns>
+    internal long NextAcceptedConnectionId()
+    {
+        return Interlocked.Increment(ref _nextAcceptedConnectionId);
+    }
+
+    /// <summary>
     /// 创建会话状态。
     /// </summary>
     /// <param name="clientId">客户端Id。</param>
