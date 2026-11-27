@@ -11,10 +11,12 @@ public sealed class MqttZeroConnectionContext
 {
     /// <summary>Gets the resolved client information.</summary>
     public required MqttZeroClientConnectionInfo Client { get; init; }
-    /// <summary>Gets the raw CONNECT packet.</summary>
-    public required MqttConnectPacket ConnectPacket { get; init; }
+
+    /// <summary>Gets the immutable CONNECT request snapshot.</summary>
+    public required MqttZeroConnectRequest Request { get; init; }
+
     /// <summary>Gets the raw password sequence.</summary>
-    public ReadOnlySequence<byte> Password => ConnectPacket.Password;
+    public ReadOnlySequence<byte> Password => Request.Password;
     /// <summary>Gets or sets the rejection reason code.</summary>
     public MqttReasonCode RejectReasonCode { get; set; } = MqttReasonCode.NotAuthorized;
     /// <summary>Gets or sets the optional rejection reason string.</summary>

@@ -1387,6 +1387,45 @@ public sealed partial class MqttZeroBroker
     }
 
     /// <summary>
+    /// 把解码后的 CONNECT 报文转换为拦截器可见的请求快照。
+    /// </summary>
+    /// <param name="packet">解码后的 CONNECT 报文。</param>
+    /// <returns>不可变的连接请求快照。</returns>
+    private static MqttZeroConnectRequest CreateConnectRequest(
+        MqttConnectPacket packet)
+    {
+        return new MqttZeroConnectRequest
+        {
+            ClientId = packet.ClientId,
+            ProtocolVersion = packet.ProtocolVersion,
+            CleanStart = packet.CleanStart,
+            KeepAliveSeconds = packet.KeepAliveSeconds,
+            SessionExpiryInterval = packet.SessionExpiryInterval,
+            ReceiveMaximum = packet.ReceiveMaximum,
+            MaximumPacketSize = packet.MaximumPacketSize,
+            RequestProblemInformation = packet.RequestProblemInformation,
+            RequestResponseInformation = packet.RequestResponseInformation,
+            UserName = packet.HasUserName
+                ? Encoding.UTF8.GetString(packet.UserName.ToArray())
+                : null,
+            Password = packet.HasPassword
+                ? packet.Password
+                : ReadOnlySequence<byte>.Empty,
+            Will = packet.HasWill
+                ? new MqttZeroWillRequest
+                {
+                    Topic = packet.WillTopic,
+                    Payload = packet.WillPayload,
+                    QualityOfServiceLevel = packet.WillQualityOfServiceLevel,
+                    Retain = packet.WillRetain,
+                    DelayInterval = packet.WillDelayInterval,
+                    Properties = packet.WillProperties
+                }
+                : null
+        };
+    }
+
+    /// <summary>
     /// Prepare连接。
     /// </summary>
     /// <param name="transaction">对应的 transaction。</param>
@@ -1415,7 +1454,7 @@ public sealed partial class MqttZeroBroker
         MqttZeroConnectionContext connectionContext = new()
         {
             Client = transaction.ClientInfo,
-            ConnectPacket = connectPacket
+            Request = CreateConnectRequest(connectPacket)
         };
         foreach (IMqttZeroConnectionInterceptor interceptor in _connectionInterceptors)
         {
