@@ -54,6 +54,7 @@ namespace MqttZero.Tests
                 "PayloadOwnerTests.cs",
                 "RetainedLeaseTests.cs",
                 "SourceConventionTests.cs",
+                "SourceDocumentationTests.cs",
                 "TestAssembly.cs",
                 "TopicAliasAllocationTests.cs"
             };
