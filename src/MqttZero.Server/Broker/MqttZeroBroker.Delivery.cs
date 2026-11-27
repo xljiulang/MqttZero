@@ -76,24 +76,6 @@ public sealed partial class MqttZeroBroker
             _logger,
             exception);
         _fanoutDiagnostics.RecordFanoutFailure();
-        if (Interlocked.Exchange(ref _fanoutFailed, 1) == 0)
-        {
-            _ = StopAfterFanoutFailureAsync();
-        }
-    }
-
-    private async Task StopAfterFanoutFailureAsync()
-    {
-        try
-        {
-            await StopAsync(CancellationToken.None).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            MqttZeroBrokerLogging.LogFanoutFailure(
-                _logger,
-                exception);
-        }
     }
 
     private ValueTask<int> RouteToSubscribersAsync(

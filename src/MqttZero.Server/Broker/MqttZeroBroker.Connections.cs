@@ -609,9 +609,16 @@ public sealed partial class MqttZeroBroker
             if (connection != null &&
                 !cancellationToken.IsCancellationRequested)
             {
-                await connection.CloseAsync(
-                    MqttReasonCode.UnspecifiedError,
-                    CancellationToken.None).ConfigureAwait(false);
+                try
+                {
+                    await connection.CloseAsync(
+                        MqttReasonCode.UnspecifiedError,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    connection.Abort();
+                }
             }
 
             throw;
@@ -671,9 +678,16 @@ public sealed partial class MqttZeroBroker
         {
             if (!cancellationToken.IsCancellationRequested)
             {
-                await work.Connection.CloseAsync(
-                    MqttReasonCode.UnspecifiedError,
-                    CancellationToken.None).ConfigureAwait(false);
+                try
+                {
+                    await work.Connection.CloseAsync(
+                        MqttReasonCode.UnspecifiedError,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    work.Connection.Abort();
+                }
             }
 
             throw;
