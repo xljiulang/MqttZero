@@ -283,7 +283,8 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
             MqttZeroFanoutBatchWork.PoolCountForTest,
             MqttZeroFanoutScheduledBatch.PoolCountForTest,
             MqttZeroAcknowledgementWork.PoolCountForTest,
-            MqttZeroAcknowledgementShardWork.PoolCountForTest);
+            MqttZeroAcknowledgementShardWork.PoolCountForTest,
+            MqttZero.Server.Egress.MqttZeroControlPostWork.PoolCountForTest);
         return new MqttZeroBrokerMemorySnapshot(
             buffers.RentedBytes,
             buffers.CachedBytes,

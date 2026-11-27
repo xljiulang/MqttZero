@@ -71,6 +71,7 @@ internal sealed record BenchmarkMemorySnapshot(
                 probe.FanoutBatchWorkCount,
                 probe.FanoutScheduledBatchCount,
                 probe.AcknowledgementWorkCount,
-                probe.AcknowledgementShardWorkCount));
+                probe.AcknowledgementShardWorkCount,
+                probe.ControlPostWorkCount));
     }
 }

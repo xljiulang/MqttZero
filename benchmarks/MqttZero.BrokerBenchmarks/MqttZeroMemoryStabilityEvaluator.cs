@@ -92,7 +92,8 @@ internal static class MqttZeroMemoryStabilityEvaluator
             pools.FanoutBatchWorkCount +
             pools.FanoutScheduledBatchCount +
             pools.AcknowledgementWorkCount +
-            pools.AcknowledgementShardWorkCount;
+            pools.AcknowledgementShardWorkCount +
+            pools.ControlPostWorkCount;
     }
 
     private static bool ExceedsAllowance(long value, long baseline)

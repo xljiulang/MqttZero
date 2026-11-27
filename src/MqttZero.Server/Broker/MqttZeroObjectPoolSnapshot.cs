@@ -10,4 +10,5 @@ internal sealed record MqttZeroObjectPoolSnapshot(
     int FanoutBatchWorkCount,
     int FanoutScheduledBatchCount,
     int AcknowledgementWorkCount,
-    int AcknowledgementShardWorkCount);
+    int AcknowledgementShardWorkCount,
+    int ControlPostWorkCount);

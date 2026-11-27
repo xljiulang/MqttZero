@@ -58,5 +58,11 @@ public sealed class BrokerMemorySnapshotTests
             MqttZero.Memory.MqttZeroBoundedObjectPool<
                 MqttZero.Server.Broker.MqttZeroAcknowledgementShardWork>.
                 DefaultCapacity);
+        Assert.InRange(
+            snapshot.ObjectPools.ControlPostWorkCount,
+            0,
+            MqttZero.Memory.MqttZeroBoundedObjectPool<
+                MqttZero.Server.Egress.MqttZeroControlPostWork>.
+                DefaultCapacity);
     }
 }
