@@ -67,6 +67,23 @@ internal sealed class MqttZeroSessionMessageMap<T> :
     }
 
     /// <summary>
+    /// 尝试添加：键已存在时不覆盖并返回 <see langword="false"/>。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <param name="value">值。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
+    public bool TryAdd(ushort key, T value)
+    {
+        if (!_items.TryAdd(key, value))
+        {
+            return false;
+        }
+
+        Interlocked.Increment(ref _count);
+        return true;
+    }
+
+    /// <summary>
     /// Contains键。
     /// </summary>
     /// <param name="key">键。</param>

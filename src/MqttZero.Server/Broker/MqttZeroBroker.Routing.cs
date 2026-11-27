@@ -98,13 +98,12 @@ public sealed partial class MqttZeroBroker
         }
 
         MqttZeroMessageLease storedLease = prepared.Lease;
-        bool inserted = false;
-        if (!session.InboundQos2Messages.ContainsKey(packetIdentifier) &&
-            session.InboundQos2Messages.Count < _options.MaxAwaitingRel)
+        bool inserted =
+            session.InboundQos2Messages.Count < _options.MaxAwaitingRel &&
+            session.InboundQos2Messages.TryAdd(packetIdentifier, storedLease);
+        if (inserted)
         {
-            session.InboundQos2Messages[packetIdentifier] = storedLease;
             session.RoutedInboundQos2Messages.Remove(packetIdentifier);
-            inserted = true;
         }
 
         if (!inserted)
