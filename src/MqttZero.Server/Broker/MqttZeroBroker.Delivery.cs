@@ -50,6 +50,14 @@ public sealed partial class MqttZeroBroker
         MqttZeroClientConnection? senderConnection,
         CancellationToken cancellationToken)
     {
+        if (!_sessions.TryGetValue(
+                delivery.Session.ClientId,
+                out MqttZeroSessionState? current) ||
+            !ReferenceEquals(current, delivery.Session))
+        {
+            return ValueTask.CompletedTask;
+        }
+
         MqttQualityOfServiceLevel deliveryQos =
             (MqttQualityOfServiceLevel)Math.Min(
                 (byte)lease.QualityOfServiceLevel,
@@ -1268,45 +1276,6 @@ public sealed partial class MqttZeroBroker
                 return ValueTask.FromResult(true);
             },
             cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// 释放全部会话消息On分片。
-    /// </summary>
-    /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>表示异步操作的任务。</returns>
-    private async ValueTask ReleaseAllSessionMessagesOnShardsAsync(
-        CancellationToken cancellationToken)
-    {
-        MqttZeroShardSet? shards = Volatile.Read(ref _shardSet);
-        if (shards == null)
-        {
-            foreach (MqttZeroSessionState session in _sessions.Values)
-            {
-                ReleaseSessionMessagesCore(session);
-            }
-
-            return;
-        }
-
-        for (int shardId = 0; shardId < shards.Count; shardId++)
-        {
-            await shards[shardId].InvokeAsync(
-                _ =>
-                {
-                    foreach (MqttZeroSessionState session in
-                        _sessions.Values)
-                    {
-                        if (session.ShardId == shardId)
-                        {
-                            ReleaseSessionMessagesCore(session);
-                        }
-                    }
-
-                    return ValueTask.FromResult(true);
-                },
-                cancellationToken).ConfigureAwait(false);
-        }
     }
 
 }

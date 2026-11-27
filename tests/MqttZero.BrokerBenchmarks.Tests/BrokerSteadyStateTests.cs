@@ -1,6 +1,7 @@
 using MqttZero.BrokerBenchmarks;
 using MqttZero.Protocol;
 using MqttZero.Server.Broker;
+using MqttZero.Server.Sessions;
 using System.Diagnostics;
 
 namespace MqttZero.BrokerBenchmarks.Tests;
@@ -157,7 +158,18 @@ public sealed class BrokerSteadyStateTests
                 stopped = host.Broker.GetMemorySnapshotForTest();
             }
 
-            Assert.Equal(0, stopped.BufferRentedBytes);
+            Assert.True(
+                stopped.BufferRentedBytes == 0,
+                $"BufferRentedBytes={stopped.BufferRentedBytes}, "
+                + $"leasePool={stopped.ObjectPools.LeaseCount}, "
+                + $"queuedMessagePool={stopped.ObjectPools.QueuedMessageCount}, "
+                + $"inboundWorkPool={stopped.ObjectPools.InboundWorkCount}, "
+                + $"inboundShardWorkPool={stopped.ObjectPools.InboundShardWorkCount}, "
+                + $"fanoutOperationPool={stopped.ObjectPools.FanoutOperationCount}, "
+                + $"fanoutBatchPool={stopped.ObjectPools.FanoutBatchWorkCount}, "
+                + $"fanoutScheduledPool={stopped.ObjectPools.FanoutScheduledBatchCount}, "
+                + $"routePlanInUse={stopped.RoutePlanInUseCount}, "
+                + $"sharedCursors={stopped.SharedCursorCount}.");
             Assert.Equal(0, stopped.RoutePlanInUseCount);
         }
         finally

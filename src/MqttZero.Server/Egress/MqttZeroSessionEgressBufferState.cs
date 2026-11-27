@@ -181,6 +181,21 @@ internal sealed class MqttZeroSessionEgressBufferState
     }
 
     /// <summary>
+    /// 释放停止过程中已从会话队列取出的消息。
+    /// </summary>
+    internal void ReleaseStoppedMessages()
+    {
+        for (int index = 0; index < ExpiredMessages.Count; index++)
+        {
+            ExpiredMessages[index].Release();
+        }
+
+        ExpiredMessages.Clear();
+        ReleaseQosZeroMessages(OutboundBatch);
+        OutboundBatch.Clear();
+    }
+
+    /// <summary>
     /// 校验Encoded长度。
     /// </summary>
     /// <param name="connection">连接。</param>

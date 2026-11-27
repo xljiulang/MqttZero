@@ -333,6 +333,7 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
 
         if (Volatile.Read(ref _stopping) != 0)
         {
+            _stateData.ReleaseStoppedMessages();
             FailQueuedControls(
                 new ObjectDisposedException(nameof(MqttZeroSessionEgress)));
             TryCompleteStop();
@@ -441,6 +442,7 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         Thread.MemoryBarrier();
         if (Volatile.Read(ref _stopping) != 0)
         {
+            _stateData.ReleaseStoppedMessages();
             TryCompleteStop();
             return;
         }
@@ -989,6 +991,7 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
             return false;
         }
 
+        _stateData.ReleaseStoppedMessages();
         Volatile.Write(
             ref _state,
             (int)MqttZeroSessionEgressState.Stopped);
