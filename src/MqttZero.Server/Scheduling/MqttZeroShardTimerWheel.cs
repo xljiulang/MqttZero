@@ -30,6 +30,7 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
     private Task? _tickerTask;
     private long _currentTick;
     private long _nextSequence;
+    private int _clearOnRelease;
     private int _started;
     private int _stopping;
     private int _tickPending;
@@ -155,6 +156,11 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
 
         while (_currentTick < targetTick)
         {
+            if (Volatile.Read(ref _stopping) != 0)
+            {
+                return;
+            }
+
             _currentTick++;
             CascadeIfNeeded(3);
             CascadeIfNeeded(2);
@@ -227,8 +233,13 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
 
             cancellation?.Dispose();
             _tickerTask = null;
-            Clear();
-            TryCompleteStop();
+            Volatile.Write(ref _clearOnRelease, 1);
+            Thread.MemoryBarrier();
+            if (Volatile.Read(ref _tickScheduled) == 0)
+            {
+                Clear();
+                TryCompleteStop();
+            }
         }
 
         await _stopped.Task.ConfigureAwait(false);
@@ -257,9 +268,15 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
     {
         Volatile.Write(ref _tickScheduled, 0);
         Thread.MemoryBarrier();
+        if (Volatile.Read(ref _clearOnRelease) != 0)
+        {
+            Clear();
+            TryCompleteStop();
+            return;
+        }
+
         if (Volatile.Read(ref _stopping) != 0)
         {
-            TryCompleteStop();
             return;
         }
 
@@ -292,7 +309,6 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
     {
         if (Volatile.Read(ref _stopping) != 0)
         {
-            TryCompleteStop();
             return;
         }
 
@@ -326,6 +342,7 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         {
             Volatile.Write(ref _tickScheduled, 0);
             Volatile.Write(ref _stopping, 1);
+            Clear();
             TryCompleteStop();
         }
     }

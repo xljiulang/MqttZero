@@ -413,6 +413,71 @@ public sealed class MqttZeroShardTimerWheelTests
         Assert.Equal(9_999, wheel.Count);
     }
 
+    [Fact(Timeout = 10_000)]
+    public async Task StopClearsScheduledNodesAndIsIdempotent()
+    {
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+        DateTimeOffset now = new(2026, 11, 26, 8, 0, 0, TimeSpan.Zero);
+        MqttZeroTestTimeProvider timeProvider = new(now);
+        await using MqttZeroEventLoop shard = new(0, 64);
+        List<MqttZeroTimerNode> fired = [];
+        MqttZeroShardTimerWheel wheel = CreateWheel(
+            shard,
+            timeProvider,
+            fired);
+        MqttZeroTimerNode due = CreateNode("due", now);
+        MqttZeroTimerNode later = CreateNode("later", now.AddMinutes(1));
+        wheel.ScheduleOrRemove(due, now.UtcTicks);
+        wheel.ScheduleOrRemove(later, now.AddMinutes(1).UtcTicks);
+        Assert.Equal(2, wheel.Count);
+
+        await wheel.StopAsync().AsTask().WaitAsync(
+            TimeSpan.FromSeconds(5),
+            cancellationToken);
+
+        Assert.Equal(0, wheel.Count);
+        Assert.Empty(fired);
+        await wheel.StopAsync().AsTask().WaitAsync(
+            TimeSpan.FromSeconds(5),
+            cancellationToken);
+
+        await TickOnShardAsync(shard, wheel, now, cancellationToken);
+
+        Assert.Empty(fired);
+        Assert.Equal(0, wheel.Count);
+        await wheel.DisposeAsync();
+    }
+
+    [Fact(Timeout = 10_000)]
+    public async Task StopCompletesWhileTicksAreScheduled()
+    {
+        CancellationToken cancellationToken =
+            TestContext.Current.CancellationToken;
+        DateTimeOffset now = new(2026, 11, 26, 8, 0, 0, TimeSpan.Zero);
+        MqttZeroTestTimeProvider timeProvider = new(now);
+        await using MqttZeroEventLoop shard = new(0, 64);
+        List<MqttZeroTimerNode> fired = [];
+        MqttZeroShardTimerWheel wheel = CreateWheel(
+            shard,
+            timeProvider,
+            fired);
+        MqttZeroTimerNode later = CreateNode("later", now.AddMinutes(1));
+        wheel.ScheduleOrRemove(later, now.AddMinutes(1).UtcTicks);
+        wheel.Start();
+        await Task.Delay(
+            TickInterval + TickInterval,
+            cancellationToken);
+
+        await wheel.StopAsync().AsTask().WaitAsync(
+            TimeSpan.FromSeconds(5),
+            cancellationToken);
+
+        Assert.Equal(0, wheel.Count);
+        Assert.Empty(fired);
+        await wheel.DisposeAsync();
+    }
+
     [Fact]
     public async Task ScheduleUpdateAndCancelAreAllocationFreeAfterNodeCreation()
     {
