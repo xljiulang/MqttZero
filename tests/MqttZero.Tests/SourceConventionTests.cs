@@ -100,6 +100,112 @@ namespace MqttZero.Tests
                 string.Join(Environment.NewLine, violations));
         }
 
+        private static readonly HashSet<string> NullForgivingExceptions =
+            new(StringComparer.Ordinal)
+            {
+                "MqttZeroClientConnection.ClientInfo",
+                "MqttZeroClientConnection.ConnectedClient"
+            };
+
+        [Fact]
+        public void SourceRejectsNullForgivingOperators()
+        {
+            string repositoryRoot = FindRepositoryRoot();
+            string sourceRoot = Path.Combine(repositoryRoot, "src");
+            List<string> violations = [];
+            foreach (string path in Directory.EnumerateFiles(
+                sourceRoot,
+                "*.cs",
+                SearchOption.AllDirectories))
+            {
+                if (IsGeneratedPath(path))
+                {
+                    continue;
+                }
+
+                string text = File.ReadAllText(path);
+                SyntaxTree tree = CSharpSyntaxTree.ParseText(
+                    text,
+                    path: path,
+                    cancellationToken: TestContext.Current.CancellationToken);
+                foreach (PostfixUnaryExpressionSyntax expression in tree
+                    .GetCompilationUnitRoot(
+                        TestContext.Current.CancellationToken)
+                    .DescendantNodes()
+                    .OfType<PostfixUnaryExpressionSyntax>())
+                {
+                    if (expression.IsKind(
+                        SyntaxKind.SuppressNullableWarningExpression))
+                    {
+                        string parentText = expression.Parent?.ToString() ?? string.Empty;
+                        if (parentText.Length == 0 ||
+                            (parentText.EndsWith("= null!", StringComparison.Ordinal) &&
+                                IsTwoPhaseConnectionProperty(path, expression)))
+                        {
+                            continue;
+                        }
+
+                        int line = expression.GetLocation()
+                            .GetLineSpan()
+                            .StartLinePosition.Line + 1;
+                        violations.Add($"{path}:{line}: null forgiving operator.");
+                    }
+                }
+            }
+
+            Assert.True(
+                violations.Count == 0,
+                string.Join(Environment.NewLine, violations.Take(20)));
+        }
+
+        private static bool IsTwoPhaseConnectionProperty(
+            string path,
+            PostfixUnaryExpressionSyntax expression)
+        {
+            if (!path.EndsWith(
+                "MqttZeroClientConnection.cs",
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            SyntaxNode? node = expression.Parent;
+            while (node != null && node is not PropertyDeclarationSyntax)
+            {
+                node = node.Parent;
+            }
+
+            if (node is not PropertyDeclarationSyntax property)
+            {
+                return false;
+            }
+
+            return NullForgivingExceptions.Contains(
+                $"MqttZeroClientConnection.{property.Identifier.ValueText}");
+        }
+
+        [Fact]
+        public void NullForgivingDetectorRejectsSample()
+        {
+            const string source = """
+                internal sealed class Sample
+                {
+                    public string Value { get; set; } = null!;
+                }
+                """;
+            SyntaxTree tree = CSharpSyntaxTree.ParseText(
+                source,
+                cancellationToken: TestContext.Current.CancellationToken);
+            int count = tree
+                .GetCompilationUnitRoot(
+                    TestContext.Current.CancellationToken)
+                .DescendantNodes()
+                .OfType<PostfixUnaryExpressionSyntax>()
+                .Count(static expression => expression.IsKind(
+                    SyntaxKind.SuppressNullableWarningExpression));
+            Assert.Equal(1, count);
+        }
+
         [Fact]
         public void ServerProjectRootContainsOnlyApprovedSmallTypes()
         {
