@@ -13,5 +13,7 @@ internal sealed record BrokerAbSummary(
     long SequenceRegressions,
     long MissingDeliveryMessages,
     long DuplicateDeliveryMessages,
+    string ThroughputMetric,
+    double DrainRatio,
     bool Passed,
     string? FailureReason);

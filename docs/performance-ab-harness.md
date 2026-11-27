@@ -114,3 +114,31 @@ pwsh -NoProfile -File ./eng/verify-memory-stability.ps1 `
 - 停止时仍有待发送数据，Broker 在限时内完成并归还全部租出缓冲区。
 
 这些测试断言资源归属，不产生吞吐结论。
+
+## 测量口径
+
+A/B 单元格先算 `DrainRatio = 排空时间 / (测量时间 + 排空时间)`（每轮写入
+`BrokerBenchmarkResult.DrainRatio`）。四轮中位数超过 `0.10` 时，该单元格改用
+`PublishWindowThroughputPerSecond` 判定并在报告里记录 `ThroughputMetric = publish-window`，
+否则用端到端吞吐。`qos1-subs1-payload65536` 就是典型例子：6 s 窗口配 3–6 s 排空，
+端到端数字一半以上是排空尾巴。
+
+两个变体的 `--event-loop-shards` 请求值必须一致，否则报告直接判失败，避免跨拓扑比较。
+
+延迟敏感的单元格使用「延迟档」：把客户端的 `--max-pending` 收到 64，让队列深度受控，
+再用发布/投递 p99 判定；吞吐档仍用 1024。
+
+```powershell
+# 吞吐档：主目标与保护格
+pwsh -NoProfile -File ./eng/compare-broker-ab.ps1 `
+    -BaselineRef master -Qos 1,0 -Subscribers 100 -PayloadSizes 65536,32768 `
+    -Rounds 3 -WarmupSeconds 5 -MeasurementSeconds 20
+
+# 延迟档：单订阅大包与 QoS 0 单订阅
+pwsh -NoProfile -File ./eng/compare-broker-ab.ps1 `
+    -BaselineRef master -Qos 1,0 -Subscribers 1 -PayloadSizes 65536,32 `
+    -MaxPending 64 -Rounds 3 -WarmupSeconds 5 -MeasurementSeconds 20
+```
+
+QoS 0 单订阅的 p99 落在 500 µs 批窗口噪声里，比值不稳定，用
+`-DeliveryP99AbsoluteUs 2000` 改成绝对预算判定，比值只作记录。

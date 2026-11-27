@@ -12,7 +12,9 @@ internal static class BrokerAbEvaluator
         IReadOnlyList<BrokerAbRoundResult> rounds,
         double minimumThroughputGain = MinimumThroughputGain,
         double maximumDeliveryP99Regression =
-            MaximumDeliveryP99Regression)
+            MaximumDeliveryP99Regression,
+        double maximumDeliveryP99Microseconds = 0,
+        double maximumDrainRatio = 0.10)
     {
         ArgumentNullException.ThrowIfNull(baseline);
         ArgumentNullException.ThrowIfNull(candidate);
@@ -69,14 +71,25 @@ internal static class BrokerAbEvaluator
                 $"Duplicate deliveries must be zero: {duplicateDeliveries}.");
         }
 
+        if (baseline.Topology?.EventLoopShardCount !=
+            candidate.Topology?.EventLoopShardCount)
+        {
+            failureReasons.Add(
+                "Both variants must request the same event loop shard count.");
+        }
+
+        double drainRatio = Median(
+            rounds.Select(static round => round.Result.DrainRatio));
+        bool usePublishWindow = drainRatio > maximumDrainRatio;
+        string throughputMetric = usePublishWindow
+            ? "publish-window"
+            : "end-to-end";
         double baselineThroughput = Median(
             baselineRounds.Select(
-                static round =>
-                    round.Result.EndToEndThroughputPerSecond));
+                round => GetThroughput(round, usePublishWindow)));
         double candidateThroughput = Median(
             candidateRounds.Select(
-                static round =>
-                    round.Result.EndToEndThroughputPerSecond));
+                round => GetThroughput(round, usePublishWindow)));
         double baselinePublishP99 = Median(
             baselineRounds.Select(
                 static round =>
@@ -105,16 +118,28 @@ internal static class BrokerAbEvaluator
         if (baselineThroughput <= 0 || candidateThroughput <= 0)
         {
             failureReasons.Add(
-                "Both variants must report positive end-to-end throughput.");
+                $"Both variants must report positive {throughputMetric} " +
+                "throughput.");
         }
         else if (throughputChange < minimumThroughputGain)
         {
             failureReasons.Add(
-                $"Candidate throughput must improve by at least " +
+                $"Candidate {throughputMetric} throughput must improve by " +
+                $"at least " +
                 $"{minimumThroughputGain:P0}: actual={throughputChange:P1}.");
         }
 
-        if (baselineDeliveryP99 > 0 &&
+        if (maximumDeliveryP99Microseconds > 0)
+        {
+            if (candidateDeliveryP99 > maximumDeliveryP99Microseconds)
+            {
+                failureReasons.Add(
+                    "Candidate delivery p99 must stay below " +
+                    $"{maximumDeliveryP99Microseconds:F0} us: " +
+                    $"actual={candidateDeliveryP99:F0} us.");
+            }
+        }
+        else if (baselineDeliveryP99 > 0 &&
             deliveryP99Ratio > 1 + maximumDeliveryP99Regression)
         {
             failureReasons.Add(
@@ -136,10 +161,21 @@ internal static class BrokerAbEvaluator
             sequenceRegressions,
             missingDeliveries,
             duplicateDeliveries,
+            throughputMetric,
+            drainRatio,
             failureReasons.Count == 0,
             failureReasons.Count == 0
                 ? null
                 : string.Join(" ", failureReasons));
+    }
+
+    private static double GetThroughput(
+        BrokerAbRoundResult round,
+        bool usePublishWindow)
+    {
+        return usePublishWindow
+            ? round.Result.PublishWindowThroughputPerSecond
+            : round.Result.EndToEndThroughputPerSecond;
     }
 
     private static double Median(IEnumerable<double> values)

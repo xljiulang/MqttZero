@@ -324,6 +324,12 @@ internal static class BenchmarkLoadRunner
                     endToEndSeconds > 0
                         ? measuredPublishes / endToEndSeconds
                         : 0,
+                DrainRatio = endToEndSeconds > 0
+                    ? Stopwatch.GetElapsedTime(
+                        measurementDrainStarted,
+                        measurementDrainCompleted).TotalSeconds /
+                        endToEndSeconds
+                    : 0,
                 PublishCallLatencyP50Microseconds =
                     latencyHistogram.GetPercentileMicroseconds(0.50),
                 PublishCallLatencyP95Microseconds =

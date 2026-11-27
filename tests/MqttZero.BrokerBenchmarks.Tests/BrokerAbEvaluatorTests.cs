@@ -112,12 +112,116 @@ public sealed class BrokerAbEvaluatorTests
         Assert.Contains("same number of rounds", summary.FailureReason);
     }
 
+    [Fact]
+    public void DrainDominatedCellComparesPublishWindowThroughput()
+    {
+        BrokerAbRoundResult[] rounds =
+        [
+            Round(
+                1,
+                "baseline",
+                throughput: 100,
+                drainRatio: 0.5,
+                publishWindowThroughput: 400),
+            Round(
+                1,
+                "candidate",
+                throughput: 120,
+                drainRatio: 0.5,
+                publishWindowThroughput: 440)
+        ];
+
+        BrokerAbSummary summary = BrokerAbEvaluator.Evaluate(
+            Baseline,
+            Candidate,
+            rounds,
+            minimumThroughputGain: -0.05);
+
+        Assert.True(summary.Passed, summary.FailureReason);
+        Assert.Equal("publish-window", summary.ThroughputMetric);
+        Assert.Equal(0.5, summary.DrainRatio, precision: 3);
+        Assert.Equal(400, summary.BaselineEndToEndThroughput, precision: 3);
+        Assert.Equal(440, summary.CandidateEndToEndThroughput, precision: 3);
+    }
+
+    [Fact]
+    public void ShortDrainCellComparesEndToEndThroughput()
+    {
+        BrokerAbRoundResult[] rounds =
+        [
+            Round(1, "baseline", throughput: 100, drainRatio: 0.01),
+            Round(1, "candidate", throughput: 105, drainRatio: 0.01)
+        ];
+
+        BrokerAbSummary summary = BrokerAbEvaluator.Evaluate(
+            Baseline,
+            Candidate,
+            rounds,
+            minimumThroughputGain: -0.05);
+
+        Assert.True(summary.Passed, summary.FailureReason);
+        Assert.Equal("end-to-end", summary.ThroughputMetric);
+    }
+
+    [Fact]
+    public void AbsoluteDeliveryP99BudgetReplacesTheRatioGate()
+    {
+        BrokerAbRoundResult[] rounds =
+        [
+            Round(1, "baseline", throughput: 100, deliveryP99: 900),
+            Round(1, "candidate", throughput: 100, deliveryP99: 2_000)
+        ];
+
+        BrokerAbSummary summary = BrokerAbEvaluator.Evaluate(
+            Baseline,
+            Candidate,
+            rounds,
+            minimumThroughputGain: -0.05,
+            maximumDeliveryP99Microseconds: 2_500);
+
+        Assert.True(summary.Passed, summary.FailureReason);
+        Assert.True(summary.DeliveryP99Ratio > 1.05);
+    }
+
+    [Fact]
+    public void MismatchedShardRequestsFailTheReport()
+    {
+        BrokerAbVariantInfo baseline = new(
+            "baseline",
+            "baseline.dll",
+            "1111111",
+            new BenchmarkTopologyOptions(8, 0));
+        BrokerAbVariantInfo candidate = new(
+            "candidate",
+            "candidate.dll",
+            "2222222",
+            new BenchmarkTopologyOptions(12, 0));
+        BrokerAbRoundResult[] rounds =
+        [
+            Round(1, "baseline", throughput: 100),
+            Round(1, "candidate", throughput: 100)
+        ];
+
+        BrokerAbSummary summary = BrokerAbEvaluator.Evaluate(
+            baseline,
+            candidate,
+            rounds,
+            minimumThroughputGain: -0.05);
+
+        Assert.False(summary.Passed);
+        Assert.Contains(
+            "same event loop shard count",
+            summary.FailureReason);
+    }
+
     private static BrokerAbRoundResult Round(
         int round,
         string variant,
         double throughput,
         double deliveryP99 = 0,
-        long missing = 0)
+        long missing = 0,
+        double drainRatio = 0,
+        double publishWindowThroughput = 0)
     {
         return new BrokerAbRoundResult
         {
@@ -130,9 +234,11 @@ public sealed class BrokerAbEvaluatorTests
                 ReceivedMessages = 10,
                 MeasurementReceivedMessages = 10,
                 FailedOperations = 0,
+                PublishWindowThroughputPerSecond = publishWindowThroughput,
                 EndToEndThroughputPerSecond = throughput,
                 DeliveryLatencyP99Microseconds = deliveryP99,
                 MissingDeliveryMessages = missing,
+                DrainRatio = drainRatio,
                 LoadObservation = new BenchmarkLoadObservation(
                     0,
                     0,

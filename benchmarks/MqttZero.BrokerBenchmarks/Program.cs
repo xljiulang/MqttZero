@@ -573,6 +573,10 @@ static async Task RunAbAsync(
         arguments,
         "max-delivery-p99-regression-percent",
         5);
+    double maximumDeliveryP99Microseconds = GetInt(
+        arguments,
+        "delivery-p99-absolute-us",
+        0);
     bool allowPacketFragmentation = GetBool(
         arguments,
         "fragmentation",
@@ -712,7 +716,8 @@ static async Task RunAbAsync(
         candidate,
         results,
         minimumGainPercent / 100d,
-        maximumP99RegressionPercent / 100d);
+        maximumP99RegressionPercent / 100d,
+        maximumDeliveryP99Microseconds);
     BrokerAbReport report = new(
         environment,
         baseline,
