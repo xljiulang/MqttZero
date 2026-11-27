@@ -8,16 +8,10 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 internal sealed class MqttZeroAcknowledgementShardWork : MqttZeroShardWork
 {
-    private static readonly MqttZeroBoundedObjectPool<
-        MqttZeroAcknowledgementShardWork> Pool = new(
-            MqttZeroBoundedObjectPool<MqttZeroAcknowledgementShardWork>.
-                DefaultCapacity);
+    private static readonly MqttZeroBoundedObjectPool<MqttZeroAcknowledgementShardWork> Pool = new(MqttZeroBoundedObjectPool<MqttZeroAcknowledgementShardWork>.DefaultCapacity);
     private MqttZeroAcknowledgementWork? _acknowledgementWork;
     private Action<Exception>? _faulted;
-    private Func<
-        MqttZeroAcknowledgementWork,
-        CancellationToken,
-        ValueTask>? _process;
+    private Func<MqttZeroAcknowledgementWork, CancellationToken, ValueTask>? _process;
 
     /// <summary>
     /// 初始化 MqttZeroAcknowledgementShardWork 的新实例。

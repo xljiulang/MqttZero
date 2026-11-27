@@ -10,8 +10,7 @@ internal sealed class MqttZeroEgressFlushOperation
 {
     private readonly Action<Exception?> _completed;
     private readonly Action _continuation;
-    private ConfiguredValueTaskAwaitable<FlushResult>.
-        ConfiguredValueTaskAwaiter _awaiter;
+    private ConfiguredValueTaskAwaitable<FlushResult>.ConfiguredValueTaskAwaiter _awaiter;
     private int _running;
 
     /// <summary>

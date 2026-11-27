@@ -40,15 +40,11 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly IMqttZeroSessionStore _sessionStore;
     private readonly IMqttZeroMessageStore _messageStore;
     private readonly IMqttZeroRetainedMessageStore _retainedMessageStore;
-    private readonly ConcurrentDictionary<string, MqttZeroRetainedMessage> _retainedMessages =
-        new(StringComparer.Ordinal);
-    private MqttZeroRetainedTopicTrie _retainedTopicTrie =
-        MqttZeroRetainedTopicTrie.Empty;
-    private readonly ConcurrentDictionary<string, MqttZeroSessionState> _sessions =
-        new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, MqttZeroRetainedMessage> _retainedMessages = new(StringComparer.Ordinal);
+    private MqttZeroRetainedTopicTrie _retainedTopicTrie = MqttZeroRetainedTopicTrie.Empty;
+    private readonly ConcurrentDictionary<string, MqttZeroSessionState> _sessions = new(StringComparer.Ordinal);
     private readonly MqttZeroSharedGroupCursors _sharedGroupCursors = new();
-    private readonly Dictionary<MqttZeroSharedGroupKey, int>
-        _sharedGroupReferences = [];
+    private readonly Dictionary<MqttZeroSharedGroupKey, int> _sharedGroupReferences = [];
     private readonly ConcurrentDictionary<long, CancellationTokenSource> _acceptedConnections = new();
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim _retainedMutationGate = new(1, 1);
@@ -64,8 +60,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly MqttZeroOptions _options;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<MqttZeroBroker> _logger;
-    private TaskCompletionSource _connectionsDrained =
-        CreateCompletedDrainSignal();
+    private TaskCompletionSource _connectionsDrained = CreateCompletedDrainSignal();
     private long _nextAcceptedConnectionId;
     private int _activeConnectionCount;
     private int _connectedClientCount;

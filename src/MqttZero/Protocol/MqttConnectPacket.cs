@@ -19,8 +19,7 @@ public sealed class MqttConnectPacket : MqttPacket
     /// <summary>
     /// Gets or sets the negotiated protocol version.
     /// </summary>
-    public MqttProtocolVersion ProtocolVersion { get; set; } =
-        MqttProtocolVersion.V500;
+    public MqttProtocolVersion ProtocolVersion { get; set; } = MqttProtocolVersion.V500;
 
     /// <summary>
     /// Gets or sets a value indicating whether the client requests a clean session.
@@ -70,8 +69,7 @@ public sealed class MqttConnectPacket : MqttPacket
     /// <summary>
     /// Gets or sets the ordered CONNECT user properties.
     /// </summary>
-    public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } =
-        Array.Empty<MqttUserProperty>();
+    public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } = Array.Empty<MqttUserProperty>();
 
     /// <summary>
     /// Gets or sets the enhanced authentication method.
@@ -121,8 +119,7 @@ public sealed class MqttConnectPacket : MqttPacket
     /// <summary>
     /// Gets or sets the end-to-end Will message properties.
     /// </summary>
-    public MqttPublishProperties WillProperties { get; set; } =
-        MqttPublishProperties.Empty;
+    public MqttPublishProperties WillProperties { get; set; } = MqttPublishProperties.Empty;
 
     /// <summary>
     /// Gets or sets the will delay interval in seconds.

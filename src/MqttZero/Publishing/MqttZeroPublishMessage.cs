@@ -21,8 +21,7 @@ public sealed class MqttZeroPublishMessage
     /// <summary>
     /// Gets the requested quality of service.
     /// </summary>
-    public MqttQualityOfServiceLevel QualityOfServiceLevel { get; init; } =
-        MqttQualityOfServiceLevel.AtMostOnce;
+    public MqttQualityOfServiceLevel QualityOfServiceLevel { get; init; } = MqttQualityOfServiceLevel.AtMostOnce;
 
     /// <summary>
     /// Gets a value indicating whether the message should be retained.

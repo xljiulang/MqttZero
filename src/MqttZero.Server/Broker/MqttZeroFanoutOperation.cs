@@ -10,10 +10,7 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
 {
-    private static readonly MqttZeroBoundedObjectPool<MqttZeroFanoutOperation>
-        Pool = new(
-            MqttZeroBoundedObjectPool<MqttZeroFanoutOperation>.
-                DefaultCapacity);
+    private static readonly MqttZeroBoundedObjectPool<MqttZeroFanoutOperation> Pool = new(MqttZeroBoundedObjectPool<MqttZeroFanoutOperation>.DefaultCapacity);
 
     private ManualResetValueTaskSourceCore<bool> _completion = new()
     {
@@ -23,12 +20,7 @@ internal sealed class MqttZeroFanoutOperation : IValueTaskSource<bool>
     private int _autoReleaseArmed;
     private MqttZeroRoutePlanBuffer? _buffer;
     private int _completed;
-    private Func<
-        MqttZeroPlannedDelivery,
-        MqttZeroMessageLease,
-        MqttZeroClientConnection?,
-        CancellationToken,
-        ValueTask>? _deliver;
+    private Func<MqttZeroPlannedDelivery, MqttZeroMessageLease, MqttZeroClientConnection?, CancellationToken, ValueTask>? _deliver;
     private Exception? _failure;
     private Action<Exception>? _faulted;
     private MqttZeroMessageLease? _lease;

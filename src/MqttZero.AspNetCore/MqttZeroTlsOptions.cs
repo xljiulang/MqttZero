@@ -22,8 +22,7 @@ public sealed class MqttZeroTlsOptions
     /// <summary>
     /// Gets or sets the client certificate requirement.
     /// </summary>
-    public ClientCertificateMode ClientCertificateMode { get; set; } =
-        ClientCertificateMode.NoCertificate;
+    public ClientCertificateMode ClientCertificateMode { get; set; } = ClientCertificateMode.NoCertificate;
 
     /// <summary>
     /// Gets or sets whether certificate revocation is checked.

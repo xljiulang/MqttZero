@@ -9,10 +9,7 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 internal sealed class MqttZeroInboundWork
 {
-    private static readonly MqttZeroBoundedObjectPool<MqttZeroInboundWork>
-        Pool = new(
-            MqttZeroBoundedObjectPool<MqttZeroInboundWork>.
-                DefaultCapacity);
+    private static readonly MqttZeroBoundedObjectPool<MqttZeroInboundWork> Pool = new(MqttZeroBoundedObjectPool<MqttZeroInboundWork>.DefaultCapacity);
     private Action<TaskCompletionSource>? _completed;
 
     /// <summary>

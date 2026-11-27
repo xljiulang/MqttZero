@@ -13,18 +13,13 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
     private const int SlotsPerLevel = 1 << LevelBits;
     private const long LevelMask = SlotsPerLevel - 1;
 
-    private readonly MqttZeroTimerNode?[,] _buckets =
-        new MqttZeroTimerNode?[Levels, SlotsPerLevel];
+    private readonly MqttZeroTimerNode?[,] _buckets = new MqttZeroTimerNode?[Levels, SlotsPerLevel];
     private readonly List<MqttZeroTimerNode> _cascadeNodes = [];
-    private readonly Func<
-        MqttZeroTimerNode,
-        CancellationToken,
-        ValueTask> _callback;
+    private readonly Func<MqttZeroTimerNode, CancellationToken, ValueTask> _callback;
     private readonly MqttZeroFanoutDiagnostics? _diagnostics;
     private readonly List<MqttZeroTimerNode> _dueNodes = [];
     private readonly MqttZeroEventLoop _shard;
-    private readonly TaskCompletionSource _stopped = new(
-        TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TimeProvider _timeProvider;
     private readonly TimeSpan _tickInterval;
     private readonly long _tickIntervalUtcTicks;

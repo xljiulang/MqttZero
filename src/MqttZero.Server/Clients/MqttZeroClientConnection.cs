@@ -16,8 +16,7 @@ namespace MqttZero.Server.Clients;
 internal sealed class MqttZeroClientConnection : IAsyncDisposable
 {
     private static long NextConnectionId;
-    private static readonly TimeSpan WriteGateTimeout =
-        TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan WriteGateTimeout = TimeSpan.FromSeconds(2);
 
     private readonly MqttZeroPacketWriter _bufferWriter = new();
     private readonly MqttZeroBufferPool _bufferPool;

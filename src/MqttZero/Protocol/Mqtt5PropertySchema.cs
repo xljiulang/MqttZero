@@ -54,20 +54,10 @@ internal static class Mqtt5PropertySchema
             Mqtt5PropertyId.SubscriptionIdentifier,
             Mqtt5PropertyId.TopicAlias,
             Mqtt5PropertyId.UserProperty);
-    private static readonly ulong AcknowledgementProperties = PropertyMask(
-        Mqtt5PropertyId.ReasonString,
-        Mqtt5PropertyId.UserProperty);
-    private static readonly ulong SubscribeProperties = PropertyMask(
-        Mqtt5PropertyId.SubscriptionIdentifier,
-        Mqtt5PropertyId.UserProperty);
-    private static readonly ulong UnsubscribeProperties = PropertyMask(
-        Mqtt5PropertyId.UserProperty);
-    private static readonly ulong DisconnectProperties =
-        PropertyMask(
-            Mqtt5PropertyId.SessionExpiryInterval,
-            Mqtt5PropertyId.ServerReference,
-            Mqtt5PropertyId.ReasonString,
-            Mqtt5PropertyId.UserProperty);
+    private static readonly ulong AcknowledgementProperties = PropertyMask(Mqtt5PropertyId.ReasonString, Mqtt5PropertyId.UserProperty);
+    private static readonly ulong SubscribeProperties = PropertyMask(Mqtt5PropertyId.SubscriptionIdentifier, Mqtt5PropertyId.UserProperty);
+    private static readonly ulong UnsubscribeProperties = PropertyMask(Mqtt5PropertyId.UserProperty);
+    private static readonly ulong DisconnectProperties = PropertyMask(Mqtt5PropertyId.SessionExpiryInterval, Mqtt5PropertyId.ServerReference, Mqtt5PropertyId.ReasonString, Mqtt5PropertyId.UserProperty);
 
     /// <summary>
     /// 判断是否Allowed。

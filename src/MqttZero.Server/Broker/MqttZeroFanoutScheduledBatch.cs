@@ -7,10 +7,7 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 internal sealed class MqttZeroFanoutScheduledBatch
 {
-    private static readonly MqttZeroBoundedObjectPool<
-        MqttZeroFanoutScheduledBatch> Pool = new(
-            MqttZeroBoundedObjectPool<MqttZeroFanoutScheduledBatch>.
-                DefaultCapacity);
+    private static readonly MqttZeroBoundedObjectPool<MqttZeroFanoutScheduledBatch> Pool = new(MqttZeroBoundedObjectPool<MqttZeroFanoutScheduledBatch>.DefaultCapacity);
 
     private MqttZeroFanoutOperation? _operation;
     private int _shardId;

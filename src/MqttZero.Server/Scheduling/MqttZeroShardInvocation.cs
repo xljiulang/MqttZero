@@ -6,8 +6,7 @@ namespace MqttZero.Server.Scheduling;
 internal sealed class MqttZeroShardInvocation<T> : MqttZeroShardWork
 {
     private readonly Func<CancellationToken, ValueTask<T>> _operation;
-    private readonly TaskCompletionSource<T> _completion = new(
-        TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource<T> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>
     /// 初始化 MqttZeroShardInvocation 的新实例。

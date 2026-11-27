@@ -11,15 +11,12 @@ namespace MqttZero.Server.Egress;
 internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
 {
     private const int MaximumActorExecutionsPerPass = 64;
-    private static readonly long PassBudgetTimestampTicks =
-        Math.Max(1, Stopwatch.Frequency / 4000);
+    private static readonly long PassBudgetTimestampTicks = Math.Max(1, Stopwatch.Frequency / 4000);
 
     private readonly MqttZeroFanoutDiagnostics? _diagnostics;
     private readonly ConcurrentQueue<MqttZeroSessionEgress> _ready = new();
-    private readonly TaskCompletionSource _stopped = new(
-        TaskCreationOptions.RunContinuationsAsynchronously);
-    private readonly TaskCompletionSource _signalsDrained = new(
-        TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _signalsDrained = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly MqttZeroEgressSchedulerWork _work;
     private int _activeSignals;
     private int _scheduled;

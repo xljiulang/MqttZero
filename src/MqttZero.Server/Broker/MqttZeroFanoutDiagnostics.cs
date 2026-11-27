@@ -5,8 +5,7 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 internal sealed class MqttZeroFanoutDiagnostics
 {
-    public const string AppContextSwitchName =
-        "MqttZero.FanoutDiagnostics";
+    public const string AppContextSwitchName = "MqttZero.FanoutDiagnostics";
 
     private readonly bool _enabled;
     private long _deliveryCount;

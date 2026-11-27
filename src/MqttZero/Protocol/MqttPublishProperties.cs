@@ -40,6 +40,5 @@ public sealed class MqttPublishProperties
     /// <summary>
     /// Gets the ordered user properties. Duplicate names are preserved.
     /// </summary>
-    public IReadOnlyList<MqttUserProperty> UserProperties { get; init; } =
-        Array.Empty<MqttUserProperty>();
+    public IReadOnlyList<MqttUserProperty> UserProperties { get; init; } = Array.Empty<MqttUserProperty>();
 }

@@ -8,10 +8,7 @@ namespace MqttZero.Memory;
 /// </summary>
 internal sealed class MqttZeroMessageLease : IDisposable
 {
-    private static readonly MqttZeroBoundedObjectPool<MqttZeroMessageLease>
-        LeasePool = new(
-            MqttZeroBoundedObjectPool<MqttZeroMessageLease>.
-                DefaultCapacity);
+    private static readonly MqttZeroBoundedObjectPool<MqttZeroMessageLease> LeasePool = new(MqttZeroBoundedObjectPool<MqttZeroMessageLease>.DefaultCapacity);
 
     private MqttZeroBufferPool _bufferPool = MqttZeroBufferPool.Shared;
     private bool _isBorrowed;

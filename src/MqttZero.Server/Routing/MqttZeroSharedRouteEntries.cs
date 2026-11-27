@@ -7,13 +7,7 @@ namespace MqttZero.Server.Routing;
 /// </summary>
 internal sealed class MqttZeroSharedRouteEntries
 {
-    private readonly MqttZeroPersistentHashMap<
-        MqttZeroSessionState,
-        MqttZeroSubscription> _entries =
-        MqttZeroPersistentHashMap<
-            MqttZeroSessionState,
-            MqttZeroSubscription>.Create(
-            EqualityComparer<MqttZeroSessionState>.Default);
+    private readonly MqttZeroPersistentHashMap<MqttZeroSessionState, MqttZeroSubscription> _entries = MqttZeroPersistentHashMap<MqttZeroSessionState, MqttZeroSubscription>.Create(EqualityComparer<MqttZeroSessionState>.Default);
 
     /// <summary>
     /// 初始化 MqttZeroSharedRouteEntries 的新实例。

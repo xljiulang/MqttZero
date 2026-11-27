@@ -7,8 +7,7 @@ namespace MqttZero.Server.Routing;
 /// </summary>
 internal sealed class MqttZeroRoutePlanBufferPool : IDisposable
 {
-    private readonly ConcurrentQueue<MqttZeroRoutePlanBuffer> _buffers =
-        new();
+    private readonly ConcurrentQueue<MqttZeroRoutePlanBuffer> _buffers = new();
     private readonly int _maximumBufferCount;
     private readonly long _maximumRetainedBytes;
     private readonly int _shardCount;

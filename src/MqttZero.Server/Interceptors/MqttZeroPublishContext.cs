@@ -10,10 +10,7 @@ namespace MqttZero.Server.Interceptors;
 /// </summary>
 public sealed class MqttZeroPublishContext
 {
-    private static readonly MqttZeroBoundedObjectPool<MqttZeroPublishContext>
-        ContextPool = new(
-            MqttZeroBoundedObjectPool<MqttZeroPublishContext>.
-                DefaultCapacity);
+    private static readonly MqttZeroBoundedObjectPool<MqttZeroPublishContext> ContextPool = new(MqttZeroBoundedObjectPool<MqttZeroPublishContext>.DefaultCapacity);
 
     /// <summary>
     /// Gets or sets the UTF-8 topic name.

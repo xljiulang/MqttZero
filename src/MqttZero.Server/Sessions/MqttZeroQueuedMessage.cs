@@ -9,10 +9,7 @@ namespace MqttZero.Server.Sessions;
 /// </summary>
 internal sealed class MqttZeroQueuedMessage
 {
-    private static readonly MqttZeroBoundedObjectPool<MqttZeroQueuedMessage>
-        MessagePool = new(
-            MqttZeroBoundedObjectPool<MqttZeroQueuedMessage>.
-                DefaultCapacity);
+    private static readonly MqttZeroBoundedObjectPool<MqttZeroQueuedMessage> MessagePool = new(MqttZeroBoundedObjectPool<MqttZeroQueuedMessage>.DefaultCapacity);
 
     private MqttZeroMessageLease _lease = null!;
     private bool _isHeld;

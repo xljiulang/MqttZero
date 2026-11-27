@@ -10,17 +10,14 @@ namespace MqttZero.Server.Broker;
 internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
 {
     private const int MaximumEntriesPerPass = 64;
-    private static readonly long PassBudgetTimestampTicks =
-        Math.Max(1, Stopwatch.Frequency / 4000);
+    private static readonly long PassBudgetTimestampTicks = Math.Max(1, Stopwatch.Frequency / 4000);
 
     private readonly SemaphoreSlim _capacity;
     private readonly MqttZeroFanoutDiagnostics? _diagnostics;
     private readonly ConcurrentQueue<MqttZeroFanoutScheduledBatch> _ready = new();
     private readonly MqttZeroEventLoop _shard;
-    private readonly TaskCompletionSource _signalsDrained = new(
-        TaskCreationOptions.RunContinuationsAsynchronously);
-    private readonly TaskCompletionSource _stopped = new(
-        TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _signalsDrained = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly MqttZeroFanoutSchedulerWork _work;
     private int _activeEnqueues;
     private int _scheduled;

@@ -10,24 +10,10 @@ namespace MqttZero.Server.Egress;
 /// </summary>
 internal sealed class MqttZeroSessionEgressServices
 {
-    private readonly Func<
-        string,
-        long,
-        CancellationToken,
-        ValueTask> _deleteMessageAsync;
-    private readonly Func<
-        MqttZeroSessionState,
-        MqttZeroMessageLease,
-        MqttZeroMessageDropReason,
-        CancellationToken,
-        ValueTask> _notifyDroppedAsync;
-    private readonly Func<
-        MqttZeroQueuedMessage,
-        string,
-        CancellationToken,
-        ValueTask> _transitionQueuedToOutboundAsync;
-    private readonly Action<MqttZeroSessionState>
-        _rescheduleMessageExpiry;
+    private readonly Func<string, long, CancellationToken, ValueTask> _deleteMessageAsync;
+    private readonly Func<MqttZeroSessionState, MqttZeroMessageLease, MqttZeroMessageDropReason, CancellationToken, ValueTask> _notifyDroppedAsync;
+    private readonly Func<MqttZeroQueuedMessage, string, CancellationToken, ValueTask> _transitionQueuedToOutboundAsync;
+    private readonly Action<MqttZeroSessionState> _rescheduleMessageExpiry;
 
     /// <summary>
     /// 初始化 MqttZeroSessionEgressServices 的新实例。

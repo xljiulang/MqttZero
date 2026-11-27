@@ -18,6 +18,5 @@ public sealed class MqttPubCompPacket : MqttPacket
     public string? ReasonString { get; set; }
 
     /// <summary>Gets or sets the ordered acknowledgement user properties.</summary>
-    public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } =
-        Array.Empty<MqttUserProperty>();
+    public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } = Array.Empty<MqttUserProperty>();
 }

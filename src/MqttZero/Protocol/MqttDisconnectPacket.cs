@@ -31,6 +31,5 @@ public sealed class MqttDisconnectPacket : MqttPacket
     public string? ServerReference { get; set; }
 
     /// <summary>Gets or sets the ordered disconnect user properties.</summary>
-    public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } =
-        Array.Empty<MqttUserProperty>();
+    public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } = Array.Empty<MqttUserProperty>();
 }

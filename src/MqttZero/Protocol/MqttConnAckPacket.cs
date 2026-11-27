@@ -109,6 +109,5 @@ public sealed class MqttConnAckPacket : MqttPacket
     /// <summary>
     /// Gets or sets the ordered CONNACK user properties.
     /// </summary>
-    public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } =
-        Array.Empty<MqttUserProperty>();
+    public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } = Array.Empty<MqttUserProperty>();
 }

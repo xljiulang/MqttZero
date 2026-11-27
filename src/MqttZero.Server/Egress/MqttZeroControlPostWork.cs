@@ -8,10 +8,7 @@ namespace MqttZero.Server.Egress;
 /// </summary>
 internal sealed class MqttZeroControlPostWork : MqttZeroShardWork
 {
-    private static readonly MqttZeroBoundedObjectPool<MqttZeroControlPostWork>
-        Pool = new(
-            MqttZeroBoundedObjectPool<MqttZeroControlPostWork>.
-                DefaultCapacity);
+    private static readonly MqttZeroBoundedObjectPool<MqttZeroControlPostWork> Pool = new(MqttZeroBoundedObjectPool<MqttZeroControlPostWork>.DefaultCapacity);
     private MqttZeroEgressControlFrame? _frame;
     private MqttZeroSessionEgress? _egress;
 

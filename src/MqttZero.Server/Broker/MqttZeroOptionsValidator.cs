@@ -5,8 +5,7 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 internal static class MqttZeroOptionsValidator
 {
-    private static readonly System.Text.UTF8Encoding StrictUtf8 =
-        new(false, true);
+    private static readonly System.Text.UTF8Encoding StrictUtf8 = new(false, true);
 
     /// <summary>
     /// 校验。

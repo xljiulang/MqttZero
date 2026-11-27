@@ -10,10 +10,7 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 internal sealed class MqttZeroAcknowledgementWork
 {
-    private static readonly MqttZeroBoundedObjectPool<
-        MqttZeroAcknowledgementWork> Pool = new(
-            MqttZeroBoundedObjectPool<MqttZeroAcknowledgementWork>.
-                DefaultCapacity);
+    private static readonly MqttZeroBoundedObjectPool<MqttZeroAcknowledgementWork> Pool = new(MqttZeroBoundedObjectPool<MqttZeroAcknowledgementWork>.DefaultCapacity);
     private Action<TaskCompletionSource>? _completed;
 
     /// <summary>
@@ -37,8 +34,7 @@ internal sealed class MqttZeroAcknowledgementWork
     /// <summary>
     /// Acknowledgement 的值。
     /// </summary>
-    public MqttZeroAcknowledgementView Acknowledgement
-    { get; private set; }
+    public MqttZeroAcknowledgementView Acknowledgement { get; private set; }
 
     /// <summary>
     /// 连接。

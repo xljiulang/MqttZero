@@ -11,10 +11,7 @@ internal sealed class MqttZeroBoundedObjectPool<T>
     /// <summary>
     /// 默认容量。
     /// </summary>
-    public static int DefaultCapacity { get; } = Math.Clamp(
-        Environment.ProcessorCount * 256,
-        1_024,
-        4_096);
+    public static int DefaultCapacity { get; } = Math.Clamp(Environment.ProcessorCount * 256, 1_024, 4_096);
 
     private readonly ConcurrentQueue<T> _items = new();
 

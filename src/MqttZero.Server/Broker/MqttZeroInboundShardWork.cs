@@ -8,10 +8,7 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 internal sealed class MqttZeroInboundShardWork : MqttZeroShardWork
 {
-    private static readonly MqttZeroBoundedObjectPool<MqttZeroInboundShardWork>
-        Pool = new(
-            MqttZeroBoundedObjectPool<MqttZeroInboundShardWork>.
-                DefaultCapacity);
+    private static readonly MqttZeroBoundedObjectPool<MqttZeroInboundShardWork> Pool = new(MqttZeroBoundedObjectPool<MqttZeroInboundShardWork>.DefaultCapacity);
     private Action<Exception>? _faulted;
     private Func<MqttZeroInboundWork, CancellationToken, ValueTask>? _route;
     private MqttZeroInboundWork? _work;

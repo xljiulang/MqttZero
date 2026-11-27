@@ -27,12 +27,8 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     private readonly MqttZeroSessionState? _session;
     private readonly MqttZeroSessionEgressServices? _services;
     private readonly MqttZeroSessionEgressBufferState _stateData = new();
-    private readonly TaskCompletionSource _stopped = new(
-        TaskCreationOptions.RunContinuationsAsynchronously);
-    private readonly Func<
-        IReadOnlyList<MqttZeroEgressControlFrame>,
-        CancellationToken,
-        ValueTask> _writeControls;
+    private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly Func<IReadOnlyList<MqttZeroEgressControlFrame>, CancellationToken, ValueTask> _writeControls;
     private int _controlSignaled;
     private int _dataSignaled;
     private int _executing;

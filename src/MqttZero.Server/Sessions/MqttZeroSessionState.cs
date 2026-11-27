@@ -18,13 +18,7 @@ internal sealed class MqttZeroSessionState
     private int _nextPacketIdentifier;
     private MqttZeroTimerNode? _sessionExpiryTimer;
     private MqttZeroTimerNode? _willTimer;
-    private MqttZeroSessionLifecycleSnapshot _lifecycle = new(
-        null,
-        false,
-        0,
-        null,
-        null,
-        null);
+    private MqttZeroSessionLifecycleSnapshot _lifecycle = new(null, false, 0, null, null, null);
     private MqttZeroSessionEgress? _egress;
 
     /// <summary>
@@ -91,23 +85,17 @@ internal sealed class MqttZeroSessionState
     /// <summary>
     /// 在途消息。
     /// </summary>
-    public MqttZeroSessionMessageMap<MqttZeroQueuedMessage>
-        InflightMessages
-    { get; } = new();
+    public MqttZeroSessionMessageMap<MqttZeroQueuedMessage> InflightMessages { get; } = new();
 
     /// <summary>
     /// 入站Qos2消息。
     /// </summary>
-    public MqttZeroSessionMessageMap<MqttZeroMessageLease>
-        InboundQos2Messages
-    { get; } = new();
+    public MqttZeroSessionMessageMap<MqttZeroMessageLease> InboundQos2Messages { get; } = new();
 
     /// <summary>
     /// Routed入站Qos2消息。
     /// </summary>
-    public MqttZeroSessionMessageMap<MqttReasonCode>
-        RoutedInboundQos2Messages
-    { get; } = new();
+    public MqttZeroSessionMessageMap<MqttReasonCode> RoutedInboundQos2Messages { get; } = new();
 
     /// <summary>
     /// Connection 的值。

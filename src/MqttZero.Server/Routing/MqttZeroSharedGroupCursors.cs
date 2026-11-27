@@ -7,9 +7,7 @@ namespace MqttZero.Server.Routing;
 /// </summary>
 internal sealed class MqttZeroSharedGroupCursors
 {
-    private readonly ConcurrentDictionary<
-        MqttZeroSharedGroupKey,
-        MqttZeroSharedGroupCursor> _cursors = new();
+    private readonly ConcurrentDictionary<MqttZeroSharedGroupKey, MqttZeroSharedGroupCursor> _cursors = new();
 
     /// <summary>
     /// Count 的值。

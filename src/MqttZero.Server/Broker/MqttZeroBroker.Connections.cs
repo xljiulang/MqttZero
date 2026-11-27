@@ -1291,8 +1291,7 @@ public sealed partial class MqttZeroBroker
         public const int MaximumPendingPublishesInFlight = 16;
 
         private readonly MqttZeroBroker _broker;
-        private readonly MqttZeroShardCommand<
-            MqttZeroInboundBufferAction> _shardCommand = new();
+        private readonly MqttZeroShardCommand<MqttZeroInboundBufferAction> _shardCommand = new();
         private readonly MqttZeroPendingDrain _acknowledgementDrain = new();
         private readonly MqttZeroPendingDrain _pendingPublishDrain = new();
 
@@ -1470,25 +1469,17 @@ public sealed partial class MqttZeroBroker
         /// <summary>
         /// Cached连接Invocation。
         /// </summary>
-        public Func<CancellationToken, ValueTask<ConnectionAttachment?>>
-            CachedConnectInvocation
-        { get; }
+        public Func<CancellationToken, ValueTask<ConnectionAttachment?>> CachedConnectInvocation { get; }
 
         /// <summary>
         /// Cached报文Invocation。
         /// </summary>
-        public Func<CancellationToken, ValueTask<bool>>
-            CachedPacketInvocation
-        { get; }
+        public Func<CancellationToken, ValueTask<bool>> CachedPacketInvocation { get; }
 
         /// <summary>
         /// 缓存的分片内发布处理回调，复用委托避免逐条发布分配。
         /// </summary>
-        public Func<
-            CancellationToken,
-            ValueTask<MqttZeroInboundBufferAction>>
-            CachedOwnedPublishInvocation
-        { get; }
+        public Func<CancellationToken, ValueTask<MqttZeroInboundBufferAction>> CachedOwnedPublishInvocation { get; }
 
         /// <summary>
         /// Cached待处理发布Completed。
@@ -1498,12 +1489,7 @@ public sealed partial class MqttZeroBroker
         /// <summary>
         /// 缓存的延迟发布工作项处理回调。
         /// </summary>
-        public Func<
-            MqttZeroInboundWork,
-            CancellationToken,
-            ValueTask>
-            CachedPendingPublishInvocation
-        { get; }
+        public Func<MqttZeroInboundWork, CancellationToken, ValueTask> CachedPendingPublishInvocation { get; }
 
         /// <summary>
         /// Cached入站分片失败。
@@ -1518,39 +1504,27 @@ public sealed partial class MqttZeroBroker
         /// <summary>
         /// 缓存的确认工作项处理回调。
         /// </summary>
-        public Func<
-            MqttZeroAcknowledgementWork,
-            CancellationToken,
-            ValueTask>
-            CachedAcknowledgementInvocation
-        { get; }
+        public Func<MqttZeroAcknowledgementWork, CancellationToken, ValueTask> CachedAcknowledgementInvocation { get; }
 
         /// <summary>
         /// 缓存的同步确认处理回调，用于不经过工作项的快速路径。
         /// </summary>
-        public Func<
-            CancellationToken,
-            ValueTask<MqttZeroInboundBufferAction>>
-            CachedSynchronousAcknowledgementInvocation
-        { get; }
+        public Func<CancellationToken, ValueTask<MqttZeroInboundBufferAction>> CachedSynchronousAcknowledgementInvocation { get; }
 
         /// <summary>
         /// CurrentOwnedPublishLease 的值。
         /// </summary>
-        public MqttZeroMessageLease? CurrentOwnedPublishLease
-        { get; set; }
+        public MqttZeroMessageLease? CurrentOwnedPublishLease { get; set; }
 
         /// <summary>
         /// CurrentOwnedPublishPacketIdentifier 的值。
         /// </summary>
-        public ushort CurrentOwnedPublishPacketIdentifier
-        { get; set; }
+        public ushort CurrentOwnedPublishPacketIdentifier { get; set; }
 
         /// <summary>
         /// CurrentAcknowledgement 的值。
         /// </summary>
-        public MqttZeroAcknowledgementView CurrentAcknowledgement
-        { get; set; }
+        public MqttZeroAcknowledgementView CurrentAcknowledgement { get; set; }
 
         /// <summary>
         /// PendingPublishCount 的值。

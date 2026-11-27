@@ -13,16 +13,13 @@ internal sealed class MqttZeroEventLoop :
     IAsyncDisposable
 {
     private const int MaximumWorkItemsPerDrain = 1024;
-    private static readonly long DrainBudgetTimestampTicks =
-        Math.Max(1, Stopwatch.Frequency / 2000);
+    private static readonly long DrainBudgetTimestampTicks = Math.Max(1, Stopwatch.Frequency / 2000);
     private static readonly AsyncLocal<int?> CurrentShardIdState = new();
 
     private readonly ConcurrentQueue<MqttZeroShardWork> _queue = new();
-    private readonly ConcurrentQueue<MqttZeroShardWork> _lowPriorityQueue =
-        new();
+    private readonly ConcurrentQueue<MqttZeroShardWork> _lowPriorityQueue = new();
     private readonly SemaphoreSlim _queueSpace;
-    private readonly TaskCompletionSource _stopped = new(
-        TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly bool _trackPriorityDiagnostics;
     private long _completedCount;
     private long _enqueuedCount;

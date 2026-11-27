@@ -45,8 +45,7 @@ public sealed class MqttZeroOptions
     /// Gets or sets the maximum data selection and encoding duration for one batch.
     /// Network flush time is not included.
     /// </summary>
-    public TimeSpan OutboundBatchDuration { get; set; } =
-        TimeSpan.FromMicroseconds(500);
+    public TimeSpan OutboundBatchDuration { get; set; } = TimeSpan.FromMicroseconds(500);
 
     /// <summary>
     /// Gets or sets the maximum number of inbound QoS 2 messages awaiting PUBREL.

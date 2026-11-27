@@ -22,8 +22,7 @@ public sealed class MqttUnsubscribePacket : MqttPacket
     public ushort PacketIdentifier { get; set; }
 
     /// <summary>Gets or sets the ordered unsubscribe user properties.</summary>
-    public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } =
-        Array.Empty<MqttUserProperty>();
+    public IReadOnlyList<MqttUserProperty> UserProperties { get; set; } = Array.Empty<MqttUserProperty>();
 
     /// <summary>
     /// Gets or sets the topic filters to remove.

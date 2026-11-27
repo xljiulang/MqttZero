@@ -10,8 +10,7 @@ internal sealed class MqttZeroRetainedTopicTrie
     /// <summary>
     /// 空。
     /// </summary>
-    public static MqttZeroRetainedTopicTrie Empty { get; } = new(
-        MqttZeroRetainedTopicNode.Empty);
+    public static MqttZeroRetainedTopicTrie Empty { get; } = new(MqttZeroRetainedTopicNode.Empty);
 
     /// <summary>
     /// 初始化 MqttZeroRetainedTopicTrie 的新实例。

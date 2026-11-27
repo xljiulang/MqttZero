@@ -12,12 +12,7 @@ namespace MqttZero.Server.Broker;
 /// </summary>
 internal sealed class MqttZeroFanoutDispatcher
 {
-    private readonly Func<
-        MqttZeroPlannedDelivery,
-        MqttZeroMessageLease,
-        MqttZeroClientConnection?,
-        CancellationToken,
-        ValueTask> _deliver;
+    private readonly Func<MqttZeroPlannedDelivery, MqttZeroMessageLease, MqttZeroClientConnection?, CancellationToken, ValueTask> _deliver;
     private readonly MqttZeroFanoutDiagnostics? _diagnostics;
     private readonly Action<Exception> _faulted;
     private readonly MqttZeroShardSet _shards;
