@@ -130,6 +130,10 @@ A/B 单元格先算 `DrainRatio = 排空时间 / (测量时间 + 排空时间)`�
 延迟敏感的单元格使用「延迟档」：把客户端的 `--max-pending` 收到 64，让队列深度受控，
 再用发布/投递 p99 判定；吞吐档仍用 1024。
 
+单订阅 64 KiB 要再压一档：`--max-pending 64` 下 `DrainRatio` 仍有 0.39，吞吐只能按 publish-window 判；
+收到 `--max-pending 8` 后 `DrainRatio` 降到 0.001、端到端口径重新可判（5 轮吞吐 +1.5%、交付 p99 比 0.961）。
+两个档位的用途不同：64 用于 20 s 窗口下的 publish-window 口径，8 用于端到端延迟口径。
+
 ```powershell
 # 吞吐档：主目标与保护格
 pwsh -NoProfile -File ./eng/compare-broker-ab.ps1 `

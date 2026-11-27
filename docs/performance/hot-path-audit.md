@@ -49,3 +49,25 @@
 - 不按行数拆分热路径方法；可读性抽取只在能同时消除重复时进行。
 - 不修改公开 API、MQTT 语义、`await` 边界与错误码顺序。
 - `tests` / `benchmarks` 中的长方法不处理。
+
+## 超过 100 行的 11 个方法：决定不按行数拆分
+
+| 方法 | 行数 | 不拆的理由 |
+|---|---:|---|
+| `EnqueueLeaseAsync` | 243 | 主流程是「过期 → 拦截器 → 构造消息 → 入队 → 回滚」，每步之间都跨 `await` 重读会话连接；拆出去会复制这套重读规则，读错的概率高于拆分的收益 |
+| `TryReadConnAck` | 229 | 一个 `while` + `switch` 的属性解码循环，每个 `case` 共享 15 个去重标志；按 `case` 拆只剩 1–2 行，要压到 100 行以下必须引入可变状态对象，等于在最热的解码循环里加一次间接寻址 |
+| `DrainQueuedMessagesAsync` | 221 | 批次循环的时间预算、字节预算与 flush 挂起状态在同一作用域内推进；拆成多方法需要把预算对象来回传递，语义更难验证 |
+| `RoutePublishLeaseFastAsync` | 220 | 租约所有权、拦截器拒绝分支与发布者确认的顺序是协议要求，拆开容易让「先 ACK 后投递」这类错误重新出现 |
+| `ProcessFastPublishAsync` | 172 | 运行在读线程，三条 QoS 分支共享同一次 buffer 切片；拆分后每处都要重复证明切片点 |
+| `TryReadMessageProperties` | 168 | 同 `TryReadConnAck` |
+| `RoutePublishLeaseCoreAsync` | 142 | 与 `RoutePublishLeaseFastAsync` 共享租约与确认顺序 |
+| `TryReadConnect` | 139 | 同 `TryReadConnAck` |
+| `AcceptInboundQos2Async` | 136 | 去重、`MaxAwaitingRel`、存储回滚三者在同一临界顺序里，拆分会让回滚责任边界模糊 |
+| `RoutePublishAsync` | 109 | 拦截器与 Topic 别名解析耦合在一次调用里，拆开需要额外传参 |
+| `UpdateNode` | 109 | 持久化哈希映射的节点更新按节点类型分派，拆开会让「不可变替换」的单一出口变成三个 |
+
+结论：**若将来要拆，必须先有同机基准证明这些方法的热点在内部分支上**，否则不重开。
+
+## 已知仪表盲区
+
+`AckWorkQueueTicks*` 在诊断轮里恒为 0：稳态 ACK 走的是同步分片调用（`ProcessAcknowledgementCoreAsync` 直接执行），根本不经过 `MqttZeroAcknowledgementWork` 队列。**不能据此认为没有排队**；要测 ACK 排队时延，需要在同步分片调用路径上补时间戳。
