@@ -152,7 +152,6 @@ public sealed partial class MqttZeroBroker
                         _routeEpochs.Current,
                         effectiveLease.Topic.Span,
                         sender,
-                        _sharedGroupCursors,
                         shards.Count,
                         buffer);
                 }
@@ -200,7 +199,6 @@ public sealed partial class MqttZeroBroker
                     _routeEpochs.Current,
                     effectiveLease.Topic.Span,
                     sender,
-                    _sharedGroupCursors,
                     shards.Count,
                     lanes[publisherShardId]);
                 if (plan.TotalDeliveryCount > 0)

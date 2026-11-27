@@ -44,7 +44,7 @@ public sealed partial class MqttZeroBroker
             int shardCount = MqttZeroShardCountResolver.Resolve(
                 _options.EventLoopShardCount);
             _sessionShardMap = new MqttZeroSessionShardMap(shardCount);
-            _routeEpochs.Reset(MqttZeroRouteEpoch.Empty);
+            _routeEpochs.ResetToEmpty();
             _sharedGroupCursors.PruneTo([]);
             int shardQueueCapacity = Math.Max(
                 1024,
@@ -216,7 +216,7 @@ public sealed partial class MqttZeroBroker
 
             _sessions.Clear();
             _sessionShardMap = null;
-            _routeEpochs.Reset(MqttZeroRouteEpoch.Empty);
+            _routeEpochs.ResetToEmpty();
             _sharedGroupCursors.PruneTo([]);
             Volatile.Write(ref _state, (int)MqttZeroBrokerState.Stopped);
         }

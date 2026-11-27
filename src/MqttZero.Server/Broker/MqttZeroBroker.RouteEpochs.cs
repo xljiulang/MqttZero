@@ -128,7 +128,8 @@ public sealed partial class MqttZeroBroker
     {
         MqttZeroRouteEpoch epoch =
             MqttZeroRouteEpochManager.BuildFromSessions(
-                _sessions.Values);
+                _sessions.Values,
+                _sharedGroupCursors);
         await _routeMutationGate.WaitAsync().ConfigureAwait(false);
         try
         {

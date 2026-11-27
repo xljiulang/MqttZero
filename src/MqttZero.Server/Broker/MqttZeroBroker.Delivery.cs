@@ -153,7 +153,6 @@ public sealed partial class MqttZeroBroker
             _routeEpochs.Current,
             lease.Topic.Span,
             sender,
-            _sharedGroupCursors,
             shards.Count,
             buffer);
         int deliveryCount = plan.TotalDeliveryCount;

@@ -91,15 +91,17 @@ internal sealed class MqttZeroRouteEndpoint
     public MqttZeroRouteEndpoint SetShared(
         MqttZeroSharedGroupKey key,
         MqttZeroSessionState session,
-        MqttZeroSubscription subscription)
+        MqttZeroSubscription subscription,
+        MqttZeroSharedGroupCursor cursor)
     {
+        ArgumentNullException.ThrowIfNull(cursor);
         SharedRouteMap entries = SharedEntries ??
             SharedRouteMap.Create(
                 EqualityComparer<MqttZeroSharedGroupKey>.Default);
         MqttZeroSharedRouteEntries routeEntries =
             entries.TryGetValue(key, out MqttZeroSharedRouteEntries? existing)
                 ? existing
-                : new MqttZeroSharedRouteEntries(key);
+                : new MqttZeroSharedRouteEntries(key, cursor);
         routeEntries = routeEntries.Set(session, subscription);
         return new MqttZeroRouteEndpoint(
             RegularEntries,

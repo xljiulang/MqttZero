@@ -55,7 +55,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
     private readonly SemaphoreSlim _routeMutationGate = new(1, 1);
     private readonly object _retainedGate = new();
     private readonly MqttZeroFanoutDiagnostics _fanoutDiagnostics = new();
-    private readonly MqttZeroRouteEpochManager _routeEpochs = new();
+    private readonly MqttZeroRouteEpochManager _routeEpochs;
     private MqttZeroFanoutDispatcher? _fanoutDispatcher;
     private MqttZeroRoutePlanBufferPool? _qosZeroPlanBuffers;
     private MqttZeroRoutePlannerLanes? _routePlannerLanes;
@@ -156,6 +156,7 @@ public sealed partial class MqttZeroBroker : IMqttZeroBroker, IAsyncDisposable
         _messageStore = messageStore ?? throw new ArgumentNullException(nameof(messageStore));
         _retainedMessageStore = retainedMessageStore ??
             throw new ArgumentNullException(nameof(retainedMessageStore));
+        _routeEpochs = new MqttZeroRouteEpochManager(_sharedGroupCursors);
     }
 
     internal static MqttZeroBroker Create(

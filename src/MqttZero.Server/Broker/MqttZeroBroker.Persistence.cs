@@ -481,7 +481,7 @@ public sealed partial class MqttZeroBroker
                     ref _retainedTopicTrie,
                     MqttZeroRetainedTopicTrie.Empty);
                 _retainedBytes = 0;
-                _routeEpochs.Reset(MqttZeroRouteEpoch.Empty);
+                _routeEpochs.ResetToEmpty();
                 _sharedGroupCursors.PruneTo([]);
             }
 

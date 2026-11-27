@@ -55,7 +55,6 @@ public sealed class FanoutDispatcherTests
                     epoch,
                     "scheduler/topic"u8,
                     null,
-                    new MqttZeroSharedGroupCursors(),
                     1,
                     buffer);
                 MqttZeroFanoutOperation operation =
@@ -125,7 +124,6 @@ public sealed class FanoutDispatcherTests
                 epoch,
                 "scheduler/topic"u8,
                 null,
-                new MqttZeroSharedGroupCursors(),
                 1,
                 buffer);
             return MqttZeroFanoutOperation.Rent(
@@ -221,7 +219,6 @@ public sealed class FanoutDispatcherTests
                 epoch,
                 "fanout/topic"u8,
                 null,
-                new MqttZeroSharedGroupCursors(),
                 shardCount,
                 lanes[0]);
             await dispatcher.DispatchScheduledAsync(
@@ -272,7 +269,6 @@ public sealed class FanoutDispatcherTests
                     epoch,
                     "repeat/topic"u8,
                     null,
-                    new MqttZeroSharedGroupCursors(),
                     shardCount,
                     lanes[0]);
                 await dispatcher.DispatchScheduledAsync(
@@ -332,7 +328,6 @@ public sealed class FanoutDispatcherTests
                         epoch,
                         "fanout/topic"u8,
                         null,
-                        new MqttZeroSharedGroupCursors(),
                         shardCount,
                         buffer);
                     await dispatcher.DispatchAsync(
@@ -409,7 +404,6 @@ public sealed class FanoutDispatcherTests
                             epoch,
                             "order/topic"u8,
                             null,
-                            new MqttZeroSharedGroupCursors(),
                             shardCount,
                             buffer);
                         await dispatcher.DispatchAsync(
@@ -472,7 +466,6 @@ public sealed class FanoutDispatcherTests
                         epoch,
                         "lease/topic"u8,
                         null,
-                        new MqttZeroSharedGroupCursors(),
                         shardCount,
                         buffer);
                     await dispatcher.DispatchAsync(
@@ -554,7 +547,6 @@ public sealed class FanoutDispatcherTests
                         epoch,
                         "scheduled/topic"u8,
                         null,
-                        new MqttZeroSharedGroupCursors(),
                         shardCount,
                         buffer);
                     await dispatcher.DispatchScheduledAsync(
@@ -621,7 +613,6 @@ public sealed class FanoutDispatcherTests
                             epoch,
                             "stopped/topic"u8,
                             null,
-                            new MqttZeroSharedGroupCursors(),
                             shardCount,
                             buffer);
                         await dispatcher.DispatchScheduledAsync(
@@ -681,7 +672,6 @@ public sealed class FanoutDispatcherTests
                                 epoch,
                                 "lease/topic"u8,
                                 null,
-                                new MqttZeroSharedGroupCursors(),
                                 shardCount,
                                 buffer);
                             await dispatcher.DispatchAsync(
@@ -802,7 +792,6 @@ public sealed class FanoutDispatcherTests
             epoch,
             "local/topic"u8,
             null,
-            new MqttZeroSharedGroupCursors(),
             1,
             buffer);
         try

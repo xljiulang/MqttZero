@@ -41,7 +41,6 @@ public sealed class RouteEpochTests
         epoch.Match(
             Encoding.UTF8.GetBytes(topic),
             null,
-            new MqttZeroSharedGroupCursors(),
             ref match);
 
         Assert.Equal(expectedCount, match.Count);
@@ -103,7 +102,6 @@ public sealed class RouteEpochTests
         epoch.Match(
             "route/topic"u8,
             sender,
-            new MqttZeroSharedGroupCursors(),
             ref match);
 
         Assert.Equal(1, match.Count);
@@ -126,7 +124,6 @@ public sealed class RouteEpochTests
         epoch.Match(
             "jobs/one"u8,
             null,
-            new MqttZeroSharedGroupCursors(),
             ref match);
 
         Assert.Equal(2, match.Count);
@@ -153,7 +150,6 @@ public sealed class RouteEpochTests
         epoch.Match(
             "jobs/one"u8,
             sender,
-            new MqttZeroSharedGroupCursors(),
             ref match);
 
         Assert.Equal(0, match.Count);
@@ -172,7 +168,6 @@ public sealed class RouteEpochTests
         epoch.Match(
             "jobs/one"u8,
             null,
-            new MqttZeroSharedGroupCursors(),
             ref match);
 
         Assert.Equal(2, match.Count);
@@ -196,7 +191,6 @@ public sealed class RouteEpochTests
         epoch.Match(
             "route/topic"u8,
             null,
-            new MqttZeroSharedGroupCursors(),
             ref match);
 
         Assert.Equal(2, match.Count);
@@ -232,12 +226,10 @@ public sealed class RouteEpochTests
         firstEpoch.Match(
             "route/topic"u8,
             null,
-            new MqttZeroSharedGroupCursors(),
             ref firstMatch);
         secondEpoch.Match(
             "route/topic"u8,
             null,
-            new MqttZeroSharedGroupCursors(),
             ref secondMatch);
 
         Assert.Same(first, firstMatch[0].Subscription);
@@ -262,12 +254,10 @@ public sealed class RouteEpochTests
         regularRemoved.Match(
             "route/topic"u8,
             null,
-            new MqttZeroSharedGroupCursors(),
             ref regularRemovedMatch);
         allRemoved.Match(
             "route/topic"u8,
             null,
-            new MqttZeroSharedGroupCursors(),
             ref allRemovedMatch);
 
         Assert.Equal(1, regularRemovedMatch.Count);
@@ -340,7 +330,6 @@ public sealed class RouteEpochTests
                 epoch,
                 "route/topic"u8,
                 null,
-                cursors,
                 1,
                 buffer);
             delivered += plan.TotalDeliveryCount;

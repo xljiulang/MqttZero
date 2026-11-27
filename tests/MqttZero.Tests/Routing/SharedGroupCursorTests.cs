@@ -12,17 +12,18 @@ public sealed class SharedGroupCursorTests
     {
         MqttZeroSessionState a = new("a");
         MqttZeroSessionState b = new("b");
-        MqttZeroSharedGroupCursors cursors = new();
         MqttZeroRouteEpoch first = MqttZeroRouteEpoch.Empty
             .Add(a, CreateShared("workers", "jobs/#"))
             .Add(b, CreateShared("workers", "jobs/#"));
 
-        string firstSelected = SelectSingle(first, cursors);
+        string firstSelected = SelectSingle(first);
 
-        MqttZeroRouteEpoch replacement = MqttZeroRouteEpoch.Empty
+        MqttZeroRouteEpoch replacement = first
+            .Remove(a, CreateShared("workers", "jobs/#"))
+            .Remove(b, CreateShared("workers", "jobs/#"))
             .Add(a, CreateShared("workers", "jobs/#"))
             .Add(b, CreateShared("workers", "jobs/#"));
-        string secondSelected = SelectSingle(replacement, cursors);
+        string secondSelected = SelectSingle(replacement);
 
         Assert.NotSame(first, replacement);
         Assert.NotEqual(firstSelected, secondSelected);
@@ -57,7 +58,6 @@ public sealed class SharedGroupCursorTests
         MqttZeroSessionState sender = new("sender");
         MqttZeroSessionState second = new("second");
         MqttZeroSessionState third = new("third");
-        MqttZeroSharedGroupCursors cursors = new();
         MqttZeroRouteEpoch epoch = MqttZeroRouteEpoch.Empty
             .Add(sender, CreateShared("workers", "jobs/#", noLocal: true))
             .Add(second, CreateShared("workers", "jobs/#"))
@@ -66,7 +66,7 @@ public sealed class SharedGroupCursorTests
         Dictionary<string, int> selections = new(StringComparer.Ordinal);
         for (int index = 0; index < 200; index++)
         {
-            string selected = SelectSingle(epoch, cursors, sender);
+            string selected = SelectSingle(epoch, sender);
             selections[selected] =
                 selections.GetValueOrDefault(selected) + 1;
         }
@@ -74,6 +74,34 @@ public sealed class SharedGroupCursorTests
         Assert.False(selections.ContainsKey(sender.ClientId));
         Assert.Equal(100, selections["second"]);
         Assert.Equal(100, selections["third"]);
+    }
+
+    [Fact]
+    public void RemovedGroupNoLongerMatchesOrKeepsItsCursor()
+    {
+        MqttZeroSessionState a = new("a");
+        MqttZeroSessionState b = new("b");
+        MqttZeroSubscription workersJobs = CreateShared("workers", "jobs/#");
+        MqttZeroSubscription auditJobs = CreateShared("audit", "jobs/#");
+        MqttZeroRouteEpoch epoch = MqttZeroRouteEpoch.Empty
+            .Add(a, workersJobs)
+            .Add(a, auditJobs)
+            .Add(b, workersJobs);
+        HashSet<MqttZeroSharedGroupKey> keys = [];
+        epoch.CollectSharedGroupKeys(keys);
+        Assert.Equal(2, keys.Count);
+
+        MqttZeroRouteEpoch withoutAudit =
+            epoch.Remove(a, auditJobs);
+
+        HashSet<MqttZeroSharedGroupKey> remaining = [];
+        withoutAudit.CollectSharedGroupKeys(remaining);
+        MqttZeroSharedGroupKey auditKey =
+            new("audit"u8, "jobs/#"u8);
+        MqttZeroSharedGroupKey workersKey =
+            new("workers"u8, "jobs/#"u8);
+        Assert.DoesNotContain(auditKey, remaining);
+        Assert.Contains(workersKey, remaining);
     }
 
     [Fact]
@@ -208,7 +236,6 @@ public sealed class SharedGroupCursorTests
                 epoch,
                 "jobs/one"u8,
                 null,
-                cursors,
                 1,
                 buffer);
             Assert.Equal(1, warmup.TotalDeliveryCount);
@@ -222,7 +249,6 @@ public sealed class SharedGroupCursorTests
                 epoch,
                 "jobs/one"u8,
                 null,
-                cursors,
                 1,
                 buffer);
             delivered += route.TotalDeliveryCount;
@@ -235,7 +261,6 @@ public sealed class SharedGroupCursorTests
 
     private static string SelectSingle(
         MqttZeroRouteEpoch epoch,
-        MqttZeroSharedGroupCursors cursors,
         MqttZeroSessionState? sender = null)
     {
         using MqttZeroRoutePlannerLanes lanes = new(1);
@@ -243,7 +268,6 @@ public sealed class SharedGroupCursorTests
             epoch,
             "jobs/one"u8,
             sender,
-            cursors,
             1,
             lanes[0]);
         Assert.Equal(1, route.TotalDeliveryCount);

@@ -12,9 +12,12 @@ internal sealed class MqttZeroSharedRouteEntries
             MqttZeroSubscription>.Create(
             EqualityComparer<MqttZeroSessionState>.Default);
 
-    public MqttZeroSharedRouteEntries(MqttZeroSharedGroupKey key)
+    public MqttZeroSharedRouteEntries(
+        MqttZeroSharedGroupKey key,
+        MqttZeroSharedGroupCursor cursor)
         : this(
             key,
+            cursor,
             MqttZeroPersistentHashMap<
                 MqttZeroSessionState,
                 MqttZeroSubscription>.Create(
@@ -24,15 +27,20 @@ internal sealed class MqttZeroSharedRouteEntries
 
     private MqttZeroSharedRouteEntries(
         MqttZeroSharedGroupKey key,
+        MqttZeroSharedGroupCursor cursor,
         MqttZeroPersistentHashMap<
             MqttZeroSessionState,
             MqttZeroSubscription> entries)
     {
         Key = key;
+        Cursor = cursor ??
+            throw new ArgumentNullException(nameof(cursor));
         _entries = entries;
     }
 
     public MqttZeroSharedGroupKey Key { get; }
+
+    public MqttZeroSharedGroupCursor Cursor { get; }
 
     public int Count
     {
@@ -58,6 +66,7 @@ internal sealed class MqttZeroSharedRouteEntries
     {
         return new MqttZeroSharedRouteEntries(
             Key,
+            Cursor,
             _entries.Set(session, subscription, out _));
     }
 
@@ -71,7 +80,7 @@ internal sealed class MqttZeroSharedRouteEntries
                 session,
                 out removed);
         return removed && entries.Count > 0
-            ? new MqttZeroSharedRouteEntries(Key, entries)
+            ? new MqttZeroSharedRouteEntries(Key, Cursor, entries)
             : null;
     }
 }

@@ -21,6 +21,11 @@ internal sealed class MqttZeroSharedGroupCursors
         return GetOrAddCursor(key).NextOffset(count);
     }
 
+    public MqttZeroSharedGroupCursor Resolve(MqttZeroSharedGroupKey key)
+    {
+        return GetOrAddCursor(key);
+    }
+
     public int GetCursor(MqttZeroSharedGroupKey key)
     {
         return GetOrAddCursor(key).Value;
