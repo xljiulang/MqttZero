@@ -4,6 +4,9 @@ using System.Buffers;
 
 namespace MqttZero.Server.Sessions;
 
+/// <summary>
+/// 队列中的一条出站消息及其状态。
+/// </summary>
 internal sealed class MqttZeroQueuedMessage
 {
     private static readonly MqttZeroBoundedObjectPool<MqttZeroQueuedMessage>
@@ -15,20 +18,44 @@ internal sealed class MqttZeroQueuedMessage
     private bool _isHeld;
     private uint[] _subscriptionIdentifierBuffer = [];
 
+    /// <summary>
+    /// 队列下一个。
+    /// </summary>
     internal MqttZeroQueuedMessage? QueueNext { get; set; }
 
+    /// <summary>
+    /// 队列前一个。
+    /// </summary>
     internal MqttZeroQueuedMessage? QueuePrevious { get; set; }
 
+    /// <summary>
+    /// Qos0下一个。
+    /// </summary>
     internal MqttZeroQueuedMessage? Qos0Next { get; set; }
 
+    /// <summary>
+    /// Qos0前一个。
+    /// </summary>
     internal MqttZeroQueuedMessage? Qos0Previous { get; set; }
 
+    /// <summary>
+    /// 队列版本。
+    /// </summary>
     internal long QueueVersion { get; set; }
 
+    /// <summary>
+    /// 判断是否Queued。
+    /// </summary>
     internal bool IsQueued { get; set; }
 
+    /// <summary>
+    /// 判断是否Qos0Queued。
+    /// </summary>
     internal bool IsQos0Queued { get; set; }
 
+    /// <summary>
+    /// 初始化 MqttZeroQueuedMessage 的新实例。
+    /// </summary>
     private MqttZeroQueuedMessage()
     {
     }
@@ -73,24 +100,57 @@ internal sealed class MqttZeroQueuedMessage
         }
     }
 
+    /// <summary>
+    /// 服务质量ServiceLevel。
+    /// </summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; private set; }
 
+    /// <summary>
+    /// 保留。
+    /// </summary>
     public bool Retain { get; private set; }
 
+    /// <summary>
+    /// 订阅标识符。
+    /// </summary>
     public ReadOnlyMemory<uint> SubscriptionIdentifiers { get; private set; }
 
+    /// <summary>
+    /// ExpiresAt 的值。
+    /// </summary>
     public DateTimeOffset? ExpiresAt { get; private set; }
 
+    /// <summary>
+    /// 报文标识符。
+    /// </summary>
     public ushort PacketIdentifier { get; set; }
 
+    /// <summary>
+    /// 状态。
+    /// </summary>
     public MqttZeroOutboundState State { get; private set; }
 
+    /// <summary>
+    /// 消息Id。
+    /// </summary>
     public long MessageId { get; private set; }
 
+    /// <summary>
+    /// Encoded长度。
+    /// </summary>
     public int EncodedLength { get; private set; }
 
     private uint _encodedLengthMaximumPacketSize;
 
+    /// <summary>
+    /// 租用。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
+    /// <param name="expiresAt">对应的 expiresAt。</param>
+    /// <returns>对应的结果。</returns>
     public static MqttZeroQueuedMessage Rent(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -108,6 +168,15 @@ internal sealed class MqttZeroQueuedMessage
             expiresAt);
     }
 
+    /// <summary>
+    /// 租用With标识符。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <param name="expiresAt">对应的 expiresAt。</param>
+    /// <returns>对应的结果。</returns>
     public static MqttZeroQueuedMessage RentWithIdentifiers(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -146,6 +215,15 @@ internal sealed class MqttZeroQueuedMessage
         return message;
     }
 
+    /// <summary>
+    /// 租用WithCopied标识符。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <param name="expiresAt">对应的 expiresAt。</param>
+    /// <returns>对应的结果。</returns>
     public static MqttZeroQueuedMessage RentWithCopiedIdentifiers(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -181,39 +259,70 @@ internal sealed class MqttZeroQueuedMessage
         }
     }
 
+    /// <summary>
+    /// 设置AwaitPubComp。
+    /// </summary>
     public void SetAwaitPubComp()
     {
         State = MqttZeroOutboundState.AwaitPubComp;
     }
 
+    /// <summary>
+    /// 设置AwaitPubRec。
+    /// </summary>
     public void SetAwaitPubRec()
     {
         State = MqttZeroOutboundState.AwaitPubRec;
     }
 
+    /// <summary>
+    /// 设置消息Id。
+    /// </summary>
+    /// <param name="messageId">消息Id。</param>
     public void SetMessageId(long messageId)
     {
         MessageId = messageId;
     }
 
+    /// <summary>
+    /// 设置Encoded长度。
+    /// </summary>
+    /// <param name="encodedLength">encoded长度。</param>
+    /// <param name="maximumPacketSize">最大报文大小。</param>
     public void SetEncodedLength(int encodedLength, uint maximumPacketSize)
     {
         EncodedLength = encodedLength;
         _encodedLengthMaximumPacketSize = maximumPacketSize;
     }
 
+    /// <summary>
+    /// 判断是否Encoded长度Valid。
+    /// </summary>
+    /// <param name="maximumPacketSize">最大报文大小。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool IsEncodedLengthValidFor(uint maximumPacketSize)
     {
         return EncodedLength > 0 &&
             _encodedLengthMaximumPacketSize == maximumPacketSize;
     }
 
+    /// <summary>
+    /// 恢复。
+    /// </summary>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="state">状态。</param>
     public void Restore(ushort packetIdentifier, MqttZeroOutboundState state)
     {
         PacketIdentifier = packetIdentifier;
         State = state;
     }
 
+    /// <summary>
+    /// 恢复。
+    /// </summary>
+    /// <param name="messageId">消息Id。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="state">状态。</param>
     public void Restore(long messageId, ushort packetIdentifier, MqttZeroOutboundState state)
     {
         MessageId = messageId;
@@ -221,11 +330,21 @@ internal sealed class MqttZeroQueuedMessage
         State = state;
     }
 
+    /// <summary>
+    /// 判断是否Expired。
+    /// </summary>
+    /// <param name="now">当前时间。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool IsExpired(DateTimeOffset now)
     {
         return ExpiresAt.HasValue && ExpiresAt.Value <= now;
     }
 
+    /// <summary>
+    /// 创建报文。
+    /// </summary>
+    /// <param name="duplicate">对应的 duplicate。</param>
+    /// <returns>对应的结果。</returns>
     public MqttPublishPacket CreatePacket(bool duplicate)
     {
         bool decoded = MqttPublishPropertiesCodec.TryDecode(
@@ -256,6 +375,11 @@ internal sealed class MqttZeroQueuedMessage
         };
     }
 
+    /// <summary>
+    /// 创建View。
+    /// </summary>
+    /// <param name="duplicate">对应的 duplicate。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroPublishView CreateView(bool duplicate)
     {
         return new MqttZeroPublishView(
@@ -272,6 +396,9 @@ internal sealed class MqttZeroQueuedMessage
             null);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public void Release()
     {
         ObjectDisposedException.ThrowIf(!_isHeld || _lease is null, this);

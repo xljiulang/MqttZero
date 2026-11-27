@@ -5,6 +5,9 @@ using System.Diagnostics;
 
 namespace MqttZero.Server.Egress;
 
+/// <summary>
+/// 把出站工作调度到会话分片。
+/// </summary>
 internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
 {
     private const int MaximumActorExecutionsPerPass = 64;
@@ -22,6 +25,11 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
     private int _scheduled;
     private int _stopping;
 
+    /// <summary>
+    /// 初始化 MqttZeroEgressScheduler 的新实例。
+    /// </summary>
+    /// <param name="shard">分片。</param>
+    /// <param name="diagnostics">诊断。</param>
     public MqttZeroEgressScheduler(
         MqttZeroEventLoop shard,
         MqttZeroFanoutDiagnostics? diagnostics)
@@ -31,8 +39,15 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
         _work = new MqttZeroEgressSchedulerWork(this);
     }
 
+    /// <summary>
+    /// 分片。
+    /// </summary>
     public MqttZeroEventLoop Shard { get; }
 
+    /// <summary>
+    /// 通知。
+    /// </summary>
+    /// <param name="egress">出站。</param>
     public void Signal(MqttZeroSessionEgress egress)
     {
         ArgumentNullException.ThrowIfNull(egress);
@@ -59,6 +74,11 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 通知And排空当前分片。
+    /// </summary>
+    /// <param name="egress">出站。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal ValueTask SignalAndDrainCurrentShardAsync(
         MqttZeroSessionEgress egress)
     {
@@ -73,6 +93,10 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
         return ExecuteAsync(CancellationToken.None);
     }
 
+    /// <summary>
+    /// 停止。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask StopAsync()
     {
         if (Interlocked.Exchange(ref _stopping, 1) != 0)
@@ -97,11 +121,20 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
         await _stopped.Task.ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask DisposeAsync()
     {
         await StopAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 执行。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask ExecuteAsync(
         CancellationToken cancellationToken)
     {
@@ -137,6 +170,9 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// On工作项Released。
+    /// </summary>
     internal void OnWorkReleased()
     {
         Volatile.Write(ref _scheduled, 0);
@@ -154,6 +190,9 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 调度。
+    /// </summary>
     private void Schedule()
     {
         if (Interlocked.CompareExchange(ref _scheduled, 1, 0) == 0 &&
@@ -163,6 +202,10 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 调度工作项。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     private async Task ScheduleWorkAsync()
     {
         try

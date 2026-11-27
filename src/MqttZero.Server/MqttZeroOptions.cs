@@ -1,7 +1,7 @@
 namespace MqttZero.Server;
 
 /// <summary>
-/// Configures MQTTZero broker behavior and resource limits.
+/// Broker 行为与资源上限的配置。
 /// </summary>
 public sealed class MqttZeroOptions
 {

@@ -3,7 +3,9 @@ using System.Buffers;
 
 namespace MqttZero.Server.Observers;
 
-/// <summary>Describes an overwritten queued message.</summary>
+/// <summary>
+/// 队列消息被覆盖事件。
+/// </summary>
 public sealed class MqttZeroQueueMessageOverwrittenContext
 {
     /// <summary>Gets the receiver information.</summary>

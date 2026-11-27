@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Interceptors;
 
-/// <summary>Controls delivery to one receiver.</summary>
+/// <summary>
+/// 控制投递到单个接收者的拦截器。
+/// </summary>
 public interface IMqttZeroEnqueueInterceptor
 {
     /// <summary>Intercepts one receiver delivery.</summary>

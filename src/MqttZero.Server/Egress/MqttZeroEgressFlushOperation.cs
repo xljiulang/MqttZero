@@ -3,6 +3,9 @@ using System.Runtime.CompilerServices;
 
 namespace MqttZero.Server.Egress;
 
+/// <summary>
+/// 单次挂起 flush 的完成跟踪。
+/// </summary>
 internal sealed class MqttZeroEgressFlushOperation
 {
     private readonly Action<Exception?> _completed;
@@ -11,6 +14,10 @@ internal sealed class MqttZeroEgressFlushOperation
         ConfiguredValueTaskAwaiter _awaiter;
     private int _running;
 
+    /// <summary>
+    /// 初始化 MqttZeroEgressFlushOperation 的新实例。
+    /// </summary>
+    /// <param name="completed">对应的 completed。</param>
     public MqttZeroEgressFlushOperation(
         Action<Exception?> completed)
     {
@@ -19,6 +26,10 @@ internal sealed class MqttZeroEgressFlushOperation
         _continuation = Complete;
     }
 
+    /// <summary>
+    /// 启动。
+    /// </summary>
+    /// <param name="flush">对应的 flush。</param>
     public void Start(ValueTask<FlushResult> flush)
     {
         if (Interlocked.CompareExchange(ref _running, 1, 0) != 0)
@@ -50,6 +61,9 @@ internal sealed class MqttZeroEgressFlushOperation
         }
     }
 
+    /// <summary>
+    /// 完成。
+    /// </summary>
     private void Complete()
     {
         Exception? failure = null;

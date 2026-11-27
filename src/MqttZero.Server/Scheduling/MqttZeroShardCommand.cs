@@ -3,6 +3,9 @@ using System.Threading.Tasks.Sources;
 
 namespace MqttZero.Server.Scheduling;
 
+/// <summary>
+/// 在分片上执行的命令封装。
+/// </summary>
 internal sealed class MqttZeroShardCommand<T> :
     MqttZeroShardWork,
     IValueTaskSource<T>
@@ -29,6 +32,11 @@ internal sealed class MqttZeroShardCommand<T> :
         }
     }
 
+    /// <summary>
+    /// 执行 Prepare 对应的处理。
+    /// </summary>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     internal void Prepare(
         Func<CancellationToken, ValueTask<T>> operation,
         CancellationToken cancellationToken)
@@ -47,6 +55,10 @@ internal sealed class MqttZeroShardCommand<T> :
         _cancellationToken = cancellationToken;
     }
 
+    /// <summary>
+    /// 标记失败。
+    /// </summary>
+    /// <param name="exception">异常。</param>
     internal void Fail(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
@@ -61,6 +73,10 @@ internal sealed class MqttZeroShardCommand<T> :
         _completion.SetException(exception);
     }
 
+    /// <summary>
+    /// 执行Inline。
+    /// </summary>
+    /// <returns>异步操作的结果。</returns>
     internal ValueTask<T> ExecuteInlineAsync()
     {
         if (Interlocked.CompareExchange(
@@ -99,6 +115,12 @@ internal sealed class MqttZeroShardCommand<T> :
         return AwaitInlineAsync(task);
     }
 
+    /// <summary>
+    /// 执行。
+    /// </summary>
+    /// <param name="shard">分片。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public override ValueTask ExecuteAsync(
         MqttZeroEventLoop shard,
         CancellationToken cancellationToken)
@@ -137,10 +159,18 @@ internal sealed class MqttZeroShardCommand<T> :
         return AwaitAndCompleteAsync(task);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public override void Release()
     {
     }
 
+    /// <summary>
+    /// 获取结果。
+    /// </summary>
+    /// <param name="token">令牌。</param>
+    /// <returns>对应的结果。</returns>
     public T GetResult(short token)
     {
         try
@@ -153,11 +183,23 @@ internal sealed class MqttZeroShardCommand<T> :
         }
     }
 
+    /// <summary>
+    /// 获取状态。
+    /// </summary>
+    /// <param name="token">令牌。</param>
+    /// <returns>对应的结果。</returns>
     public ValueTaskSourceStatus GetStatus(short token)
     {
         return _completion.GetStatus(token);
     }
 
+    /// <summary>
+    /// 执行 OnCompleted 对应的处理。
+    /// </summary>
+    /// <param name="continuation">对应的 continuation。</param>
+    /// <param name="state">状态。</param>
+    /// <param name="token">令牌。</param>
+    /// <param name="flags">标志。</param>
     public void OnCompleted(
         Action<object?> continuation,
         object? state,
@@ -171,6 +213,11 @@ internal sealed class MqttZeroShardCommand<T> :
             flags);
     }
 
+    /// <summary>
+    /// AwaitInline。
+    /// </summary>
+    /// <param name="task">对应的 task。</param>
+    /// <returns>异步操作的结果。</returns>
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder<>))]
     private async ValueTask<T> AwaitInlineAsync(ValueTask<T> task)
     {
@@ -185,6 +232,11 @@ internal sealed class MqttZeroShardCommand<T> :
         }
     }
 
+    /// <summary>
+    /// AwaitAndComplete。
+    /// </summary>
+    /// <param name="task">对应的 task。</param>
+    /// <returns>表示异步操作的任务。</returns>
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
     private async ValueTask AwaitAndCompleteAsync(ValueTask<T> task)
     {
@@ -199,6 +251,10 @@ internal sealed class MqttZeroShardCommand<T> :
         }
     }
 
+    /// <summary>
+    /// 完成。
+    /// </summary>
+    /// <param name="result">结果。</param>
     private void Complete(T result)
     {
         if (Interlocked.Exchange(
@@ -212,6 +268,10 @@ internal sealed class MqttZeroShardCommand<T> :
         _completion.SetResult(result);
     }
 
+    /// <summary>
+    /// 完成。
+    /// </summary>
+    /// <param name="exception">异常。</param>
     private void Complete(Exception exception)
     {
         if (Interlocked.Exchange(
@@ -225,12 +285,18 @@ internal sealed class MqttZeroShardCommand<T> :
         _completion.SetException(exception);
     }
 
+    /// <summary>
+    /// 清空Operation。
+    /// </summary>
     private void ClearOperation()
     {
         _operation = null;
         _cancellationToken = default;
     }
 
+    /// <summary>
+    /// 重置。
+    /// </summary>
     private void Reset()
     {
         _completion.Reset();

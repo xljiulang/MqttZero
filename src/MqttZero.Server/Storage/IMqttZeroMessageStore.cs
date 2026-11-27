@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Storage;
 
-/// <summary>Persists queued, outbound, and inbound QoS 2 messages.</summary>
+/// <summary>
+/// 持久化排队、出站与入站 QoS 2 消息。
+/// </summary>
 public interface IMqttZeroMessageStore
 {
     /// <summary>Gets whether persistence is enabled.</summary>

@@ -3,7 +3,9 @@ using System.Buffers;
 
 namespace MqttZero.Server.Observers;
 
-/// <summary>Describes a dropped delivery.</summary>
+/// <summary>
+/// 消息被丢弃事件。
+/// </summary>
 public sealed class MqttZeroMessageDroppedContext
 {
     /// <summary>Gets the connected sender.</summary>

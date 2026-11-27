@@ -2,7 +2,9 @@ using MqttZero.Protocol;
 
 namespace MqttZero.Server.Clients;
 
-/// <summary>Describes one server-originated subscription result.</summary>
+/// <summary>
+/// 服务端发起订阅的结果。
+/// </summary>
 public sealed class MqttZeroSubscribeResult
 {
     /// <summary>Gets the topic filter.</summary>

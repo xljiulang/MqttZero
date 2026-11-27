@@ -1,10 +1,17 @@
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// 每个分片私有的一组路由计划缓冲区。
+/// </summary>
 internal sealed class MqttZeroRoutePlannerLanes : IDisposable
 {
     private readonly MqttZeroRoutePlanBuffer[] _buffers;
     private bool _disposed;
 
+    /// <summary>
+    /// 初始化 MqttZeroRoutePlannerLanes 的新实例。
+    /// </summary>
+    /// <param name="shardCount">分片数量。</param>
     public MqttZeroRoutePlannerLanes(int shardCount)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(shardCount);
@@ -16,6 +23,9 @@ internal sealed class MqttZeroRoutePlannerLanes : IDisposable
         }
     }
 
+    /// <summary>
+    /// 数量。
+    /// </summary>
     public int Count { get; }
 
     public MqttZeroRoutePlanBuffer this[int shardId]
@@ -32,6 +42,9 @@ internal sealed class MqttZeroRoutePlannerLanes : IDisposable
         }
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public void Dispose()
     {
         if (_disposed)

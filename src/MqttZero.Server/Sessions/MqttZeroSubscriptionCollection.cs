@@ -2,6 +2,9 @@ using System.Collections;
 
 namespace MqttZero.Server.Sessions;
 
+/// <summary>
+/// 会话的订阅集合。
+/// </summary>
 internal sealed class MqttZeroSubscriptionCollection :
     IReadOnlyList<MqttZeroSubscription>
 {
@@ -23,6 +26,10 @@ internal sealed class MqttZeroSubscriptionCollection :
         }
     }
 
+    /// <summary>
+    /// 添加。
+    /// </summary>
+    /// <param name="subscription">订阅。</param>
     public void Add(MqttZeroSubscription subscription)
     {
         ArgumentNullException.ThrowIfNull(subscription);
@@ -45,6 +52,10 @@ internal sealed class MqttZeroSubscriptionCollection :
         }
     }
 
+    /// <summary>
+    /// 替换。
+    /// </summary>
+    /// <param name="subscriptions">订阅。</param>
     public void Replace(
         IReadOnlyList<MqttZeroSubscription> subscriptions)
     {
@@ -67,11 +78,19 @@ internal sealed class MqttZeroSubscriptionCollection :
         Volatile.Write(ref _items, replacement);
     }
 
+    /// <summary>
+    /// 快照。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroSubscription[] Snapshot()
     {
         return Volatile.Read(ref _items);
     }
 
+    /// <summary>
+    /// 获取Enumerator。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public IEnumerator<MqttZeroSubscription> GetEnumerator()
     {
         return ((IEnumerable<MqttZeroSubscription>)Snapshot())

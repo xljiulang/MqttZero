@@ -3,6 +3,9 @@ using MqttZero.Server.Sessions;
 
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// 路由计划中的一个目标投递。
+/// </summary>
 internal struct MqttZeroPlannedDelivery
 {
     private readonly MqttZeroRoutePlanBuffer _identifierSource;
@@ -12,6 +15,13 @@ internal struct MqttZeroPlannedDelivery
     private MqttQualityOfServiceLevel _qualityOfServiceLevel;
     private bool _retainAsPublished;
 
+    /// <summary>
+    /// 初始化 MqttZeroPlannedDelivery 的新实例。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retainAsPublished">保留AsPublished。</param>
+    /// <param name="identifierSource">标识符来源。</param>
     public MqttZeroPlannedDelivery(
         MqttZeroSessionState session,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -27,6 +37,9 @@ internal struct MqttZeroPlannedDelivery
         _identifierWriteCount = 0;
     }
 
+    /// <summary>
+    /// 会话。
+    /// </summary>
     public MqttZeroSessionState Session { get; }
 
     public MqttQualityOfServiceLevel QualityOfServiceLevel
@@ -65,11 +78,19 @@ internal struct MqttZeroPlannedDelivery
         }
     }
 
+    /// <summary>
+    /// Increment标识符数量。
+    /// </summary>
     internal void IncrementIdentifierCount()
     {
         _identifierCount++;
     }
 
+    /// <summary>
+    /// Prepare标识符偏移。
+    /// </summary>
+    /// <param name="currentOffset">当前偏移。</param>
+    /// <returns>计算得到的数值。</returns>
     internal int PrepareIdentifierOffset(int currentOffset)
     {
         _identifierOffset = currentOffset;
@@ -77,6 +98,11 @@ internal struct MqttZeroPlannedDelivery
         return currentOffset + _identifierCount;
     }
 
+    /// <summary>
+    /// 合并Selection。
+    /// </summary>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retainAsPublished">保留AsPublished。</param>
     internal void MergeSelection(
         MqttQualityOfServiceLevel qualityOfServiceLevel,
         bool retainAsPublished)
@@ -88,6 +114,10 @@ internal struct MqttZeroPlannedDelivery
         }
     }
 
+    /// <summary>
+    /// 取出标识符写入索引。
+    /// </summary>
+    /// <returns>计算得到的数值。</returns>
     internal int TakeIdentifierWriteIndex()
     {
         int index = _identifierOffset + _identifierWriteCount;

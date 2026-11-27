@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Observers;
 
-/// <summary>Describes why a client connection ended.</summary>
+/// <summary>
+/// 连接结束的原因分类。
+/// </summary>
 public enum MqttZeroDisconnectType
 {
     /// <summary>The client sent DISCONNECT.</summary>

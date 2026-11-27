@@ -2,6 +2,9 @@ using System.Collections.Concurrent;
 
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// 共享组游标的注册表。
+/// </summary>
 internal sealed class MqttZeroSharedGroupCursors
 {
     private readonly ConcurrentDictionary<
@@ -26,6 +29,11 @@ internal sealed class MqttZeroSharedGroupCursors
         return GetOrAddCursor(key);
     }
 
+    /// <summary>
+    /// 获取OrAdd游标。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <returns>对应的结果。</returns>
     private MqttZeroSharedGroupCursor GetOrAddCursor(
         MqttZeroSharedGroupKey key)
     {
@@ -46,6 +54,10 @@ internal sealed class MqttZeroSharedGroupCursors
         }
     }
 
+    /// <summary>
+    /// 修剪To。
+    /// </summary>
+    /// <param name="activeKeys">active键。</param>
     public void PruneTo(
         IReadOnlyCollection<MqttZeroSharedGroupKey> activeKeys)
     {
@@ -60,6 +72,10 @@ internal sealed class MqttZeroSharedGroupCursors
         }
     }
 
+    /// <summary>
+    /// 移除。
+    /// </summary>
+    /// <param name="key">键。</param>
     public void Remove(MqttZeroSharedGroupKey key)
     {
         _cursors.TryRemove(key, out _);

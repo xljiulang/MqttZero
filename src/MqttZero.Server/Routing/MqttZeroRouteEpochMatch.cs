@@ -3,16 +3,15 @@ using MqttZero.Server.Sessions;
 namespace MqttZero.Server.Routing;
 
 /// <summary>
-/// Accumulates the delivery candidates of one topic match.
+/// 一次主题匹配累积的投递候选，仅用于测试与基准。
 /// </summary>
-/// <remarks>
-/// Test and benchmark only. Production routing collects candidates inside
-/// <see cref="MqttZeroRoutePlanBuffer"/>.
-/// </remarks>
 internal ref struct MqttZeroRouteEpochMatch
 {
     private readonly List<MqttZeroDeliveryCandidate> _deliveries;
 
+    /// <summary>
+    /// 初始化 MqttZeroRouteEpochMatch 的新实例。
+    /// </summary>
     public MqttZeroRouteEpochMatch()
     {
         _deliveries = [];
@@ -34,6 +33,11 @@ internal ref struct MqttZeroRouteEpochMatch
         }
     }
 
+    /// <summary>
+    /// 添加终结点。
+    /// </summary>
+    /// <param name="endpoint">终结点。</param>
+    /// <param name="sender">对应的 sender。</param>
     internal void AddEndpoint(
         MqttZeroRouteEndpoint endpoint,
         MqttZeroSessionState? sender)
@@ -59,6 +63,12 @@ internal ref struct MqttZeroRouteEpochMatch
         }
     }
 
+    /// <summary>
+    /// 添加Regular。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="subscription">订阅。</param>
+    /// <param name="sender">对应的 sender。</param>
     private void AddRegular(
         MqttZeroSessionState session,
         MqttZeroSubscription subscription,
@@ -75,6 +85,11 @@ internal ref struct MqttZeroRouteEpochMatch
             subscription.SubscriptionIdentifiers));
     }
 
+    /// <summary>
+    /// 添加共享组。
+    /// </summary>
+    /// <param name="group">组。</param>
+    /// <param name="sender">对应的 sender。</param>
     private void AddSharedGroup(
         MqttZeroSharedRouteEntries group,
         MqttZeroSessionState? sender)

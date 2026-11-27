@@ -2,6 +2,9 @@ using System.Runtime.CompilerServices;
 
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// 不可变持久化哈希映射。
+/// </summary>
 internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
     where TKey : notnull
 {
@@ -10,11 +13,20 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
     private readonly IEqualityComparer<TKey> _comparer;
     private readonly MqttZeroPersistentHashMapNode<TKey, TValue>? _root;
 
+    /// <summary>
+    /// 初始化 MqttZeroPersistentHashMap 的新实例。
+    /// </summary>
+    /// <param name="comparer">对应的 comparer。</param>
     public MqttZeroPersistentHashMap(IEqualityComparer<TKey> comparer)
         : this(comparer, null)
     {
     }
 
+    /// <summary>
+    /// 初始化 MqttZeroPersistentHashMap 的新实例。
+    /// </summary>
+    /// <param name="comparer">对应的 comparer。</param>
+    /// <param name="root">对应的 root。</param>
     private MqttZeroPersistentHashMap(
         IEqualityComparer<TKey> comparer,
         MqttZeroPersistentHashMapNode<TKey, TValue>? root)
@@ -40,12 +52,23 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
         }
     }
 
+    /// <summary>
+    /// 创建。
+    /// </summary>
+    /// <param name="comparer">对应的 comparer。</param>
+    /// <returns>对应的结果。</returns>
     public static MqttZeroPersistentHashMap<TKey, TValue> Create(
         IEqualityComparer<TKey> comparer)
     {
         return new MqttZeroPersistentHashMap<TKey, TValue>(comparer);
     }
 
+    /// <summary>
+    /// 尝试Get值。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <param name="value">值。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool TryGetValue(TKey key, out TValue value)
     {
         if (_root == null)
@@ -62,6 +85,13 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
             out value);
     }
 
+    /// <summary>
+    /// 设置。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <param name="value">值。</param>
+    /// <param name="added">对应的 added。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroPersistentHashMap<TKey, TValue> Set(
         TKey key,
         TValue value,
@@ -89,6 +119,12 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
                 root);
     }
 
+    /// <summary>
+    /// 移除。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <param name="removed">对应的 removed。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroPersistentHashMap<TKey, TValue> Remove(
         TKey key,
         out bool removed)
@@ -114,11 +150,18 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
                 root);
     }
 
+    /// <summary>
+    /// 获取Enumerator。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public Enumerator GetEnumerator()
     {
         return new Enumerator(_root);
     }
 
+    /// <summary>
+    /// 集合的只读枚举器。
+    /// </summary>
     internal ref struct Enumerator
     {
         private MqttZeroPersistentHashMapEntry<TKey, TValue> _current;
@@ -126,6 +169,10 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
         private IndexBuffer _indexes;
         private int _stackCount;
 
+        /// <summary>
+        /// 初始化 Enumerator 的新实例。
+        /// </summary>
+        /// <param name="root">对应的 root。</param>
         public Enumerator(MqttZeroPersistentHashMapNode<TKey, TValue>? root)
         {
             _current = default;
@@ -146,6 +193,10 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
             }
         }
 
+        /// <summary>
+        /// Move下一个。
+        /// </summary>
+        /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
         public bool MoveNext()
         {
             while (_stackCount > 0)
@@ -193,6 +244,10 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
             return false;
         }
 
+        /// <summary>
+        /// 执行 Push 对应的处理。
+        /// </summary>
+        /// <param name="node">节点。</param>
         private void Push(MqttZeroPersistentHashMapNode<TKey, TValue> node)
         {
             if (_stackCount == FrameCapacity)
@@ -207,12 +262,18 @@ internal sealed class MqttZeroPersistentHashMap<TKey, TValue>
         }
     }
 
+    /// <summary>
+    /// 持久化哈希映射构建时复用的节点缓冲区。
+    /// </summary>
     [InlineArray(FrameCapacity)]
     private struct NodeBuffer
     {
         private MqttZeroPersistentHashMapNode<TKey, TValue>? _element;
     }
 
+    /// <summary>
+    /// 持久化哈希映射构建时复用的索引缓冲区。
+    /// </summary>
     [InlineArray(FrameCapacity)]
     private struct IndexBuffer
     {

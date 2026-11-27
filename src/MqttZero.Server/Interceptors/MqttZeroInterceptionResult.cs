@@ -2,7 +2,7 @@ using MqttZero.Protocol;
 namespace MqttZero.Server.Interceptors;
 
 /// <summary>
-/// Controls how a broker pipeline continues after an interceptor call.
+/// 拦截器返回的通用控制结果。
 /// </summary>
 public enum MqttZeroInterceptionResult
 {

@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Storage;
 
-/// <summary>Describes persisted delivery progress.</summary>
+/// <summary>
+/// 持久化的投递进度。
+/// </summary>
 public enum MqttZeroPersistedDeliveryState
 {
     /// <summary>Queued for delivery.</summary>

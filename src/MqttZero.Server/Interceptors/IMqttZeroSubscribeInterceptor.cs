@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Interceptors;
 
-/// <summary>Authorizes one subscription filter.</summary>
+/// <summary>
+/// 授权单个订阅过滤器的拦截器。
+/// </summary>
 public interface IMqttZeroSubscribeInterceptor
 {
     /// <summary>Intercepts one subscription filter.</summary>

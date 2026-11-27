@@ -10,6 +10,9 @@ using System.IO.Pipelines;
 
 namespace MqttZero.Server.Egress;
 
+/// <summary>
+/// 会话出站的所有者，管理待发送、在途、控制帧与 flush 生命周期。
+/// </summary>
 internal sealed class MqttZeroSessionEgress : IAsyncDisposable
 {
     private const int MaximumControlQueueLength = 1024;
@@ -41,6 +44,13 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     private int _state = (int)MqttZeroSessionEgressState.Idle;
     private int _stopping;
 
+    /// <summary>
+    /// 初始化 MqttZeroSessionEgress 的新实例。
+    /// </summary>
+    /// <param name="scheduler">调度器。</param>
+    /// <param name="writeControls">写入控制。</param>
+    /// <param name="drainData">排空数据。</param>
+    /// <param name="faulted">故障回调。</param>
     internal MqttZeroSessionEgress(
         MqttZeroEgressScheduler scheduler,
         Func<
@@ -61,6 +71,14 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
             OnFlushCompleted);
     }
 
+    /// <summary>
+    /// 初始化 MqttZeroSessionEgress 的新实例。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="scheduler">调度器。</param>
+    /// <param name="services">服务。</param>
+    /// <param name="faulted">故障回调。</param>
     internal MqttZeroSessionEgress(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -109,6 +127,9 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 通知。
+    /// </summary>
     internal void Signal()
     {
         if (IsStopping)
@@ -126,6 +147,11 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         Schedule();
     }
 
+    /// <summary>
+    /// 执行 BeginFlush 对应的处理。
+    /// </summary>
+    /// <param name="flush">对应的 flush。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     internal bool BeginFlush(ValueTask<FlushResult> flush)
     {
         if (flush.IsCompletedSuccessfully)
@@ -153,6 +179,14 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         return false;
     }
 
+    /// <summary>
+    /// 投递控制。
+    /// </summary>
+    /// <param name="frame">帧。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="waitForWrite">wait写入。</param>
+    /// <param name="coalesceOnShard">coalesceOn分片。</param>
+    /// <returns>异步操作的结果。</returns>
     internal async ValueTask<bool> PostControlAsync(
         MqttZeroEgressControlFrame frame,
         CancellationToken cancellationToken,
@@ -218,12 +252,20 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         return true;
     }
 
+    /// <summary>
+    /// 受理控制From分片。
+    /// </summary>
+    /// <param name="frame">帧。</param>
     internal void AcceptControlFromShard(MqttZeroEgressControlFrame frame)
     {
         ArgumentNullException.ThrowIfNull(frame);
         EnqueueControl(frame);
     }
 
+    /// <summary>
+    /// 停止。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask StopAsync()
     {
         if (Interlocked.Exchange(ref _stopping, 1) == 0)
@@ -253,11 +295,20 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         await _stopped.Task.ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask DisposeAsync()
     {
         await StopAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 执行。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask ExecuteAsync(CancellationToken cancellationToken)
     {
         Exception? flushFailure = Interlocked.Exchange(
@@ -357,11 +408,18 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 尝试MarkReady。
+    /// </summary>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     internal bool TryMarkReady()
     {
         return Interlocked.CompareExchange(ref _ready, 1, 0) == 0;
     }
 
+    /// <summary>
+    /// 执行 MarkExecuting 对应的处理。
+    /// </summary>
     internal void MarkExecuting()
     {
         Volatile.Write(ref _executing, 1);
@@ -369,6 +427,9 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         Thread.MemoryBarrier();
     }
 
+    /// <summary>
+    /// 执行 OnExecutionReleased 对应的处理。
+    /// </summary>
     internal void OnExecutionReleased()
     {
         Volatile.Write(ref _executing, 0);
@@ -388,6 +449,11 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 排空Owned。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<bool> DrainOwnedAsync(
         CancellationToken cancellationToken)
     {
@@ -426,6 +492,14 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Resume在途消息。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="batch">批次。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private static async ValueTask ResumeInflightMessagesAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -465,6 +539,14 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 排空Queued消息。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="services">服务。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<bool> DrainQueuedMessagesAsync(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -687,6 +769,10 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 执行 OnFlushCompleted 对应的处理。
+    /// </summary>
+    /// <param name="exception">异常。</param>
     private void OnFlushCompleted(Exception? exception)
     {
         Volatile.Write(ref _flushPending, 0);
@@ -713,6 +799,10 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
             (int)MqttZeroSessionEgressState.Idle);
     }
 
+    /// <summary>
+    /// 等待待处理Flush。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask WaitForPendingFlushAsync()
     {
         TaskCompletionSource waiter = new(
@@ -738,6 +828,11 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         await waiter.Task.ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 运行控制批次。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask RunControlBatchAsync(
         CancellationToken cancellationToken)
     {
@@ -781,6 +876,12 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 执行控制Direct。
+    /// </summary>
+    /// <param name="frame">帧。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask ExecuteControlDirectAsync(
         MqttZeroEgressControlFrame frame,
         CancellationToken cancellationToken)
@@ -798,6 +899,10 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 入队控制。
+    /// </summary>
+    /// <param name="frame">帧。</param>
     private void EnqueueControl(MqttZeroEgressControlFrame frame)
     {
         ThrowIfStopping();
@@ -816,6 +921,9 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         Schedule();
     }
 
+    /// <summary>
+    /// 调度。
+    /// </summary>
     private void Schedule()
     {
         if (IsStopping)
@@ -827,6 +935,10 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         _scheduler.Signal(this);
     }
 
+    /// <summary>
+    /// 标记失败Queued控制。
+    /// </summary>
+    /// <param name="exception">异常。</param>
     private void FailQueuedControls(Exception exception)
     {
         while (_controlQueue.Count > 0)
@@ -846,6 +958,9 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         _controlBatch.Clear();
     }
 
+    /// <summary>
+    /// 抛出IfStopping。
+    /// </summary>
     private void ThrowIfStopping()
     {
         ObjectDisposedException.ThrowIf(
@@ -853,6 +968,10 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
             this);
     }
 
+    /// <summary>
+    /// 尝试CompleteStop。
+    /// </summary>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private bool TryCompleteStop()
     {
         if (!IsStopping ||

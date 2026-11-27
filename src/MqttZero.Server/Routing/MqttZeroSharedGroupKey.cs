@@ -3,12 +3,20 @@ using System.Text;
 
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// 由组名与过滤器组成的共享组键。
+/// </summary>
 internal readonly struct MqttZeroSharedGroupKey :
     IEquatable<MqttZeroSharedGroupKey>
 {
     private readonly byte[] _group;
     private readonly byte[] _filter;
 
+    /// <summary>
+    /// 初始化 MqttZeroSharedGroupKey 的新实例。
+    /// </summary>
+    /// <param name="group">组。</param>
+    /// <param name="filter">过滤器。</param>
     public MqttZeroSharedGroupKey(
         ReadOnlySpan<byte> group,
         ReadOnlySpan<byte> filter)
@@ -57,17 +65,31 @@ internal readonly struct MqttZeroSharedGroupKey :
         }
     }
 
+    /// <summary>
+    /// 执行 Equals 对应的处理。
+    /// </summary>
+    /// <param name="other">对应的 other。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool Equals(MqttZeroSharedGroupKey other)
     {
         return Group.SequenceEqual(other.Group) &&
             Filter.SequenceEqual(other.Filter);
     }
 
+    /// <summary>
+    /// 执行 Equals 对应的处理。
+    /// </summary>
+    /// <param name="obj">对应的 obj。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public override bool Equals(object? obj)
     {
         return obj is MqttZeroSharedGroupKey other && Equals(other);
     }
 
+    /// <summary>
+    /// 获取Hash代码。
+    /// </summary>
+    /// <returns>计算得到的数值。</returns>
     public override int GetHashCode()
     {
         uint hash = 2166136261;

@@ -8,6 +8,9 @@ using System.Text;
 
 namespace MqttZero.Server.Sessions;
 
+/// <summary>
+/// 一个 MQTT 会话的可变状态。
+/// </summary>
 internal sealed class MqttZeroSessionState
 {
     private MqttZeroTimerNode? _keepAliveTimer;
@@ -24,16 +27,31 @@ internal sealed class MqttZeroSessionState
         null);
     private MqttZeroSessionEgress? _egress;
 
+    /// <summary>
+    /// 初始化 MqttZeroSessionState 的新实例。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
     public MqttZeroSessionState(string clientId)
         : this(clientId, 1000, 0)
     {
     }
 
+    /// <summary>
+    /// 初始化 MqttZeroSessionState 的新实例。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="maxQueueLength">max队列长度。</param>
     public MqttZeroSessionState(string clientId, int maxQueueLength)
         : this(clientId, maxQueueLength, 0)
     {
     }
 
+    /// <summary>
+    /// 初始化 MqttZeroSessionState 的新实例。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="maxQueueLength">max队列长度。</param>
+    /// <param name="shardId">分片Id。</param>
     public MqttZeroSessionState(
         string clientId,
         int maxQueueLength,
@@ -45,14 +63,29 @@ internal sealed class MqttZeroSessionState
         PendingMessages = new MqttZeroMessageQueue(maxQueueLength);
     }
 
+    /// <summary>
+    /// 客户端Id。
+    /// </summary>
     public string ClientId { get; }
 
+    /// <summary>
+    /// 分片Id。
+    /// </summary>
     public int ShardId { get; }
 
+    /// <summary>
+    /// 订阅。
+    /// </summary>
     public MqttZeroSubscriptionCollection Subscriptions { get; } = new();
 
+    /// <summary>
+    /// 项。
+    /// </summary>
     public ConcurrentDictionary<object, object?> Items { get; } = new();
 
+    /// <summary>
+    /// 待处理消息。
+    /// </summary>
     public MqttZeroMessageQueue PendingMessages { get; }
 
     public MqttZeroSessionMessageMap<MqttZeroQueuedMessage>
@@ -195,11 +228,21 @@ internal sealed class MqttZeroSessionState
         }
     }
 
+    /// <summary>
+    /// 取出出站。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     internal MqttZeroSessionEgress? TakeEgress()
     {
         return Interlocked.Exchange(ref _egress, null);
     }
 
+    /// <summary>
+    /// 尝试Attach出站。
+    /// </summary>
+    /// <param name="connection">连接。</param>
+    /// <param name="egress">出站。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     internal bool TryAttachEgress(
         MqttZeroClientConnection connection,
         MqttZeroSessionEgress egress)
@@ -215,6 +258,10 @@ internal sealed class MqttZeroSessionState
             null) == null;
     }
 
+    /// <summary>
+    /// 获取下一个报文标识符。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public ushort GetNextPacketIdentifier()
     {
         for (int attempt = 0; attempt < ushort.MaxValue; attempt++)
@@ -229,6 +276,11 @@ internal sealed class MqttZeroSessionState
         throw new InvalidOperationException("No MQTT packet identifier is available.");
     }
 
+    /// <summary>
+    /// 获取定时器节点。
+    /// </summary>
+    /// <param name="kind">种类。</param>
+    /// <returns>对应的结果。</returns>
     internal MqttZeroTimerNode GetTimerNode(MqttZeroDeadlineKind kind)
     {
         ref MqttZeroTimerNode? node = ref _keepAliveTimer;
@@ -265,6 +317,11 @@ internal sealed class MqttZeroSessionState
             null) ?? candidate;
     }
 
+    /// <summary>
+    /// 获取Existing定时器节点。
+    /// </summary>
+    /// <param name="kind">种类。</param>
+    /// <returns>对应的结果。</returns>
     internal MqttZeroTimerNode? GetExistingTimerNode(
         MqttZeroDeadlineKind kind)
     {
@@ -285,6 +342,11 @@ internal sealed class MqttZeroSessionState
         };
     }
 
+    /// <summary>
+    /// 创建快照。
+    /// </summary>
+    /// <param name="now">当前时间。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroSessionSnapshot CreateSnapshot(DateTimeOffset now)
     {
         MqttZeroSessionLifecycleSnapshot lifecycle = Lifecycle;
@@ -316,6 +378,10 @@ internal sealed class MqttZeroSessionState
         };
     }
 
+    /// <summary>
+    /// 更新Lifecycle。
+    /// </summary>
+    /// <param name="update">对应的 update。</param>
     internal void UpdateLifecycle(
         Func<
             MqttZeroSessionLifecycleSnapshot,
@@ -340,6 +406,11 @@ internal sealed class MqttZeroSessionState
         }
     }
 
+    /// <summary>
+    /// 更新Lifecycle。
+    /// </summary>
+    /// <param name="update">对应的 update。</param>
+    /// <param name="value">值。</param>
     private void UpdateLifecycle<T>(
         Func<MqttZeroSessionLifecycleSnapshot, T,
             MqttZeroSessionLifecycleSnapshot> update,

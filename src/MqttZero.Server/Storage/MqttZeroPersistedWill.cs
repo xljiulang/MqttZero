@@ -2,7 +2,9 @@ using MqttZero.Protocol;
 
 namespace MqttZero.Server.Storage;
 
-/// <summary>Describes a persisted will message.</summary>
+/// <summary>
+/// 持久化的遗嘱消息。
+/// </summary>
 public sealed class MqttZeroPersistedWill
 {
     /// <summary>Gets the will topic.</summary>

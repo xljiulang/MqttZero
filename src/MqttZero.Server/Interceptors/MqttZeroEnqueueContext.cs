@@ -4,7 +4,9 @@ using System.Buffers;
 
 namespace MqttZero.Server.Interceptors;
 
-/// <summary>Contains delivery authorization metadata.</summary>
+/// <summary>
+/// 单个接收者投递的授权数据。
+/// </summary>
 public sealed class MqttZeroEnqueueContext
 {
     /// <summary>Gets the connected sender.</summary>

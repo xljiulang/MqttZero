@@ -3,6 +3,9 @@ using System.Collections.Concurrent;
 
 namespace MqttZero.Server.Egress;
 
+/// <summary>
+/// 出站控制帧的对象池。
+/// </summary>
 internal sealed class MqttZeroEgressControlFramePool : IDisposable
 {
     private const int MaximumRetainedFrameCount = 64;
@@ -12,6 +15,10 @@ internal sealed class MqttZeroEgressControlFramePool : IDisposable
     private int _disposed;
     private int _retainedCount;
 
+    /// <summary>
+    /// 初始化 MqttZeroEgressControlFramePool 的新实例。
+    /// </summary>
+    /// <param name="bufferPool">缓冲区池。</param>
     public MqttZeroEgressControlFramePool(MqttZeroBufferPool bufferPool)
     {
         _bufferPool = bufferPool ??
@@ -26,6 +33,11 @@ internal sealed class MqttZeroEgressControlFramePool : IDisposable
         }
     }
 
+    /// <summary>
+    /// 租用。
+    /// </summary>
+    /// <param name="minimumLength">最小长度。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroEgressControlFrame Rent(int minimumLength)
     {
         ObjectDisposedException.ThrowIf(
@@ -48,6 +60,10 @@ internal sealed class MqttZeroEgressControlFramePool : IDisposable
             minimumLength);
     }
 
+    /// <summary>
+    /// 归还。
+    /// </summary>
+    /// <param name="frame">帧。</param>
     public void Return(MqttZeroEgressControlFrame frame)
     {
         ArgumentNullException.ThrowIfNull(frame);
@@ -68,6 +84,9 @@ internal sealed class MqttZeroEgressControlFramePool : IDisposable
         _frames.Enqueue(frame);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)

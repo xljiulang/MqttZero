@@ -2,6 +2,9 @@ using System.Collections.Concurrent;
 
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// 路由计划缓冲区的对象池。
+/// </summary>
 internal sealed class MqttZeroRoutePlanBufferPool : IDisposable
 {
     private readonly ConcurrentQueue<MqttZeroRoutePlanBuffer> _buffers =
@@ -14,6 +17,11 @@ internal sealed class MqttZeroRoutePlanBufferPool : IDisposable
     private int _inUseCount;
     private long _retainedBytes;
 
+    /// <summary>
+    /// 初始化 MqttZeroRoutePlanBufferPool 的新实例。
+    /// </summary>
+    /// <param name="shardCount">分片数量。</param>
+    /// <param name="maxBufferedBytes">maxBuffered字节数。</param>
     public MqttZeroRoutePlanBufferPool(
         int shardCount,
         long maxBufferedBytes = 512L * 1024 * 1024)
@@ -29,6 +37,9 @@ internal sealed class MqttZeroRoutePlanBufferPool : IDisposable
         ReturnCallback = Return;
     }
 
+    /// <summary>
+    /// 归还回调。
+    /// </summary>
     public Action<MqttZeroRoutePlanBuffer> ReturnCallback { get; }
 
     public int AvailableCount
@@ -47,6 +58,10 @@ internal sealed class MqttZeroRoutePlanBufferPool : IDisposable
         }
     }
 
+    /// <summary>
+    /// 获取快照。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRoutePlanBufferPoolSnapshot GetSnapshot()
     {
         return new MqttZeroRoutePlanBufferPoolSnapshot(
@@ -55,6 +70,15 @@ internal sealed class MqttZeroRoutePlanBufferPool : IDisposable
             Volatile.Read(ref _retainedBytes));
     }
 
+    /// <summary>
+    /// 判断是否需要保留缓冲区。
+    /// </summary>
+    /// <param name="availableCount">available数量。</param>
+    /// <param name="retainedBytes">保留字节数。</param>
+    /// <param name="incomingBytes">incoming字节数。</param>
+    /// <param name="maximumBufferCount">最大缓冲区数量。</param>
+    /// <param name="maximumRetainedBytes">最大保留字节数。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     internal static bool ShouldRetainBuffer(
         int availableCount,
         long retainedBytes,
@@ -73,6 +97,10 @@ internal sealed class MqttZeroRoutePlanBufferPool : IDisposable
             retainedBytes <= maximumRetainedBytes - incomingBytes;
     }
 
+    /// <summary>
+    /// 租用。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRoutePlanBuffer Rent()
     {
         ObjectDisposedException.ThrowIf(
@@ -98,6 +126,10 @@ internal sealed class MqttZeroRoutePlanBufferPool : IDisposable
         return buffer;
     }
 
+    /// <summary>
+    /// 归还。
+    /// </summary>
+    /// <param name="buffer">缓冲区。</param>
     public void Return(MqttZeroRoutePlanBuffer buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
@@ -123,6 +155,9 @@ internal sealed class MqttZeroRoutePlanBufferPool : IDisposable
         Interlocked.Increment(ref _availableCount);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)

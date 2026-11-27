@@ -5,10 +5,21 @@ using System.Text;
 
 namespace MqttZero.Server.Sessions;
 
+/// <summary>
+/// 会话中的一条订阅。
+/// </summary>
 internal sealed class MqttZeroSubscription
 {
     private static readonly byte[] SharedPrefix = "$share/"u8.ToArray();
 
+    /// <summary>
+    /// 初始化 MqttZeroSubscription 的新实例。
+    /// </summary>
+    /// <param name="topicFilter">主题过滤器。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="noLocal">no本地。</param>
+    /// <param name="retainAsPublished">保留AsPublished。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
     public MqttZeroSubscription(
         byte[] topicFilter,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -41,22 +52,49 @@ internal sealed class MqttZeroSubscription
         MatchFilter = topicFilter;
     }
 
+    /// <summary>
+    /// 主题过滤器。
+    /// </summary>
     public byte[] TopicFilter { get; }
 
+    /// <summary>
+    /// 服务质量ServiceLevel。
+    /// </summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; }
 
+    /// <summary>
+    /// No本地。
+    /// </summary>
     public bool NoLocal { get; }
 
+    /// <summary>
+    /// 保留AsPublished。
+    /// </summary>
     public bool RetainAsPublished { get; }
 
+    /// <summary>
+    /// 订阅标识符。
+    /// </summary>
     public uint? SubscriptionIdentifier { get; }
 
+    /// <summary>
+    /// 订阅标识符。
+    /// </summary>
     public ReadOnlyMemory<uint> SubscriptionIdentifiers { get; }
 
+    /// <summary>
+    /// 判断是否共享。
+    /// </summary>
     public bool IsShared { get; }
 
+    /// <summary>
+    /// 共享组。
+    /// </summary>
     public string? SharedGroup { get; }
 
+    /// <summary>
+    /// 匹配过滤器。
+    /// </summary>
     public byte[] MatchFilter { get; }
 
     /// <summary>

@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Interceptors;
 
-/// <summary>Controls CONNECT processing.</summary>
+/// <summary>
+/// CONNECT 处理的拦截结果。
+/// </summary>
 public enum MqttZeroConnectionInterceptionResult
 {
     /// <summary>Continue processing.</summary>

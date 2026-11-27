@@ -6,7 +6,7 @@ using System.Buffers;
 namespace MqttZero.Server.Interceptors;
 
 /// <summary>
-/// Contains mutable publish data for an interceptor.
+/// 发布拦截器的可变上下文。
 /// </summary>
 public sealed class MqttZeroPublishContext
 {
@@ -57,6 +57,10 @@ public sealed class MqttZeroPublishContext
         }
     }
 
+    /// <summary>
+    /// 租用。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     internal static MqttZeroPublishContext Rent()
     {
         if (ContextPool.TryRent(out MqttZeroPublishContext? context) &&
@@ -68,6 +72,9 @@ public sealed class MqttZeroPublishContext
         return new MqttZeroPublishContext();
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     internal void Release()
     {
         Topic = ReadOnlySequence<byte>.Empty;

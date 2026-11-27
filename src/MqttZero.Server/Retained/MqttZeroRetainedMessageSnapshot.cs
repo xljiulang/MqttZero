@@ -2,7 +2,7 @@ using MqttZero.Protocol;
 namespace MqttZero.Server.Retained;
 
 /// <summary>
-/// Represents retained message metadata.
+/// 保留消息的元数据快照。
 /// </summary>
 public sealed class MqttZeroRetainedMessageSnapshot
 {

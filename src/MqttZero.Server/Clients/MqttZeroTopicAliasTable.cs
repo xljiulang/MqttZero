@@ -3,18 +3,28 @@ using System.Buffers;
 
 namespace MqttZero.Server.Clients;
 
+/// <summary>
+/// 入站主题别名到主题的映射表。
+/// </summary>
 internal sealed class MqttZeroTopicAliasTable : IDisposable
 {
     private readonly MqttZeroBufferPool _bufferPool;
     private Dictionary<ushort, MqttZeroPooledTopicAlias>? _largeAliases;
     private MqttZeroPooledTopicAlias?[]? _smallAliases;
 
+    /// <summary>
+    /// 初始化 MqttZeroTopicAliasTable 的新实例。
+    /// </summary>
+    /// <param name="bufferPool">缓冲区池。</param>
     public MqttZeroTopicAliasTable(MqttZeroBufferPool bufferPool)
     {
         _bufferPool = bufferPool ??
             throw new ArgumentNullException(nameof(bufferPool));
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public void Dispose()
     {
         if (_largeAliases != null)
@@ -44,6 +54,11 @@ internal sealed class MqttZeroTopicAliasTable : IDisposable
         }
     }
 
+    /// <summary>
+    /// 设置。
+    /// </summary>
+    /// <param name="alias">别名。</param>
+    /// <param name="topic">主题。</param>
     public void Set(ushort alias, ReadOnlySequence<byte> topic)
     {
         int length = checked((int)topic.Length);
@@ -65,6 +80,12 @@ internal sealed class MqttZeroTopicAliasTable : IDisposable
         _largeAliases[alias] = replacement;
     }
 
+    /// <summary>
+    /// 尝试Get。
+    /// </summary>
+    /// <param name="alias">别名。</param>
+    /// <param name="topic">主题。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool TryGet(ushort alias, out ReadOnlyMemory<byte> topic)
     {
         MqttZeroPooledTopicAlias? entry;
@@ -87,6 +108,13 @@ internal sealed class MqttZeroTopicAliasTable : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// 创建条目。
+    /// </summary>
+    /// <param name="existing">对应的 existing。</param>
+    /// <param name="topic">主题。</param>
+    /// <param name="length">长度。</param>
+    /// <returns>对应的结果。</returns>
     private MqttZeroPooledTopicAlias CreateEntry(
         MqttZeroPooledTopicAlias? existing,
         ReadOnlySequence<byte> topic,
@@ -109,6 +137,12 @@ internal sealed class MqttZeroTopicAliasTable : IDisposable
         return entry;
     }
 
+    /// <summary>
+    /// 设置条目。
+    /// </summary>
+    /// <param name="entry">条目。</param>
+    /// <param name="topic">主题。</param>
+    /// <param name="length">长度。</param>
     private void SetEntry(
         ref MqttZeroPooledTopicAlias? entry,
         ReadOnlySequence<byte> topic,

@@ -1,7 +1,7 @@
 namespace MqttZero.Server.Scheduling;
 
 /// <summary>
-/// Identifies what a scheduled broker deadline expires.
+/// 到期项的分类。
 /// </summary>
 internal enum MqttZeroDeadlineKind
 {

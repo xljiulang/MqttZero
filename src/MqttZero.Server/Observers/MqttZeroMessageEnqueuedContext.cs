@@ -4,7 +4,9 @@ using System.Buffers;
 
 namespace MqttZero.Server.Observers;
 
-/// <summary>Describes an enqueued delivery.</summary>
+/// <summary>
+/// 消息入队事件。
+/// </summary>
 public sealed class MqttZeroMessageEnqueuedContext
 {
     /// <summary>Gets the connected sender.</summary>

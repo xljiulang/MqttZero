@@ -4,7 +4,7 @@ using MqttZero.Protocol;
 namespace MqttZero.Server.Clients;
 
 /// <summary>
-/// Represents a point-in-time view of a connected MQTT client.
+/// 客户端某一时刻的只读视图。
 /// </summary>
 public sealed class MqttZeroClientSnapshot
 {

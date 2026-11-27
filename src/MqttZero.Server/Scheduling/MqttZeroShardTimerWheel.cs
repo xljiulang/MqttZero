@@ -3,6 +3,9 @@ using System.Diagnostics;
 
 namespace MqttZero.Server.Scheduling;
 
+/// <summary>
+/// 每个分片私有的四层时间轮。
+/// </summary>
 internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
 {
     private const int LevelBits = 9;
@@ -38,6 +41,14 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
     private int _count;
     private long _oldestDueUtcTicks = long.MaxValue;
 
+    /// <summary>
+    /// 初始化 MqttZeroShardTimerWheel 的新实例。
+    /// </summary>
+    /// <param name="shard">分片。</param>
+    /// <param name="timeProvider">时间Provider。</param>
+    /// <param name="tickInterval">tick间隔。</param>
+    /// <param name="callback">回调。</param>
+    /// <param name="diagnostics">诊断。</param>
     internal MqttZeroShardTimerWheel(
         MqttZeroEventLoop shard,
         TimeProvider timeProvider,
@@ -79,6 +90,9 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 启动。
+    /// </summary>
     internal void Start()
     {
         if (Interlocked.Exchange(ref _started, 1) != 0)
@@ -90,6 +104,11 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         _tickerTask = RunTickerAsync(_tickerCancellation.Token);
     }
 
+    /// <summary>
+    /// 调度OrRemove。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="dueUtcTicks">dueUtc时钟滴答。</param>
     internal void ScheduleOrRemove(
         MqttZeroTimerNode node,
         long dueUtcTicks)
@@ -122,6 +141,10 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         UpdateOldestDue(dueUtcTicks);
     }
 
+    /// <summary>
+    /// 执行 Cancel 对应的处理。
+    /// </summary>
+    /// <param name="node">节点。</param>
     internal void Cancel(MqttZeroTimerNode node)
     {
         ArgumentNullException.ThrowIfNull(node);
@@ -139,6 +162,12 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         node.Wheel = null;
     }
 
+    /// <summary>
+    /// Tick。
+    /// </summary>
+    /// <param name="nowUtcTicks">当前时间Utc时钟滴答。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask TickAsync(
         long nowUtcTicks,
         CancellationToken cancellationToken)
@@ -217,6 +246,10 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
             oldestAgeMilliseconds);
     }
 
+    /// <summary>
+    /// 停止。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask StopAsync()
     {
         if (Interlocked.Exchange(ref _stopping, 1) == 0)
@@ -253,11 +286,20 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         await _stopped.Task.ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask DisposeAsync()
     {
         await StopAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 执行Tick工作项。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask ExecuteTickWorkAsync(
         CancellationToken cancellationToken)
     {
@@ -272,6 +314,9 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// OnTick工作项Released。
+    /// </summary>
     internal void OnTickWorkReleased()
     {
         Volatile.Write(ref _tickScheduled, 0);
@@ -294,6 +339,11 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 运行Ticker。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async Task RunTickerAsync(CancellationToken cancellationToken)
     {
         try
@@ -313,6 +363,9 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 通知Tick。
+    /// </summary>
     private void SignalTick()
     {
         if (Volatile.Read(ref _stopping) != 0)
@@ -324,6 +377,9 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         ScheduleTickWork();
     }
 
+    /// <summary>
+    /// 调度Tick工作项。
+    /// </summary>
     private void ScheduleTickWork()
     {
         if (Volatile.Read(ref _stopping) != 0 ||
@@ -338,6 +394,10 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 入队Tick工作项。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     private async Task EnqueueTickWorkAsync()
     {
         try
@@ -355,6 +415,10 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 执行 CascadeIfNeeded 对应的处理。
+    /// </summary>
+    /// <param name="level">对应的 level。</param>
     private void CascadeIfNeeded(int level)
     {
         long span = 1L << (LevelBits * level);
@@ -399,6 +463,11 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         _cascadeNodes.Clear();
     }
 
+    /// <summary>
+    /// 排空LevelZero。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask DrainLevelZeroAsync(
         CancellationToken cancellationToken)
     {
@@ -448,6 +517,11 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 获取Level。
+    /// </summary>
+    /// <param name="dueUtcTicks">dueUtc时钟滴答。</param>
+    /// <returns>计算得到的数值。</returns>
     private int GetLevel(long dueUtcTicks)
     {
         long dueTick = FloorTick(dueUtcTicks);
@@ -472,6 +546,12 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         return 3;
     }
 
+    /// <summary>
+    /// 获取Slot。
+    /// </summary>
+    /// <param name="dueUtcTicks">dueUtc时钟滴答。</param>
+    /// <param name="level">对应的 level。</param>
+    /// <returns>计算得到的数值。</returns>
     private int GetSlot(long dueUtcTicks, int level)
     {
         long dueTick = FloorTick(dueUtcTicks);
@@ -483,16 +563,34 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         return GetSlotForTick(dueTick, level);
     }
 
+    /// <summary>
+    /// 获取SlotTick。
+    /// </summary>
+    /// <param name="tick">对应的 tick。</param>
+    /// <param name="level">对应的 level。</param>
+    /// <returns>计算得到的数值。</returns>
     private static int GetSlotForTick(long tick, int level)
     {
         return (int)((tick >> (LevelBits * level)) & LevelMask);
     }
 
+    /// <summary>
+    /// 执行 FloorTick 对应的处理。
+    /// </summary>
+    /// <param name="utcTicks">utc时钟滴答。</param>
+    /// <returns>计算得到的数值。</returns>
     private long FloorTick(long utcTicks)
     {
         return utcTicks / _tickIntervalUtcTicks;
     }
 
+    /// <summary>
+    /// 添加ToBucket。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="level">对应的 level。</param>
+    /// <param name="slot">对应的 slot。</param>
+    /// <param name="incrementCount">increment数量。</param>
     private void AddToBucket(
         MqttZeroTimerNode node,
         int level,
@@ -515,6 +613,10 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 移除FromBucket。
+    /// </summary>
+    /// <param name="node">节点。</param>
     private void RemoveFromBucket(MqttZeroTimerNode node)
     {
         int level = node.Level;
@@ -542,6 +644,12 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         DecrementCount();
     }
 
+    /// <summary>
+    /// 拆离Bucket。
+    /// </summary>
+    /// <param name="head">对应的 head。</param>
+    /// <param name="level">对应的 level。</param>
+    /// <param name="slot">对应的 slot。</param>
     private void DetachBucket(
         MqttZeroTimerNode head,
         int level,
@@ -553,6 +661,9 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Decrement数量。
+    /// </summary>
     private void DecrementCount()
     {
         int count = Interlocked.Decrement(ref _count);
@@ -562,6 +673,10 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 更新OldestDue。
+    /// </summary>
+    /// <param name="dueUtcTicks">dueUtc时钟滴答。</param>
     private void UpdateOldestDue(long dueUtcTicks)
     {
         long current;
@@ -579,6 +694,9 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
             current) != current);
     }
 
+    /// <summary>
+    /// 清空。
+    /// </summary>
     private void Clear()
     {
         for (int level = 0; level < Levels; level++)
@@ -607,6 +725,10 @@ internal sealed class MqttZeroShardTimerWheel : IAsyncDisposable
         _dueNodes.Clear();
     }
 
+    /// <summary>
+    /// 尝试CompleteStop。
+    /// </summary>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private bool TryCompleteStop()
     {
         if (Volatile.Read(ref _stopping) == 0)

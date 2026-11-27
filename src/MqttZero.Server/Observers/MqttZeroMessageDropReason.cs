@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Observers;
 
-/// <summary>Describes why a delivery was dropped.</summary>
+/// <summary>
+/// 消息被丢弃的原因。
+/// </summary>
 public enum MqttZeroMessageDropReason
 {
     /// <summary>No subscription matched.</summary>

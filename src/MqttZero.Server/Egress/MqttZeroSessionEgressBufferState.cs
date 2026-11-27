@@ -6,12 +6,34 @@ using System.Diagnostics;
 
 namespace MqttZero.Server.Egress;
 
+/// <summary>
+/// 出站批次复用的缓冲区状态。
+/// </summary>
 internal sealed class MqttZeroSessionEgressBufferState
 {
+    /// <summary>
+    /// Expired消息。
+    /// </summary>
     internal List<MqttZeroQueuedMessage> ExpiredMessages { get; } = [];
 
+    /// <summary>
+    /// 出站批次。
+    /// </summary>
     internal List<MqttZeroQueuedMessage> OutboundBatch { get; } = [];
 
+    /// <summary>
+    /// 选择批次。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
+    /// <param name="options">选项。</param>
+    /// <param name="timeProvider">时间Provider。</param>
+    /// <param name="diagnostics">诊断。</param>
+    /// <param name="budget">预算。</param>
+    /// <param name="next">下一个。</param>
+    /// <param name="hasNext">has下一个。</param>
+    /// <param name="nextTooLarge">下一个TooLarge。</param>
+    /// <param name="inflightLimit">在途上限。</param>
     internal void SelectBatch(
         MqttZeroSessionState session,
         MqttZeroClientConnection connection,
@@ -109,6 +131,13 @@ internal sealed class MqttZeroSessionEgressBufferState
         }
     }
 
+    /// <summary>
+    /// 添加在途IfNeeded。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="message">消息。</param>
+    /// <param name="diagnostics">诊断。</param>
+    /// <param name="diagnosticsEnabled">诊断Enabled。</param>
     private static void AddInflightIfNeeded(
         MqttZeroSessionState session,
         MqttZeroQueuedMessage message,
@@ -133,6 +162,10 @@ internal sealed class MqttZeroSessionEgressBufferState
         }
     }
 
+    /// <summary>
+    /// 释放QosZero消息。
+    /// </summary>
+    /// <param name="batch">批次。</param>
     internal static void ReleaseQosZeroMessages(
         List<MqttZeroQueuedMessage> batch)
     {
@@ -147,6 +180,12 @@ internal sealed class MqttZeroSessionEgressBufferState
         }
     }
 
+    /// <summary>
+    /// 校验Encoded长度。
+    /// </summary>
+    /// <param name="connection">连接。</param>
+    /// <param name="message">消息。</param>
+    /// <param name="tooLarge">对应的 tooLarge。</param>
     private static void ValidateEncodedLength(
         MqttZeroClientConnection connection,
         MqttZeroQueuedMessage message,

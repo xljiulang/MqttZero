@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Interceptors;
 
-/// <summary>Validates CONNECT requests before sessions are changed.</summary>
+/// <summary>
+/// 在会话变更前校验 CONNECT 的拦截器。
+/// </summary>
 public interface IMqttZeroConnectionInterceptor
 {
     /// <summary>Intercepts one CONNECT request.</summary>

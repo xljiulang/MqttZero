@@ -3,6 +3,9 @@ using System.Text;
 
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// 不可变的订阅路由快照。
+/// </summary>
 internal sealed class MqttZeroRouteEpoch
 {
     public static MqttZeroRouteEpoch Empty
@@ -16,6 +19,11 @@ internal sealed class MqttZeroRouteEpoch
         }
     }
 
+    /// <summary>
+    /// 初始化 MqttZeroRouteEpoch 的新实例。
+    /// </summary>
+    /// <param name="version">版本。</param>
+    /// <param name="root">对应的 root。</param>
     public MqttZeroRouteEpoch(
         long version,
         MqttZeroRouteTrieNode root)
@@ -23,6 +31,12 @@ internal sealed class MqttZeroRouteEpoch
     {
     }
 
+    /// <summary>
+    /// 初始化 MqttZeroRouteEpoch 的新实例。
+    /// </summary>
+    /// <param name="version">版本。</param>
+    /// <param name="root">对应的 root。</param>
+    /// <param name="cursors">游标。</param>
     public MqttZeroRouteEpoch(
         long version,
         MqttZeroRouteTrieNode root,
@@ -34,12 +48,27 @@ internal sealed class MqttZeroRouteEpoch
         Cursors = cursors ?? throw new ArgumentNullException(nameof(cursors));
     }
 
+    /// <summary>
+    /// 版本。
+    /// </summary>
     public long Version { get; }
 
+    /// <summary>
+    /// Root 的值。
+    /// </summary>
     internal MqttZeroRouteTrieNode Root { get; }
 
+    /// <summary>
+    /// 游标。
+    /// </summary>
     internal MqttZeroSharedGroupCursors Cursors { get; }
 
+    /// <summary>
+    /// 添加。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="subscription">订阅。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRouteEpoch Add(
         MqttZeroSessionState session,
         MqttZeroSubscription subscription)
@@ -57,6 +86,12 @@ internal sealed class MqttZeroRouteEpoch
             : this;
     }
 
+    /// <summary>
+    /// 移除。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="subscription">订阅。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRouteEpoch Remove(
         MqttZeroSessionState session,
         MqttZeroSubscription subscription)
@@ -95,6 +130,10 @@ internal sealed class MqttZeroRouteEpoch
         MatchNode(Root, topic, true, sender, ref match);
     }
 
+    /// <summary>
+    /// Collect共享组键。
+    /// </summary>
+    /// <param name="keys">键。</param>
     public void CollectSharedGroupKeys(
         HashSet<MqttZeroSharedGroupKey> keys)
     {
@@ -102,6 +141,11 @@ internal sealed class MqttZeroRouteEpoch
         Root.CollectSharedGroupKeys(keys);
     }
 
+    /// <summary>
+    /// 获取节点Test。
+    /// </summary>
+    /// <param name="filter">过滤器。</param>
+    /// <returns>对应的结果。</returns>
     internal MqttZeroRouteTrieNode? GetNodeForTest(
         ReadOnlySpan<byte> filter)
     {
@@ -147,6 +191,15 @@ internal sealed class MqttZeroRouteEpoch
         return node;
     }
 
+    /// <summary>
+    /// 更新。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="subscription">订阅。</param>
+    /// <param name="session">会话。</param>
+    /// <param name="add">对应的 add。</param>
+    /// <param name="changed">对应的 changed。</param>
+    /// <returns>对应的结果。</returns>
     private MqttZeroRouteTrieNode Update(
         MqttZeroRouteTrieNode node,
         MqttZeroSubscription subscription,
@@ -163,6 +216,15 @@ internal sealed class MqttZeroRouteEpoch
         return result ?? MqttZeroRouteTrieNode.Empty;
     }
 
+    /// <summary>
+    /// 更新OrNull。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="subscription">订阅。</param>
+    /// <param name="session">会话。</param>
+    /// <param name="changed">对应的 changed。</param>
+    /// <param name="add">对应的 add。</param>
+    /// <returns>对应的结果。</returns>
     private MqttZeroRouteTrieNode? UpdateOrNull(
         MqttZeroRouteTrieNode node,
         MqttZeroSubscription subscription,
@@ -190,6 +252,19 @@ internal sealed class MqttZeroRouteEpoch
             out changed);
     }
 
+    /// <summary>
+    /// 更新节点。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="filter">过滤器。</param>
+    /// <param name="offset">偏移。</param>
+    /// <param name="session">会话。</param>
+    /// <param name="subscription">订阅。</param>
+    /// <param name="shared">共享。</param>
+    /// <param name="sharedKey">共享键。</param>
+    /// <param name="add">对应的 add。</param>
+    /// <param name="changed">对应的 changed。</param>
+    /// <returns>对应的结果。</returns>
     private MqttZeroRouteTrieNode? UpdateNode(
         MqttZeroRouteTrieNode node,
         ReadOnlySpan<byte> filter,
@@ -300,6 +375,17 @@ internal sealed class MqttZeroRouteEpoch
         return result.IsEmpty ? null : result;
     }
 
+    /// <summary>
+    /// 更新终结点。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="session">会话。</param>
+    /// <param name="subscription">订阅。</param>
+    /// <param name="shared">共享。</param>
+    /// <param name="sharedKey">共享键。</param>
+    /// <param name="add">对应的 add。</param>
+    /// <param name="changed">对应的 changed。</param>
+    /// <returns>对应的结果。</returns>
     private MqttZeroRouteTrieNode? UpdateEndpoint(
         MqttZeroRouteTrieNode node,
         MqttZeroSessionState session,
@@ -342,6 +428,14 @@ internal sealed class MqttZeroRouteEpoch
         return result.IsEmpty ? null : result;
     }
 
+    /// <summary>
+    /// 匹配节点。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="remainingTopic">remaining主题。</param>
+    /// <param name="hasCurrentLevel">has当前Level。</param>
+    /// <param name="sender">对应的 sender。</param>
+    /// <param name="match">对应的 match。</param>
     private static void MatchNode(
         MqttZeroRouteTrieNode node,
         ReadOnlySpan<byte> remainingTopic,

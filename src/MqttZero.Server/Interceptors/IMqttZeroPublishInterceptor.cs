@@ -2,7 +2,7 @@ using MqttZero.Protocol;
 namespace MqttZero.Server.Interceptors;
 
 /// <summary>
-/// Intercepts MQTT publish operations before routing.
+/// 在路由前拦截发布的拦截器。
 /// </summary>
 public interface IMqttZeroPublishInterceptor
 {

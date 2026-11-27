@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Storage;
 
-/// <summary>Identifies a persisted message category.</summary>
+/// <summary>
+/// 持久化消息的类别。
+/// </summary>
 public enum MqttZeroPersistedMessageKind
 {
     /// <summary>Queued for future delivery.</summary>

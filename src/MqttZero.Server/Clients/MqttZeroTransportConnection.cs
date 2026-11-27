@@ -5,7 +5,7 @@ using System.Security.Cryptography.X509Certificates;
 namespace MqttZero.Server.Clients;
 
 /// <summary>
-/// Describes the transport resources and metadata for one accepted MQTTZero connection.
+/// 一条已受理连接的传输资源。
 /// </summary>
 public sealed class MqttZeroTransportConnection
 {

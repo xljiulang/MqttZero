@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Interceptors;
 
-/// <summary>Controls one receiver delivery.</summary>
+/// <summary>
+/// 单个接收者投递的拦截结果。
+/// </summary>
 public enum MqttZeroEnqueueInterceptionResult
 {
     /// <summary>Enqueue or send the delivery.</summary>

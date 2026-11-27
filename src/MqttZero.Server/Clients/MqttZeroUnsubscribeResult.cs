@@ -2,7 +2,9 @@ using MqttZero.Protocol;
 
 namespace MqttZero.Server.Clients;
 
-/// <summary>Describes one server-originated unsubscribe result.</summary>
+/// <summary>
+/// 服务端发起退订的结果。
+/// </summary>
 public sealed class MqttZeroUnsubscribeResult
 {
     /// <summary>Gets the topic filter.</summary>

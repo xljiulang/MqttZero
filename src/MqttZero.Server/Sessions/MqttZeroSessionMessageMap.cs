@@ -2,6 +2,9 @@ using System.Collections;
 
 namespace MqttZero.Server.Sessions;
 
+/// <summary>
+/// 会话消息标识到消息的映射。
+/// </summary>
 internal sealed class MqttZeroSessionMessageMap<T> :
     IEnumerable<KeyValuePair<ushort, T>>
 {
@@ -43,22 +46,43 @@ internal sealed class MqttZeroSessionMessageMap<T> :
         }
     }
 
+    /// <summary>
+    /// 添加。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <param name="value">值。</param>
     public void Add(ushort key, T value)
     {
         _items.Add(key, value);
         Interlocked.Increment(ref _count);
     }
 
+    /// <summary>
+    /// Contains键。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool ContainsKey(ushort key)
     {
         return _items.ContainsKey(key);
     }
 
+    /// <summary>
+    /// 尝试Get值。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <param name="value">值。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool TryGetValue(ushort key, out T value)
     {
         return _items.TryGetValue(key, out value!);
     }
 
+    /// <summary>
+    /// 移除。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool Remove(ushort key)
     {
         if (!_items.Remove(key))
@@ -70,6 +94,12 @@ internal sealed class MqttZeroSessionMessageMap<T> :
         return true;
     }
 
+    /// <summary>
+    /// 移除。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <param name="value">值。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool Remove(ushort key, out T value)
     {
         if (!_items.Remove(key, out value!))
@@ -81,12 +111,19 @@ internal sealed class MqttZeroSessionMessageMap<T> :
         return true;
     }
 
+    /// <summary>
+    /// 清空。
+    /// </summary>
     public void Clear()
     {
         _items.Clear();
         Volatile.Write(ref _count, 0);
     }
 
+    /// <summary>
+    /// 获取Enumerator。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public IEnumerator<KeyValuePair<ushort, T>> GetEnumerator()
     {
         return _items.GetEnumerator();

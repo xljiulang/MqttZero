@@ -5,6 +5,9 @@ using System.Runtime.CompilerServices;
 
 namespace MqttZero.Server.Scheduling;
 
+/// <summary>
+/// 单个事件循环分片。
+/// </summary>
 internal sealed class MqttZeroEventLoop :
     IThreadPoolWorkItem,
     IAsyncDisposable
@@ -32,6 +35,12 @@ internal sealed class MqttZeroEventLoop :
     private int _scheduled;
     private int _stopping;
 
+    /// <summary>
+    /// 初始化 MqttZeroEventLoop 的新实例。
+    /// </summary>
+    /// <param name="shardId">分片Id。</param>
+    /// <param name="queueCapacity">队列容量。</param>
+    /// <param name="trackPriorityDiagnostics">trackPriority诊断。</param>
     public MqttZeroEventLoop(
         int shardId,
         int queueCapacity,
@@ -46,6 +55,9 @@ internal sealed class MqttZeroEventLoop :
             queueCapacity);
     }
 
+    /// <summary>
+    /// 分片Id。
+    /// </summary>
     public int ShardId { get; }
 
     public bool IsCurrent
@@ -64,6 +76,12 @@ internal sealed class MqttZeroEventLoop :
         }
     }
 
+    /// <summary>
+    /// 入队。
+    /// </summary>
+    /// <param name="work">工作项。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask EnqueueAsync(
         MqttZeroShardWork work,
         CancellationToken cancellationToken)
@@ -81,6 +99,11 @@ internal sealed class MqttZeroEventLoop :
         Schedule();
     }
 
+    /// <summary>
+    /// 尝试Enqueue。
+    /// </summary>
+    /// <param name="work">工作项。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool TryEnqueue(MqttZeroShardWork work)
     {
         ArgumentNullException.ThrowIfNull(work);
@@ -101,6 +124,12 @@ internal sealed class MqttZeroEventLoop :
         return true;
     }
 
+    /// <summary>
+    /// 调用。
+    /// </summary>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     public async ValueTask<T> InvokeAsync<T>(
         Func<CancellationToken, ValueTask<T>> operation,
         CancellationToken cancellationToken)
@@ -119,6 +148,12 @@ internal sealed class MqttZeroEventLoop :
             .ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 调用。
+    /// </summary>
+    /// <param name="command">对应的 command。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder<>))]
     public async ValueTask<T> InvokeAsync<T>(
         MqttZeroShardCommand<T> command,
@@ -148,6 +183,10 @@ internal sealed class MqttZeroEventLoop :
         return await command.Completion.ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 获取快照。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroShardDiagnostics GetSnapshot()
     {
         double highPriorityOldestWorkAgeMilliseconds = 0;
@@ -193,6 +232,10 @@ internal sealed class MqttZeroEventLoop :
                 : 0);
     }
 
+    /// <summary>
+    /// 停止。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     public ValueTask StopAsync()
     {
         if (Interlocked.Exchange(ref _stopping, 1) == 0)
@@ -203,6 +246,10 @@ internal sealed class MqttZeroEventLoop :
         return new ValueTask(_stopped.Task);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask DisposeAsync()
     {
         await StopAsync().ConfigureAwait(false);
@@ -214,6 +261,10 @@ internal sealed class MqttZeroEventLoop :
         _ = DrainAsync();
     }
 
+    /// <summary>
+    /// 排空。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     private async Task DrainAsync()
     {
         int previousShardId = CurrentShardIdState.Value ?? -1;
@@ -270,6 +321,9 @@ internal sealed class MqttZeroEventLoop :
         }
     }
 
+    /// <summary>
+    /// 调度。
+    /// </summary>
     private void Schedule()
     {
         if (Interlocked.CompareExchange(ref _scheduled, 1, 0) == 0)
@@ -280,6 +334,10 @@ internal sealed class MqttZeroEventLoop :
         }
     }
 
+    /// <summary>
+    /// 入队。
+    /// </summary>
+    /// <param name="work">工作项。</param>
     private void EnqueueCore(MqttZeroShardWork work)
     {
         work.MarkEnqueued();
@@ -304,6 +362,11 @@ internal sealed class MqttZeroEventLoop :
         Interlocked.Increment(ref _enqueuedCount);
     }
 
+    /// <summary>
+    /// 尝试Dequeue工作项。
+    /// </summary>
+    /// <param name="work">工作项。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     private bool TryDequeueWork([NotNullWhen(true)] out MqttZeroShardWork? work)
     {
         if (_queue.TryDequeue(out work))
@@ -337,6 +400,9 @@ internal sealed class MqttZeroEventLoop :
         return false;
     }
 
+    /// <summary>
+    /// 抛出IfStopping。
+    /// </summary>
     private void ThrowIfStopping()
     {
         ObjectDisposedException.ThrowIf(
@@ -344,6 +410,10 @@ internal sealed class MqttZeroEventLoop :
             this);
     }
 
+    /// <summary>
+    /// 更新最大排空。
+    /// </summary>
+    /// <param name="drainElapsed">排空Elapsed。</param>
     private void UpdateMaximumDrain(long drainElapsed)
     {
         long current;

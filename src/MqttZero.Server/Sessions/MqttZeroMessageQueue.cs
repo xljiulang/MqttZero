@@ -2,6 +2,9 @@ using MqttZero.Protocol;
 
 namespace MqttZero.Server.Sessions;
 
+/// <summary>
+/// 会话内按 QoS 分链的待发送消息队列。
+/// </summary>
 internal sealed class MqttZeroMessageQueue
 {
     private int _count;
@@ -11,12 +14,19 @@ internal sealed class MqttZeroMessageQueue
     private MqttZeroQueuedMessage? _qos0Tail;
     private MqttZeroQueuedMessage? _tail;
 
+    /// <summary>
+    /// 初始化 MqttZeroMessageQueue 的新实例。
+    /// </summary>
+    /// <param name="capacity">容量。</param>
     public MqttZeroMessageQueue(int capacity)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         Capacity = capacity;
     }
 
+    /// <summary>
+    /// 容量。
+    /// </summary>
     public int Capacity { get; }
 
     public int Count
@@ -45,6 +55,11 @@ internal sealed class MqttZeroMessageQueue
         }
     }
 
+    /// <summary>
+    /// 获取下一个。
+    /// </summary>
+    /// <param name="message">消息。</param>
+    /// <returns>对应的结果。</returns>
     private static MqttZeroQueuedMessage GetNext(MqttZeroQueuedMessage message)
     {
         return message.QueueNext ??
@@ -68,6 +83,10 @@ internal sealed class MqttZeroMessageQueue
         }
     }
 
+    /// <summary>
+    /// 添加。
+    /// </summary>
+    /// <param name="message">消息。</param>
     public void Add(MqttZeroQueuedMessage message)
     {
         ArgumentNullException.ThrowIfNull(message);
@@ -79,6 +98,10 @@ internal sealed class MqttZeroMessageQueue
         LinkLast(message);
     }
 
+    /// <summary>
+    /// 查看。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroQueuedMessage Peek()
     {
         if (_head == null)
@@ -89,6 +112,10 @@ internal sealed class MqttZeroMessageQueue
         return _head;
     }
 
+    /// <summary>
+    /// 出队。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroQueuedMessage Dequeue()
     {
         MqttZeroQueuedMessage message = Peek();
@@ -96,6 +123,10 @@ internal sealed class MqttZeroMessageQueue
         return message;
     }
 
+    /// <summary>
+    /// 执行 Prepend 对应的处理。
+    /// </summary>
+    /// <param name="message">消息。</param>
     public void Prepend(MqttZeroQueuedMessage message)
     {
         ArgumentNullException.ThrowIfNull(message);
@@ -107,6 +138,10 @@ internal sealed class MqttZeroMessageQueue
         LinkFirst(message);
     }
 
+    /// <summary>
+    /// 淘汰OldestQos0OrOldest。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroQueuedMessage? EvictOldestQos0OrOldest()
     {
         if (_qos0Head != null)
@@ -126,6 +161,11 @@ internal sealed class MqttZeroMessageQueue
         return oldest;
     }
 
+    /// <summary>
+    /// 查找索引。
+    /// </summary>
+    /// <param name="predicate">谓词。</param>
+    /// <returns>计算得到的数值。</returns>
     public int FindIndex(Predicate<MqttZeroQueuedMessage> predicate)
     {
         ArgumentNullException.ThrowIfNull(predicate);
@@ -145,6 +185,10 @@ internal sealed class MqttZeroMessageQueue
         return -1;
     }
 
+    /// <summary>
+    /// 移除At。
+    /// </summary>
+    /// <param name="index">索引。</param>
     public void RemoveAt(int index)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(index);
@@ -158,6 +202,9 @@ internal sealed class MqttZeroMessageQueue
         Unlink(current);
     }
 
+    /// <summary>
+    /// 清空。
+    /// </summary>
     public void Clear()
     {
         MqttZeroQueuedMessage? current = _head;
@@ -180,6 +227,11 @@ internal sealed class MqttZeroMessageQueue
         _qos0Tail = null;
     }
 
+    /// <summary>
+    /// 移除Expired。
+    /// </summary>
+    /// <param name="now">当前时间。</param>
+    /// <param name="expired">对应的 expired。</param>
     public void RemoveExpired(
         DateTimeOffset now,
         List<MqttZeroQueuedMessage> expired)
@@ -196,11 +248,19 @@ internal sealed class MqttZeroMessageQueue
         }
     }
 
+    /// <summary>
+    /// 获取Enumerator。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public Enumerator GetEnumerator()
     {
         return new Enumerator(_head);
     }
 
+    /// <summary>
+    /// Link第一个。
+    /// </summary>
+    /// <param name="message">消息。</param>
     private void LinkFirst(MqttZeroQueuedMessage message)
     {
         PrepareForLink(message);
@@ -218,6 +278,10 @@ internal sealed class MqttZeroMessageQueue
         CompleteLink(message);
     }
 
+    /// <summary>
+    /// Link最后一个。
+    /// </summary>
+    /// <param name="message">消息。</param>
     private void LinkLast(MqttZeroQueuedMessage message)
     {
         PrepareForLink(message);
@@ -235,6 +299,10 @@ internal sealed class MqttZeroMessageQueue
         CompleteLink(message);
     }
 
+    /// <summary>
+    /// PrepareLink。
+    /// </summary>
+    /// <param name="message">消息。</param>
     private static void PrepareForLink(MqttZeroQueuedMessage message)
     {
         if (message.IsQueued)
@@ -247,6 +315,10 @@ internal sealed class MqttZeroMessageQueue
         message.IsQueued = true;
     }
 
+    /// <summary>
+    /// 完成Link。
+    /// </summary>
+    /// <param name="message">消息。</param>
     private void CompleteLink(MqttZeroQueuedMessage message)
     {
         _count++;
@@ -259,6 +331,11 @@ internal sealed class MqttZeroMessageQueue
         }
     }
 
+    /// <summary>
+    /// 添加Qos0Candidate。
+    /// </summary>
+    /// <param name="message">消息。</param>
+    /// <param name="prepend">对应的 prepend。</param>
     private void AddQos0Candidate(
         MqttZeroQueuedMessage message,
         bool prepend)
@@ -298,6 +375,10 @@ internal sealed class MqttZeroMessageQueue
         _qos0CandidateCount++;
     }
 
+    /// <summary>
+    /// 移除Qos0Candidate。
+    /// </summary>
+    /// <param name="message">消息。</param>
     private void RemoveQos0Candidate(MqttZeroQueuedMessage message)
     {
         if (!message.IsQos0Queued)
@@ -331,6 +412,10 @@ internal sealed class MqttZeroMessageQueue
         _qos0CandidateCount--;
     }
 
+    /// <summary>
+    /// 执行 Unlink 对应的处理。
+    /// </summary>
+    /// <param name="message">消息。</param>
     private void Unlink(MqttZeroQueuedMessage message)
     {
         RemoveQos0Candidate(message);
@@ -361,18 +446,32 @@ internal sealed class MqttZeroMessageQueue
         _count--;
     }
 
+    /// <summary>
+    /// 集合的只读枚举器。
+    /// </summary>
     internal struct Enumerator
     {
         private MqttZeroQueuedMessage? _next;
 
+        /// <summary>
+        /// 初始化 Enumerator 的新实例。
+        /// </summary>
+        /// <param name="head">对应的 head。</param>
         public Enumerator(MqttZeroQueuedMessage? head)
         {
             _next = head;
             Current = null!;
         }
 
+        /// <summary>
+        /// 当前。
+        /// </summary>
         public MqttZeroQueuedMessage Current { get; private set; }
 
+        /// <summary>
+        /// Move下一个。
+        /// </summary>
+        /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
         public bool MoveNext()
         {
             if (_next == null)

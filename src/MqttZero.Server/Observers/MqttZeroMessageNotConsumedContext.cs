@@ -3,7 +3,9 @@ using System.Buffers;
 
 namespace MqttZero.Server.Observers;
 
-/// <summary>Describes a publish with no matching subscriber.</summary>
+/// <summary>
+/// 无匹配订阅者的发布事件。
+/// </summary>
 public sealed class MqttZeroMessageNotConsumedContext
 {
     /// <summary>Gets the connected sender.</summary>

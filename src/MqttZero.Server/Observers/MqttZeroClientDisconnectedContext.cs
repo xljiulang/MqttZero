@@ -3,7 +3,9 @@ using MqttZero.Protocol;
 
 namespace MqttZero.Server.Observers;
 
-/// <summary>Describes a disconnected client.</summary>
+/// <summary>
+/// 客户端连接断开事件。
+/// </summary>
 public sealed class MqttZeroClientDisconnectedContext
 {
     /// <summary>Gets the client information.</summary>

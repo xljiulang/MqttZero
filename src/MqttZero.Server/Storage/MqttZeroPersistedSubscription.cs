@@ -2,7 +2,9 @@ using MqttZero.Protocol;
 
 namespace MqttZero.Server.Storage;
 
-/// <summary>Describes a persisted subscription.</summary>
+/// <summary>
+/// 持久化的订阅。
+/// </summary>
 public sealed class MqttZeroPersistedSubscription
 {
     /// <summary>Gets the UTF-8 topic filter.</summary>

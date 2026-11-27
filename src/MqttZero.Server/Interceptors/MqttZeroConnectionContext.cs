@@ -4,7 +4,9 @@ using System.Buffers;
 
 namespace MqttZero.Server.Interceptors;
 
-/// <summary>Contains CONNECT authentication data.</summary>
+/// <summary>
+/// CONNECT 认证数据。
+/// </summary>
 public sealed class MqttZeroConnectionContext
 {
     /// <summary>Gets the resolved client information.</summary>

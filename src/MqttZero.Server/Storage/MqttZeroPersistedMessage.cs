@@ -2,7 +2,9 @@ using MqttZero.Protocol;
 
 namespace MqttZero.Server.Storage;
 
-/// <summary>Describes a persisted broker message.</summary>
+/// <summary>
+/// 持久化的 Broker 消息。
+/// </summary>
 public sealed class MqttZeroPersistedMessage
 {
     /// <summary>Gets the stable message identifier.</summary>

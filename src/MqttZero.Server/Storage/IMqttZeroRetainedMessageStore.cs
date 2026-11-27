@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Storage;
 
-/// <summary>Persists retained messages.</summary>
+/// <summary>
+/// 持久化保留消息。
+/// </summary>
 public interface IMqttZeroRetainedMessageStore
 {
     /// <summary>Gets whether persistence is enabled.</summary>

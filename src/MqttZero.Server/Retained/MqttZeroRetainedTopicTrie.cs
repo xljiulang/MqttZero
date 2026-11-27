@@ -2,19 +2,38 @@ using MqttZero.Server.Routing;
 
 namespace MqttZero.Server.Retained;
 
+/// <summary>
+/// 保留消息的主题前缀树。
+/// </summary>
 internal sealed class MqttZeroRetainedTopicTrie
 {
+    /// <summary>
+    /// 空。
+    /// </summary>
     public static MqttZeroRetainedTopicTrie Empty { get; } = new(
         MqttZeroRetainedTopicNode.Empty);
 
+    /// <summary>
+    /// 初始化 MqttZeroRetainedTopicTrie 的新实例。
+    /// </summary>
+    /// <param name="root">对应的 root。</param>
     private MqttZeroRetainedTopicTrie(
         MqttZeroRetainedTopicNode root)
     {
         Root = root;
     }
 
+    /// <summary>
+    /// Root 的值。
+    /// </summary>
     internal MqttZeroRetainedTopicNode Root { get; }
 
+    /// <summary>
+    /// 设置。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <param name="message">消息。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRetainedTopicTrie Set(
         ReadOnlySpan<byte> topic,
         MqttZeroRetainedMessage message)
@@ -31,6 +50,11 @@ internal sealed class MqttZeroRetainedTopicTrie
             : new MqttZeroRetainedTopicTrie(root);
     }
 
+    /// <summary>
+    /// 移除。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRetainedTopicTrie Remove(ReadOnlySpan<byte> topic)
     {
         MqttZeroRetainedTopicNode? root = RemoveNode(
@@ -48,6 +72,11 @@ internal sealed class MqttZeroRetainedTopicTrie
             : new MqttZeroRetainedTopicTrie(root);
     }
 
+    /// <summary>
+    /// 匹配。
+    /// </summary>
+    /// <param name="filter">过滤器。</param>
+    /// <param name="results">结果。</param>
     public void Match(
         ReadOnlySpan<byte> filter,
         List<MqttZeroRetainedMessage> results)
@@ -61,6 +90,11 @@ internal sealed class MqttZeroRetainedTopicTrie
             results);
     }
 
+    /// <summary>
+    /// Collect消息。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="results">结果。</param>
     private static void CollectMessages(
         MqttZeroRetainedTopicNode node,
         List<MqttZeroRetainedMessage> results)
@@ -78,6 +112,14 @@ internal sealed class MqttZeroRetainedTopicTrie
         }
     }
 
+    /// <summary>
+    /// 匹配节点。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="filter">过滤器。</param>
+    /// <param name="offset">偏移。</param>
+    /// <param name="hasCurrentLevel">has当前Level。</param>
+    /// <param name="results">结果。</param>
     private static void MatchNode(
         MqttZeroRetainedTopicNode node,
         ReadOnlySpan<byte> filter,
@@ -139,6 +181,14 @@ internal sealed class MqttZeroRetainedTopicTrie
         }
     }
 
+    /// <summary>
+    /// 移除节点。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="topic">主题。</param>
+    /// <param name="offset">偏移。</param>
+    /// <param name="hasCurrentLevel">has当前Level。</param>
+    /// <returns>对应的结果。</returns>
     private static MqttZeroRetainedTopicNode? RemoveNode(
         MqttZeroRetainedTopicNode node,
         ReadOnlySpan<byte> topic,
@@ -185,6 +235,15 @@ internal sealed class MqttZeroRetainedTopicTrie
             : node.SetExactChild(level, replacement);
     }
 
+    /// <summary>
+    /// 设置节点。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="topic">主题。</param>
+    /// <param name="offset">偏移。</param>
+    /// <param name="hasCurrentLevel">has当前Level。</param>
+    /// <param name="message">消息。</param>
+    /// <returns>对应的结果。</returns>
     private static MqttZeroRetainedTopicNode SetNode(
         MqttZeroRetainedTopicNode node,
         ReadOnlySpan<byte> topic,

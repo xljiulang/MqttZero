@@ -1,11 +1,19 @@
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// 持久化哈希映射的哈希冲突叶子集合。
+/// </summary>
 internal sealed class MqttZeroPersistentHashMapCollisionNode<TKey, TValue> :
     MqttZeroPersistentHashMapNode<TKey, TValue>
 {
     private readonly MqttZeroPersistentHashMapEntry<TKey, TValue>[] _entries;
     private readonly int _hash;
 
+    /// <summary>
+    /// 初始化 MqttZeroPersistentHashMapCollisionNode 的新实例。
+    /// </summary>
+    /// <param name="hash">对应的 hash。</param>
+    /// <param name="entries">条目。</param>
     public MqttZeroPersistentHashMapCollisionNode(
         int hash,
         MqttZeroPersistentHashMapEntry<TKey, TValue>[] entries)
@@ -31,6 +39,15 @@ internal sealed class MqttZeroPersistentHashMapCollisionNode<TKey, TValue> :
         }
     }
 
+    /// <summary>
+    /// 尝试Get值。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <param name="hash">对应的 hash。</param>
+    /// <param name="shift">对应的 shift。</param>
+    /// <param name="comparer">对应的 comparer。</param>
+    /// <param name="value">值。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public override bool TryGetValue(
         TKey key,
         int hash,
@@ -56,6 +73,16 @@ internal sealed class MqttZeroPersistentHashMapCollisionNode<TKey, TValue> :
         return false;
     }
 
+    /// <summary>
+    /// 设置。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <param name="value">值。</param>
+    /// <param name="hash">对应的 hash。</param>
+    /// <param name="shift">对应的 shift。</param>
+    /// <param name="comparer">对应的 comparer。</param>
+    /// <param name="added">对应的 added。</param>
+    /// <returns>对应的结果。</returns>
     public override MqttZeroPersistentHashMapNode<TKey, TValue> Set(
         TKey key,
         TValue value,
@@ -106,6 +133,15 @@ internal sealed class MqttZeroPersistentHashMapCollisionNode<TKey, TValue> :
             appended);
     }
 
+    /// <summary>
+    /// 移除。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <param name="hash">对应的 hash。</param>
+    /// <param name="shift">对应的 shift。</param>
+    /// <param name="comparer">对应的 comparer。</param>
+    /// <param name="removed">对应的 removed。</param>
+    /// <returns>对应的结果。</returns>
     public override MqttZeroPersistentHashMapNode<TKey, TValue>? Remove(
         TKey key,
         int hash,

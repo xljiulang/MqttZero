@@ -2,7 +2,9 @@ using MqttZero.Protocol;
 
 namespace MqttZero.Server.Storage;
 
-/// <summary>Describes a persisted retained message.</summary>
+/// <summary>
+/// 持久化的保留消息。
+/// </summary>
 public sealed class MqttZeroPersistedRetainedMessage
 {
     /// <summary>Gets the topic.</summary>

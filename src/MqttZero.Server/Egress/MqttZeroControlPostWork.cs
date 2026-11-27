@@ -4,8 +4,7 @@ using MqttZero.Server.Scheduling;
 namespace MqttZero.Server.Egress;
 
 /// <summary>
-/// Transfers one encoded control frame to the egress shard without waiting for
-/// the frame to be written.
+/// 把控制帧移交出站分片而不等待写出。
 /// </summary>
 internal sealed class MqttZeroControlPostWork : MqttZeroShardWork
 {
@@ -16,6 +15,9 @@ internal sealed class MqttZeroControlPostWork : MqttZeroShardWork
     private MqttZeroEgressControlFrame? _frame;
     private MqttZeroSessionEgress? _egress;
 
+    /// <summary>
+    /// 初始化 MqttZeroControlPostWork 的新实例。
+    /// </summary>
     private MqttZeroControlPostWork()
     {
     }
@@ -28,6 +30,12 @@ internal sealed class MqttZeroControlPostWork : MqttZeroShardWork
         }
     }
 
+    /// <summary>
+    /// 租用。
+    /// </summary>
+    /// <param name="egress">出站。</param>
+    /// <param name="frame">帧。</param>
+    /// <returns>对应的结果。</returns>
     internal static MqttZeroControlPostWork Rent(
         MqttZeroSessionEgress egress,
         MqttZeroEgressControlFrame frame)
@@ -45,6 +53,12 @@ internal sealed class MqttZeroControlPostWork : MqttZeroShardWork
         return work;
     }
 
+    /// <summary>
+    /// 执行。
+    /// </summary>
+    /// <param name="shard">分片。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public override ValueTask ExecuteAsync(
         MqttZeroEventLoop shard,
         CancellationToken cancellationToken)
@@ -60,6 +74,9 @@ internal sealed class MqttZeroControlPostWork : MqttZeroShardWork
         return ValueTask.CompletedTask;
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public override void Release()
     {
         MqttZeroEgressControlFrame? frame = _frame;

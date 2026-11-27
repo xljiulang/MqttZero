@@ -2,7 +2,9 @@ using MqttZero.Protocol;
 
 namespace MqttZero.Server.Observers;
 
-/// <summary>Observes client connection lifecycle events.</summary>
+/// <summary>
+/// 观察连接生命周期事件。
+/// </summary>
 public interface IMqttZeroConnectionObserver
 {
     /// <summary>Called after a client is connected.</summary>

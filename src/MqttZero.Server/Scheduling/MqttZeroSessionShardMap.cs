@@ -3,18 +3,30 @@ using System.Text;
 
 namespace MqttZero.Server.Scheduling;
 
+/// <summary>
+/// Client ID 到分片的稳定映射。
+/// </summary>
 internal sealed class MqttZeroSessionShardMap
 {
     private const uint FnvOffsetBasis = 2166136261;
     private const uint FnvPrime = 16777619;
     private readonly int _shardCount;
 
+    /// <summary>
+    /// 初始化 MqttZeroSessionShardMap 的新实例。
+    /// </summary>
+    /// <param name="shardCount">分片数量。</param>
     public MqttZeroSessionShardMap(int shardCount)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(shardCount);
         _shardCount = shardCount;
     }
 
+    /// <summary>
+    /// 获取分片Id。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <returns>计算得到的数值。</returns>
     public int GetShardId(string clientId)
     {
         ArgumentException.ThrowIfNullOrEmpty(clientId);
@@ -30,6 +42,12 @@ internal sealed class MqttZeroSessionShardMap
         return GetShardIdFromPool(clientId, maximumByteCount);
     }
 
+    /// <summary>
+    /// 获取分片IdFromStack。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="maximumByteCount">最大字节数量。</param>
+    /// <returns>计算得到的数值。</returns>
     private int GetShardIdFromStack(
         string clientId,
         int maximumByteCount)
@@ -39,6 +57,12 @@ internal sealed class MqttZeroSessionShardMap
         return Hash(utf8[..byteCount]);
     }
 
+    /// <summary>
+    /// 获取分片IdFrom池。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <param name="maximumByteCount">最大字节数量。</param>
+    /// <returns>计算得到的数值。</returns>
     private int GetShardIdFromPool(
         string clientId,
         int maximumByteCount)
@@ -59,6 +83,11 @@ internal sealed class MqttZeroSessionShardMap
         }
     }
 
+    /// <summary>
+    /// 执行 Hash 对应的处理。
+    /// </summary>
+    /// <param name="utf8">UTF-8。</param>
+    /// <returns>计算得到的数值。</returns>
     private int Hash(ReadOnlySpan<byte> utf8)
     {
         uint hash = FnvOffsetBasis;

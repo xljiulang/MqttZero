@@ -5,13 +5,21 @@ using MqttZero.Server.Sessions;
 
 namespace MqttZero.Server.Clients;
 
-/// <summary>Provides connection-scoped operations for one connected client.</summary>
+/// <summary>
+/// 已连接客户端的操作句柄。
+/// </summary>
 public sealed class MqttZeroConnectedClient
 {
     private readonly MqttZeroBroker _broker;
     private readonly MqttZeroSessionState _session;
     private readonly MqttZeroClientConnection _connection;
 
+    /// <summary>
+    /// 初始化 MqttZeroConnectedClient 的新实例。
+    /// </summary>
+    /// <param name="broker">对应的 broker。</param>
+    /// <param name="session">会话。</param>
+    /// <param name="connection">连接。</param>
     internal MqttZeroConnectedClient(
         MqttZeroBroker broker,
         MqttZeroSessionState session,

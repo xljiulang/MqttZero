@@ -5,7 +5,7 @@ using System.Security.Cryptography.X509Certificates;
 namespace MqttZero.Server.Clients;
 
 /// <summary>
-/// Describes the transport and identity information captured for one MQTT client connection.
+/// 连接的传输与身份信息。
 /// </summary>
 public sealed class MqttZeroClientConnectionInfo
 {

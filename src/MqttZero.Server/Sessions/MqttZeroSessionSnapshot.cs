@@ -1,7 +1,7 @@
 namespace MqttZero.Server.Sessions;
 
 /// <summary>
-/// Represents one MQTT session and its current retained state.
+/// 会话的只读快照。
 /// </summary>
 public sealed class MqttZeroSessionSnapshot
 {

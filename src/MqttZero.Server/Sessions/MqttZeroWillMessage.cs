@@ -5,8 +5,15 @@ using System.Buffers;
 
 namespace MqttZero.Server.Sessions;
 
+/// <summary>
+/// 遗嘱消息。
+/// </summary>
 internal sealed class MqttZeroWillMessage
 {
+    /// <summary>
+    /// 初始化 MqttZeroWillMessage 的新实例。
+    /// </summary>
+    /// <param name="packet">报文。</param>
     public MqttZeroWillMessage(MqttConnectPacket packet)
     {
         Topic = packet.WillTopic.ToArray();
@@ -18,6 +25,10 @@ internal sealed class MqttZeroWillMessage
         MessageExpiryInterval = packet.WillProperties.MessageExpiryInterval ?? 0;
     }
 
+    /// <summary>
+    /// 初始化 MqttZeroWillMessage 的新实例。
+    /// </summary>
+    /// <param name="will">遗嘱。</param>
     public MqttZeroWillMessage(MqttZeroPersistedWill will)
     {
         Topic = will.Topic.ToArray();
@@ -39,20 +50,45 @@ internal sealed class MqttZeroWillMessage
             will.MessageExpiryInterval;
     }
 
+    /// <summary>
+    /// 主题。
+    /// </summary>
     public byte[] Topic { get; }
 
+    /// <summary>
+    /// 负载。
+    /// </summary>
     public byte[] Payload { get; }
 
+    /// <summary>
+    /// 属性。
+    /// </summary>
     public byte[] Properties { get; }
 
+    /// <summary>
+    /// 服务质量ServiceLevel。
+    /// </summary>
     public MqttQualityOfServiceLevel QualityOfServiceLevel { get; }
 
+    /// <summary>
+    /// 保留。
+    /// </summary>
     public bool Retain { get; }
 
+    /// <summary>
+    /// Delay间隔。
+    /// </summary>
     public uint DelayInterval { get; }
 
+    /// <summary>
+    /// 消息Expiry间隔。
+    /// </summary>
     public uint MessageExpiryInterval { get; }
 
+    /// <summary>
+    /// 创建报文。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttPublishPacket CreatePacket()
     {
         bool decoded = MqttPublishPropertiesCodec.TryDecode(

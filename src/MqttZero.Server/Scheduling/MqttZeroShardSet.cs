@@ -3,6 +3,9 @@ using MqttZero.Server.Egress;
 
 namespace MqttZero.Server.Scheduling;
 
+/// <summary>
+/// 全部分片及其调度器的集合。
+/// </summary>
 internal sealed class MqttZeroShardSet : IAsyncDisposable
 {
     private readonly MqttZeroEventLoop[] _shards;
@@ -13,6 +16,15 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
     private int _disposed;
     private int _stopped;
 
+    /// <summary>
+    /// 初始化 MqttZeroShardSet 的新实例。
+    /// </summary>
+    /// <param name="shardCount">分片数量。</param>
+    /// <param name="queueCapacity">队列容量。</param>
+    /// <param name="fanoutDiagnostics">fanout诊断。</param>
+    /// <param name="timeProvider">时间Provider。</param>
+    /// <param name="timerTickInterval">定时器Tick间隔。</param>
+    /// <param name="timerCallback">定时器回调。</param>
     public MqttZeroShardSet(
         int shardCount,
         int queueCapacity,
@@ -82,6 +94,10 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 获取快照。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroShardSetSnapshot GetSnapshot()
     {
         MqttZeroShardDiagnostics[] snapshots =
@@ -94,22 +110,42 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         return new MqttZeroShardSetSnapshot(snapshots);
     }
 
+    /// <summary>
+    /// 获取会话分片。
+    /// </summary>
+    /// <param name="clientId">客户端Id。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroEventLoop GetSessionShard(string clientId)
     {
         int shardId = _sessionShardMap.GetShardId(clientId);
         return _shards[shardId];
     }
 
+    /// <summary>
+    /// 获取出站调度器。
+    /// </summary>
+    /// <param name="shardId">分片Id。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroEgressScheduler GetEgressScheduler(int shardId)
     {
         return _egressSchedulers[shardId];
     }
 
+    /// <summary>
+    /// 获取Fanout调度器。
+    /// </summary>
+    /// <param name="shardId">分片Id。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroFanoutScheduler GetFanoutScheduler(int shardId)
     {
         return _fanoutSchedulers[shardId];
     }
 
+    /// <summary>
+    /// 获取定时器时间轮。
+    /// </summary>
+    /// <param name="shardId">分片Id。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroShardTimerWheel GetTimerWheel(int shardId)
     {
         return _timerWheels[shardId];
@@ -129,6 +165,10 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 停止。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask StopAsync()
     {
         if (Interlocked.Exchange(ref _stopped, 1) != 0)
@@ -166,6 +206,10 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         await Task.WhenAll(stopTasks).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 停止Timers。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask StopTimersAsync()
     {
         Task[] timerStopTasks =
@@ -179,6 +223,10 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         await Task.WhenAll(timerStopTasks).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
@@ -218,6 +266,12 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Ignore定时器。
+    /// </summary>
+    /// <param name="node">节点。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private static ValueTask IgnoreTimerAsync(
         MqttZeroTimerNode node,
         CancellationToken cancellationToken)

@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Observers;
 
-/// <summary>Observes delivery and queue outcomes.</summary>
+/// <summary>
+/// 观察投递与队列结果。
+/// </summary>
 public interface IMqttZeroDeliveryObserver
 {
     /// <summary>Called after a delivery is queued or made inflight.</summary>

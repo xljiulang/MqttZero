@@ -10,6 +10,9 @@ using System.Net;
 
 namespace MqttZero.Server.Clients;
 
+/// <summary>
+/// 一条 MQTT 客户端连接的读循环、写门与出站协调。
+/// </summary>
 internal sealed class MqttZeroClientConnection : IAsyncDisposable
 {
     private static long NextConnectionId;
@@ -37,6 +40,22 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
     private long _messagesReceived;
     private long _messagesSent;
 
+    /// <summary>
+    /// 初始化 MqttZeroClientConnection 的新实例。
+    /// </summary>
+    /// <param name="writer">写入器。</param>
+    /// <param name="remoteEndPoint">远端EndPoint。</param>
+    /// <param name="isSecure">对应的 isSecure。</param>
+    /// <param name="isWebSocket">对应的 isWebSocket。</param>
+    /// <param name="keepAliveSeconds">对应的 keepAliveSeconds。</param>
+    /// <param name="receiveMaximum">receive最大。</param>
+    /// <param name="maximumPacketSize">最大报文大小。</param>
+    /// <param name="timeProvider">时间Provider。</param>
+    /// <param name="bufferPool">缓冲区池。</param>
+    /// <param name="allowPacketFragmentation">allow报文Fragmentation。</param>
+    /// <param name="requestProblemInformation">对应的 requestProblemInformation。</param>
+    /// <param name="requestResponseInformation">对应的 requestResponseInformation。</param>
+    /// <param name="shardId">分片Id。</param>
     public MqttZeroClientConnection(
         PipeWriter writer,
         EndPoint? remoteEndPoint,
@@ -74,10 +93,19 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         _connectedAt = LastPacketReceivedAt;
     }
 
+    /// <summary>
+    /// 远端EndPoint。
+    /// </summary>
     public EndPoint? RemoteEndPoint { get; }
 
+    /// <summary>
+    /// 连接Id。
+    /// </summary>
     internal long ConnectionId { get; }
 
+    /// <summary>
+    /// 分片Id。
+    /// </summary>
     internal int ShardId { get; set; }
 
     internal MqttZeroSessionEgress? Egress
@@ -88,28 +116,59 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 挂接出站。
+    /// </summary>
+    /// <param name="egress">出站。</param>
     internal void AttachEgress(MqttZeroSessionEgress egress)
     {
         ArgumentNullException.ThrowIfNull(egress);
         _egress = egress;
     }
 
+    /// <summary>
+    /// 判断是否Secure。
+    /// </summary>
     public bool IsSecure { get; }
 
+    /// <summary>
+    /// 判断是否WebSocket。
+    /// </summary>
     public bool IsWebSocket { get; }
 
+    /// <summary>
+    /// KeepAliveSeconds 的值。
+    /// </summary>
     public ushort KeepAliveSeconds { get; }
 
+    /// <summary>
+    /// Receive最大。
+    /// </summary>
     public ushort ReceiveMaximum { get; }
 
+    /// <summary>
+    /// 最大报文大小。
+    /// </summary>
     public uint MaximumPacketSize { get; }
 
+    /// <summary>
+    /// Allow报文Fragmentation。
+    /// </summary>
     public bool AllowPacketFragmentation { get; }
 
+    /// <summary>
+    /// RequestProblemInformation 的值。
+    /// </summary>
     public bool RequestProblemInformation { get; }
 
+    /// <summary>
+    /// RequestResponseInformation 的值。
+    /// </summary>
     public bool RequestResponseInformation { get; }
 
+    /// <summary>
+    /// 客户端Info。
+    /// </summary>
     public MqttZeroClientConnectionInfo ClientInfo { get; set; } = null!;
 
     internal bool HasPendingControlWrites
@@ -120,12 +179,24 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 判断是否Connected客户端Counted。
+    /// </summary>
     public bool IsConnectedClientCounted { get; set; }
 
+    /// <summary>
+    /// Connected客户端。
+    /// </summary>
     public MqttZeroConnectedClient ConnectedClient { get; set; } = null!;
 
+    /// <summary>
+    /// 断开类型。
+    /// </summary>
     public MqttZeroDisconnectType DisconnectType { get; set; } = MqttZeroDisconnectType.ConnectionLost;
 
+    /// <summary>
+    /// 关闭原因代码。
+    /// </summary>
     public MqttReasonCode? CloseReasonCode { get; private set; }
 
     /// <summary>
@@ -142,6 +213,9 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 判断是否ReadingIncomplete报文。
+    /// </summary>
     public bool IsReadingIncompletePacket { get; set; }
 
     internal bool IsClosed
@@ -161,6 +235,10 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Mark报文Received。
+    /// </summary>
+    /// <param name="timeProvider">时间Provider。</param>
     public void MarkPacketReceived(TimeProvider timeProvider)
     {
         Volatile.Write(
@@ -169,6 +247,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         Interlocked.Increment(ref _packetsReceived);
     }
 
+    /// <summary>
+    /// Mark报文Received。
+    /// </summary>
+    /// <param name="timeProvider">时间Provider。</param>
+    /// <param name="byteCount">字节数量。</param>
+    /// <param name="applicationMessage">application消息。</param>
     public void MarkPacketReceived(
         TimeProvider timeProvider,
         long byteCount,
@@ -185,6 +269,10 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 获取统计。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroClientStatistics GetStatistics()
     {
         return new MqttZeroClientStatistics
@@ -200,12 +288,23 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         };
     }
 
+    /// <summary>
+    /// 设置入站主题别名。
+    /// </summary>
+    /// <param name="alias">别名。</param>
+    /// <param name="topic">主题。</param>
     public void SetInboundTopicAlias(ushort alias, ReadOnlySequence<byte> topic)
     {
         (_inboundTopicAliases ??= new MqttZeroTopicAliasTable(
             _bufferPool)).Set(alias, topic);
     }
 
+    /// <summary>
+    /// 尝试Get入站主题别名。
+    /// </summary>
+    /// <param name="alias">别名。</param>
+    /// <param name="topic">主题。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool TryGetInboundTopicAlias(ushort alias, out ReadOnlyMemory<byte> topic)
     {
         if (_inboundTopicAliases != null)
@@ -217,6 +316,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         return false;
     }
 
+    /// <summary>
+    /// 发送。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask SendAsync(MqttPacket packet, CancellationToken cancellationToken)
     {
         MqttZeroEgressControlFrame? frame;
@@ -264,6 +369,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             .ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 写入Encoded控制批次。
+    /// </summary>
+    /// <param name="frames">帧。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask WriteEncodedControlBatchAsync(
         IReadOnlyList<MqttZeroEgressControlFrame> frames,
         CancellationToken cancellationToken)
@@ -294,6 +405,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 发送发布。
+    /// </summary>
+    /// <param name="message">消息。</param>
+    /// <param name="duplicate">对应的 duplicate。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask SendPublishAsync(
         MqttZeroQueuedMessage message,
         bool duplicate,
@@ -312,6 +430,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 发送发布批次。
+    /// </summary>
+    /// <param name="messages">消息。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="duplicate">对应的 duplicate。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal async ValueTask SendPublishBatchAsync(
         IReadOnlyList<MqttZeroQueuedMessage> messages,
         CancellationToken cancellationToken,
@@ -345,6 +470,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         MarkPublishBatchSent(messages.Count, encodedBytes);
     }
 
+    /// <summary>
+    /// 编码发布批次。
+    /// </summary>
+    /// <param name="messages">消息。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     internal async ValueTask<int> EncodePublishBatchAsync(
         IReadOnlyList<MqttZeroQueuedMessage> messages,
         CancellationToken cancellationToken)
@@ -364,6 +495,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         return encodedBytes;
     }
 
+    /// <summary>
+    /// 写入发布批次。
+    /// </summary>
+    /// <param name="messages">消息。</param>
+    /// <param name="duplicate">对应的 duplicate。</param>
+    /// <returns>计算得到的数值。</returns>
     private int WritePublishBatch(
         IReadOnlyList<MqttZeroQueuedMessage> messages,
         bool duplicate = false)
@@ -413,6 +550,11 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         return encodedBytes;
     }
 
+    /// <summary>
+    /// Mark发布批次Sent。
+    /// </summary>
+    /// <param name="messageCount">消息数量。</param>
+    /// <param name="encodedBytes">encoded字节数。</param>
     private void MarkPublishBatchSent(
         int messageCount,
         int encodedBytes)
@@ -422,6 +564,11 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         Interlocked.Add(ref _messagesSent, messageCount);
     }
 
+    /// <summary>
+    /// 刷出Output。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     internal async ValueTask<FlushResult> FlushOutputAsync(
         CancellationToken cancellationToken)
     {
@@ -431,6 +578,17 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 发送发布。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="subscriptionIdentifier">订阅标识符。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="duplicate">对应的 duplicate。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask SendPublishAsync(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -452,6 +610,17 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 发送发布With标识符。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="duplicate">对应的 duplicate。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask SendPublishWithIdentifiersAsync(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -474,6 +643,14 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Exceeds最大报文大小。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     internal bool ExceedsMaximumPacketSize(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -487,6 +664,14 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             subscriptionIdentifiers) > MaximumPacketSize;
     }
 
+    /// <summary>
+    /// 获取发布Encoded长度。
+    /// </summary>
+    /// <param name="lease">租约。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <returns>计算得到的数值。</returns>
     internal int GetPublishEncodedLength(
         MqttZeroMessageLease lease,
         MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -505,6 +690,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             subscriptionIdentifiers);
     }
 
+    /// <summary>
+    /// 发送Pub确认。
+    /// </summary>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public ValueTask SendPubAckAsync(
         ushort packetIdentifier,
         MqttReasonCode reasonCode,
@@ -518,6 +710,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             waitForWrite: false);
     }
 
+    /// <summary>
+    /// 发送PubRec。
+    /// </summary>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public ValueTask SendPubRecAsync(
         ushort packetIdentifier,
         MqttReasonCode reasonCode,
@@ -530,6 +729,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             cancellationToken);
     }
 
+    /// <summary>
+    /// 发送PubRel。
+    /// </summary>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public ValueTask SendPubRelAsync(
         ushort packetIdentifier,
         MqttReasonCode reasonCode,
@@ -543,6 +749,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             coalesceOnShard: true);
     }
 
+    /// <summary>
+    /// 发送PubRelWithoutWaiting。
+    /// </summary>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     internal ValueTask SendPubRelWithoutWaitingAsync(
         ushort packetIdentifier,
         CancellationToken cancellationToken)
@@ -556,6 +768,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             coalesceOnShard: true);
     }
 
+    /// <summary>
+    /// 发送PubComp。
+    /// </summary>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public ValueTask SendPubCompAsync(
         ushort packetIdentifier,
         MqttReasonCode reasonCode,
@@ -569,6 +788,11 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             coalesceOnShard: true);
     }
 
+    /// <summary>
+    /// 发送PingResp。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask SendPingRespAsync(CancellationToken cancellationToken)
     {
         if (MaximumPacketSize < 2)
@@ -609,6 +833,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 发送Sub确认。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask SendSubAckAsync(
         MqttSubAckPacket packet,
         CancellationToken cancellationToken)
@@ -632,6 +862,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             .ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 发送Unsub确认。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask SendUnsubAckAsync(
         MqttUnsubAckPacket packet,
         CancellationToken cancellationToken)
@@ -655,6 +891,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             .ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 发送Conn确认。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask SendConnAckAsync(
         MqttConnAckPacket packet,
         CancellationToken cancellationToken)
@@ -718,6 +960,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 发送断开。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask SendDisconnectAsync(
         MqttDisconnectPacket packet,
         CancellationToken cancellationToken)
@@ -799,6 +1047,20 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 写入发布报文。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <param name="properties">属性。</param>
+    /// <param name="payload">负载。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="duplicate">对应的 duplicate。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="expiresAt">对应的 expiresAt。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask WritePublishPacketAsync(
         ReadOnlySequence<byte> topic,
         ReadOnlySequence<byte> properties,
@@ -863,6 +1125,19 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         MarkPacketSent(encodedLength, true);
     }
 
+    /// <summary>
+    /// 获取发布Encoded长度。
+    /// </summary>
+    /// <param name="topic">主题。</param>
+    /// <param name="properties">属性。</param>
+    /// <param name="payload">负载。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="duplicate">对应的 duplicate。</param>
+    /// <param name="retain">保留。</param>
+    /// <param name="remainingExpiry">对应的 remainingExpiry。</param>
+    /// <param name="subscriptionIdentifiers">订阅标识符。</param>
+    /// <returns>计算得到的数值。</returns>
     private static int GetPublishEncodedLength(
         ReadOnlySequence<byte> topic,
         ReadOnlySequence<byte> properties,
@@ -889,6 +1164,11 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         return MqttPublishPacketCodec.GetEncodedLength(view);
     }
 
+    /// <summary>
+    /// Mark报文Sent。
+    /// </summary>
+    /// <param name="byteCount">字节数量。</param>
+    /// <param name="applicationMessage">application消息。</param>
     private void MarkPacketSent(int byteCount, bool applicationMessage)
     {
         Interlocked.Increment(ref _packetsSent);
@@ -899,16 +1179,27 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Begin控制写入。
+    /// </summary>
     private void BeginControlWrite()
     {
         Interlocked.Increment(ref _pendingControlWrites);
     }
 
+    /// <summary>
+    /// End控制写入。
+    /// </summary>
     private void EndControlWrite()
     {
         Interlocked.Decrement(ref _pendingControlWrites);
     }
 
+    /// <summary>
+    /// Enter写入。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<MqttZeroWriteLease> EnterWriteAsync(
         CancellationToken cancellationToken)
     {
@@ -952,12 +1243,20 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         return new MqttZeroWriteLease(this);
     }
 
+    /// <summary>
+    /// 释放写入。
+    /// </summary>
     internal void ReleaseWrite()
     {
         Interlocked.Decrement(ref _writersInFlight);
         _writeGate.Release();
     }
 
+    /// <summary>
+    /// 获取Remaining消息Expiry。
+    /// </summary>
+    /// <param name="expiresAt">对应的 expiresAt。</param>
+    /// <returns>对应的结果。</returns>
     private uint? GetRemainingMessageExpiry(DateTimeOffset? expiresAt)
     {
         if (!expiresAt.HasValue)
@@ -975,6 +1274,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         return (uint)Math.Min(remainingSeconds, uint.MaxValue);
     }
 
+    /// <summary>
+    /// 发送控制报文。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="size">大小。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask SendControlPacketAsync(
         MqttPacket packet,
         MqttZeroControlPacketSize size,
@@ -994,6 +1300,13 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
             .ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 发送控制报文Direct。
+    /// </summary>
+    /// <param name="packet">报文。</param>
+    /// <param name="size">大小。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask SendControlPacketDirectAsync(
         MqttPacket packet,
         MqttZeroControlPacketSize size,
@@ -1021,6 +1334,16 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 发送确认Direct。
+    /// </summary>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="waitForWrite">wait写入。</param>
+    /// <param name="coalesceOnShard">coalesceOn分片。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask SendAckDirectAsync(
         byte firstByte,
         ushort packetIdentifier,
@@ -1089,6 +1412,14 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 写入确认。
+    /// </summary>
+    /// <param name="destination">对应的 destination。</param>
+    /// <param name="firstByte">第一个字节。</param>
+    /// <param name="packetIdentifier">报文标识符。</param>
+    /// <param name="includeReason">include原因。</param>
+    /// <param name="reasonCode">原因代码。</param>
     private static void WriteAcknowledgement(
         Span<byte> destination,
         byte firstByte,
@@ -1106,6 +1437,12 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 关闭。
+    /// </summary>
+    /// <param name="reasonCode">原因代码。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask CloseAsync(
         MqttReasonCode reasonCode,
         CancellationToken cancellationToken)
@@ -1150,6 +1487,9 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 中止。
+    /// </summary>
     public void Abort()
     {
         if (Volatile.Read(ref _disposed) != 0)
@@ -1174,6 +1514,11 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 尝试租用出站控制帧。
+    /// </summary>
+    /// <param name="encodedLength">encoded长度。</param>
+    /// <returns>对应的结果。</returns>
     private MqttZeroEgressControlFrame? TryRentEgressControlFrame(
         int encodedLength)
     {
@@ -1186,6 +1531,14 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         return _controlFrames.Rent(encodedLength);
     }
 
+    /// <summary>
+    /// 投递控制帧。
+    /// </summary>
+    /// <param name="frame">帧。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="waitForWrite">wait写入。</param>
+    /// <param name="coalesceOnShard">coalesceOn分片。</param>
+    /// <returns>表示异步操作的任务。</returns>
     private async ValueTask PostControlFrameAsync(
         MqttZeroEgressControlFrame frame,
         CancellationToken cancellationToken,
@@ -1212,6 +1565,10 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
+    /// <returns>表示异步操作的任务。</returns>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
@@ -1239,6 +1596,10 @@ internal sealed class MqttZeroClientConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 尝试Enter写入Gate。
+    /// </summary>
+    /// <returns>异步操作的结果。</returns>
     private async ValueTask<bool> TryEnterWriteGateAsync()
     {
         try

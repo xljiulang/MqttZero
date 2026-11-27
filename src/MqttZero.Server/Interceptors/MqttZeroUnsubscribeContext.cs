@@ -4,7 +4,9 @@ using System.Buffers;
 
 namespace MqttZero.Server.Interceptors;
 
-/// <summary>Contains unsubscribe authorization data.</summary>
+/// <summary>
+/// 退订拦截器的上下文。
+/// </summary>
 public sealed class MqttZeroUnsubscribeContext
 {
     /// <summary>Gets the connected client.</summary>

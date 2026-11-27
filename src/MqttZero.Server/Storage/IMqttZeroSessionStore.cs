@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Storage;
 
-/// <summary>Persists session metadata and subscriptions.</summary>
+/// <summary>
+/// 持久化会话元数据与订阅。
+/// </summary>
 public interface IMqttZeroSessionStore
 {
     /// <summary>Gets whether persistence is enabled.</summary>

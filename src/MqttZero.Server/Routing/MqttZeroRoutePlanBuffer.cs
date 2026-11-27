@@ -5,6 +5,9 @@ using System.Runtime.CompilerServices;
 
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// 构建路由计划时使用的可复用缓冲区。
+/// </summary>
 internal sealed class MqttZeroRoutePlanBuffer : IDisposable
 {
     private const int InitialAssignmentCapacity = 16;
@@ -19,6 +22,10 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
     private int _sharedGroupCount;
     private bool _disposed;
 
+    /// <summary>
+    /// 初始化 MqttZeroRoutePlanBuffer 的新实例。
+    /// </summary>
+    /// <param name="shardCount">分片数量。</param>
     public MqttZeroRoutePlanBuffer(int shardCount)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(shardCount);
@@ -41,8 +48,15 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
             InitialSharedGroupCapacity);
     }
 
+    /// <summary>
+    /// 分片数量。
+    /// </summary>
     public int ShardCount { get; }
 
+    /// <summary>
+    /// 获取保留字节Estimate。
+    /// </summary>
+    /// <returns>计算得到的数值。</returns>
     internal long GetRetainedByteEstimate()
     {
         long bytes = GetArrayByteCount(_batches) +
@@ -58,6 +72,9 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         return bytes;
     }
 
+    /// <summary>
+    /// 释放。
+    /// </summary>
     public void Dispose()
     {
         if (_disposed)
@@ -92,6 +109,12 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         _sharedGroups = [];
     }
 
+    /// <summary>
+    /// 添加Regular。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="subscription">订阅。</param>
+    /// <param name="sender">对应的 sender。</param>
     internal void AddRegular(
         MqttZeroSessionState session,
         MqttZeroSubscription subscription,
@@ -105,12 +128,20 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         AddCandidate(session, subscription);
     }
 
+    /// <summary>
+    /// 添加共享组。
+    /// </summary>
+    /// <param name="group">组。</param>
     internal void AddSharedGroup(MqttZeroSharedRouteEntries group)
     {
         EnsureSharedGroupCapacity(_sharedGroupCount + 1);
         _sharedGroups[_sharedGroupCount++] = group;
     }
 
+    /// <summary>
+    /// Begin计划。
+    /// </summary>
+    /// <param name="shardCount">分片数量。</param>
     internal void BeginPlan(int shardCount)
     {
         ThrowIfDisposed();
@@ -130,6 +161,10 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         }
     }
 
+    /// <summary>
+    /// 创建计划。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     internal MqttZeroRoutePlan CreatePlan()
     {
         ThrowIfDisposed();
@@ -153,6 +188,12 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
             totalDeliveryCount);
     }
 
+    /// <summary>
+    /// 获取订阅标识符。
+    /// </summary>
+    /// <param name="offset">偏移。</param>
+    /// <param name="count">数量。</param>
+    /// <returns>对应的结果。</returns>
     internal ReadOnlySpan<uint> GetSubscriptionIdentifiers(
         int offset,
         int count)
@@ -160,6 +201,12 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         return _identifiers.AsSpan(offset, count);
     }
 
+    /// <summary>
+    /// 获取订阅标识符内存。
+    /// </summary>
+    /// <param name="offset">偏移。</param>
+    /// <param name="count">数量。</param>
+    /// <returns>对应的结果。</returns>
     internal ReadOnlyMemory<uint> GetSubscriptionIdentifiersMemory(
         int offset,
         int count)
@@ -167,6 +214,10 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         return _identifiers.AsMemory(offset, count);
     }
 
+    /// <summary>
+    /// 计划共享组。
+    /// </summary>
+    /// <param name="sender">对应的 sender。</param>
     internal void PlanSharedGroups(
         MqttZeroSessionState? sender)
     {
@@ -215,6 +266,11 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         }
     }
 
+    /// <summary>
+    /// 添加Candidate。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="subscription">订阅。</param>
     private void AddCandidate(
         MqttZeroSessionState session,
         MqttZeroSubscription subscription)
@@ -239,6 +295,10 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         }
     }
 
+    /// <summary>
+    /// 确保标识符Assignment容量。
+    /// </summary>
+    /// <param name="minimumLength">最小长度。</param>
     private void EnsureIdentifierAssignmentCapacity(int minimumLength)
     {
         if (_identifierAssignments.Length >= minimumLength)
@@ -264,6 +324,10 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         _identifierAssignments = replacement;
     }
 
+    /// <summary>
+    /// 确保标识符容量。
+    /// </summary>
+    /// <param name="minimumLength">最小长度。</param>
     private void EnsureIdentifierCapacity(int minimumLength)
     {
         if (_identifiers.Length >= minimumLength)
@@ -282,6 +346,10 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         _identifiers = replacement;
     }
 
+    /// <summary>
+    /// 确保共享组容量。
+    /// </summary>
+    /// <param name="minimumLength">最小长度。</param>
     private void EnsureSharedGroupCapacity(int minimumLength)
     {
         if (_sharedGroups.Length >= minimumLength)
@@ -307,6 +375,9 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         _sharedGroups = replacement;
     }
 
+    /// <summary>
+    /// Finalize标识符。
+    /// </summary>
     private void FinalizeIdentifiers()
     {
         EnsureIdentifierCapacity(_identifierAssignmentCount);
@@ -344,6 +415,12 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         }
     }
 
+    /// <summary>
+    /// 记录标识符。
+    /// </summary>
+    /// <param name="shardId">分片Id。</param>
+    /// <param name="deliveryIndex">delivery索引。</param>
+    /// <param name="identifier">标识符。</param>
     private void RecordIdentifier(
         int shardId,
         int deliveryIndex,
@@ -361,16 +438,32 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         delivery.IncrementIdentifierCount();
     }
 
+    /// <summary>
+    /// 抛出IfDisposed。
+    /// </summary>
     private void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
+    /// <summary>
+    /// 获取Array字节数量。
+    /// </summary>
+    /// <param name="array">对应的 array。</param>
+    /// <returns>计算得到的数值。</returns>
     private static long GetArrayByteCount<T>(T[] array)
     {
         return (long)array.Length * Unsafe.SizeOf<T>();
     }
 
+    /// <summary>
+    /// 添加Delivery。
+    /// </summary>
+    /// <param name="shardId">分片Id。</param>
+    /// <param name="session">会话。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retainAsPublished">保留AsPublished。</param>
+    /// <returns>计算得到的数值。</returns>
     private int AddDelivery(
         int shardId,
         MqttZeroSessionState session,
@@ -384,6 +477,13 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
             this);
     }
 
+    /// <summary>
+    /// 合并DeliverySelection。
+    /// </summary>
+    /// <param name="shardId">分片Id。</param>
+    /// <param name="deliveryIndex">delivery索引。</param>
+    /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+    /// <param name="retainAsPublished">保留AsPublished。</param>
     private void MergeDeliverySelection(
         int shardId,
         int deliveryIndex,
@@ -397,8 +497,17 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
             retainAsPublished);
     }
 
+    /// <summary>
+    /// 订阅标识符的分配结果。
+    /// </summary>
     private readonly struct IdentifierAssignment
     {
+        /// <summary>
+        /// 初始化 IdentifierAssignment 的新实例。
+        /// </summary>
+        /// <param name="shardId">分片Id。</param>
+        /// <param name="deliveryIndex">delivery索引。</param>
+        /// <param name="value">值。</param>
         public IdentifierAssignment(
             int shardId,
             int deliveryIndex,
@@ -409,13 +518,25 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
             Value = value;
         }
 
+        /// <summary>
+        /// 分片Id。
+        /// </summary>
         public int ShardId { get; }
 
+        /// <summary>
+        /// Delivery索引。
+        /// </summary>
         public int DeliveryIndex { get; }
 
+        /// <summary>
+        /// 值。
+        /// </summary>
         public uint Value { get; }
     }
 
+    /// <summary>
+    /// 按分片分组的会话表。
+    /// </summary>
     private sealed class ShardSessionTable : IDisposable
     {
         private const int InitialCapacity = 16;
@@ -429,6 +550,11 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
         private int _count;
         private int _generation;
 
+        /// <summary>
+        /// 初始化 ShardSessionTable 的新实例。
+        /// </summary>
+        /// <param name="owner">持有者。</param>
+        /// <param name="shardId">分片Id。</param>
         public ShardSessionTable(
             MqttZeroRoutePlanBuffer owner,
             int shardId)
@@ -444,6 +570,13 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
             Array.Clear(_generations);
         }
 
+        /// <summary>
+        /// 添加OrMerge。
+        /// </summary>
+        /// <param name="session">会话。</param>
+        /// <param name="qualityOfServiceLevel">服务质量ServiceLevel。</param>
+        /// <param name="retainAsPublished">保留AsPublished。</param>
+        /// <returns>计算得到的数值。</returns>
         public int AddOrMerge(
             MqttZeroSessionState session,
             MqttQualityOfServiceLevel qualityOfServiceLevel,
@@ -478,6 +611,9 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
             return deliveryIndex;
         }
 
+        /// <summary>
+        /// 释放。
+        /// </summary>
         public void Dispose()
         {
             ArrayPool<MqttZeroSessionState?>.Shared.Return(
@@ -490,6 +626,10 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
             _generations = [];
         }
 
+        /// <summary>
+        /// 获取保留字节Estimate。
+        /// </summary>
+        /// <returns>计算得到的数值。</returns>
         internal long GetRetainedByteEstimate()
         {
             return
@@ -499,6 +639,9 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
                 (long)_generations.Length * sizeof(int);
         }
 
+        /// <summary>
+        /// 重置。
+        /// </summary>
         public void Reset()
         {
             _count = 0;
@@ -510,6 +653,12 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
             }
         }
 
+        /// <summary>
+        /// 查找Slot。
+        /// </summary>
+        /// <param name="session">会话。</param>
+        /// <param name="deliveryIndex">delivery索引。</param>
+        /// <returns>计算得到的数值。</returns>
         private int FindSlot(
             MqttZeroSessionState session,
             out int deliveryIndex)
@@ -536,6 +685,9 @@ internal sealed class MqttZeroRoutePlanBuffer : IDisposable
             }
         }
 
+        /// <summary>
+        /// 执行 Grow 对应的处理。
+        /// </summary>
         private void Grow()
         {
             int capacity = _capacity * 2;

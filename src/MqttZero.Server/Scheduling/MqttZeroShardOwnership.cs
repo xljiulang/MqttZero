@@ -3,8 +3,17 @@ using System.Globalization;
 
 namespace MqttZero.Server.Scheduling;
 
+/// <summary>
+/// 分片所有权的断言与违规诊断。
+/// </summary>
 internal static class MqttZeroShardOwnership
 {
+    /// <summary>
+    /// 确保当前。
+    /// </summary>
+    /// <param name="shardId">分片Id。</param>
+    /// <param name="operation">对应的 operation。</param>
+    /// <param name="diagnostics">诊断。</param>
     internal static void EnsureCurrent(
         int shardId,
         string operation,

@@ -1,7 +1,7 @@
 namespace MqttZero.Server.Egress;
 
 /// <summary>
-/// Bounds how many control frames one egress pass may write before data drains.
+/// 每轮允许写出的控制帧上限。
 /// </summary>
 internal static class MqttZeroEgressFairness
 {

@@ -4,17 +4,31 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace MqttZero.Server.Retained;
 
+/// <summary>
+/// 保留消息主题树节点。
+/// </summary>
 internal sealed class MqttZeroRetainedTopicNode
 {
+    /// <summary>
+    /// 空。
+    /// </summary>
     public static MqttZeroRetainedTopicNode Empty { get; } = new();
 
     private readonly MqttZeroRetainedTopicChild[] _exactChildren;
 
+    /// <summary>
+    /// 初始化 MqttZeroRetainedTopicNode 的新实例。
+    /// </summary>
     private MqttZeroRetainedTopicNode()
     {
         _exactChildren = [];
     }
 
+    /// <summary>
+    /// 初始化 MqttZeroRetainedTopicNode 的新实例。
+    /// </summary>
+    /// <param name="message">消息。</param>
+    /// <param name="exactChildren">对应的 exactChildren。</param>
     private MqttZeroRetainedTopicNode(
         MqttZeroRetainedMessage? message,
         MqttZeroRetainedTopicChild[] exactChildren)
@@ -23,6 +37,9 @@ internal sealed class MqttZeroRetainedTopicNode
         _exactChildren = exactChildren;
     }
 
+    /// <summary>
+    /// 消息。
+    /// </summary>
     public MqttZeroRetainedMessage? Message { get; }
 
     public ReadOnlySpan<MqttZeroRetainedTopicChild> ExactChildren
@@ -41,6 +58,11 @@ internal sealed class MqttZeroRetainedTopicNode
         }
     }
 
+    /// <summary>
+    /// 设置消息。
+    /// </summary>
+    /// <param name="message">消息。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRetainedTopicNode SetMessage(
         MqttZeroRetainedMessage message)
     {
@@ -51,6 +73,10 @@ internal sealed class MqttZeroRetainedTopicNode
                 _exactChildren);
     }
 
+    /// <summary>
+    /// 移除消息。
+    /// </summary>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRetainedTopicNode RemoveMessage()
     {
         return Message == null
@@ -58,6 +84,12 @@ internal sealed class MqttZeroRetainedTopicNode
             : new MqttZeroRetainedTopicNode(null, _exactChildren);
     }
 
+    /// <summary>
+    /// 尝试GetExactChild。
+    /// </summary>
+    /// <param name="segment">段。</param>
+    /// <param name="node">节点。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool TryGetExactChild(
         ReadOnlySpan<byte> segment,
         [NotNullWhen(true)] out MqttZeroRetainedTopicNode? node)
@@ -91,6 +123,12 @@ internal sealed class MqttZeroRetainedTopicNode
         return false;
     }
 
+    /// <summary>
+    /// 设置ExactChild。
+    /// </summary>
+    /// <param name="segment">段。</param>
+    /// <param name="node">节点。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRetainedTopicNode SetExactChild(
         ReadOnlySpan<byte> segment,
         MqttZeroRetainedTopicNode node)
@@ -134,6 +172,11 @@ internal sealed class MqttZeroRetainedTopicNode
         return new MqttZeroRetainedTopicNode(Message, inserted);
     }
 
+    /// <summary>
+    /// 移除ExactChild。
+    /// </summary>
+    /// <param name="segment">段。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRetainedTopicNode? RemoveExactChild(
         ReadOnlySpan<byte> segment)
     {

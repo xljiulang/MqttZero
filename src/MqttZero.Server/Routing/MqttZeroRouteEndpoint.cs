@@ -10,10 +10,21 @@ using SharedRouteMap =
 
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// 前缀树叶子上的订阅集合。
+/// </summary>
 internal sealed class MqttZeroRouteEndpoint
 {
+    /// <summary>
+    /// 空。
+    /// </summary>
     public static MqttZeroRouteEndpoint Empty { get; } = new(null, null);
 
+    /// <summary>
+    /// 初始化 MqttZeroRouteEndpoint 的新实例。
+    /// </summary>
+    /// <param name="regularEntries">regular条目。</param>
+    /// <param name="sharedEntries">共享条目。</param>
     private MqttZeroRouteEndpoint(
         RegularRouteMap? regularEntries,
         SharedRouteMap? sharedEntries)
@@ -22,8 +33,14 @@ internal sealed class MqttZeroRouteEndpoint
         SharedEntries = sharedEntries;
     }
 
+    /// <summary>
+    /// Regular条目。
+    /// </summary>
     public RegularRouteMap? RegularEntries { get; }
 
+    /// <summary>
+    /// 共享条目。
+    /// </summary>
     public SharedRouteMap? SharedEntries { get; }
 
     public bool IsEmpty
@@ -35,6 +52,10 @@ internal sealed class MqttZeroRouteEndpoint
         }
     }
 
+    /// <summary>
+    /// Collect共享组键。
+    /// </summary>
+    /// <param name="keys">键。</param>
     public void CollectSharedGroupKeys(
         HashSet<MqttZeroSharedGroupKey> keys)
     {
@@ -52,6 +73,12 @@ internal sealed class MqttZeroRouteEndpoint
         }
     }
 
+    /// <summary>
+    /// 设置Regular。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="subscription">订阅。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRouteEndpoint SetRegular(
         MqttZeroSessionState session,
         MqttZeroSubscription subscription)
@@ -64,6 +91,12 @@ internal sealed class MqttZeroRouteEndpoint
             SharedEntries);
     }
 
+    /// <summary>
+    /// 移除Regular。
+    /// </summary>
+    /// <param name="session">会话。</param>
+    /// <param name="removed">对应的 removed。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRouteEndpoint? RemoveRegular(
         MqttZeroSessionState session,
         out bool removed)
@@ -88,6 +121,14 @@ internal sealed class MqttZeroRouteEndpoint
         return result.IsEmpty ? null : result;
     }
 
+    /// <summary>
+    /// 设置共享。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <param name="session">会话。</param>
+    /// <param name="subscription">订阅。</param>
+    /// <param name="cursor">游标。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRouteEndpoint SetShared(
         MqttZeroSharedGroupKey key,
         MqttZeroSessionState session,
@@ -108,6 +149,13 @@ internal sealed class MqttZeroRouteEndpoint
             entries.Set(key, routeEntries, out _));
     }
 
+    /// <summary>
+    /// 移除共享。
+    /// </summary>
+    /// <param name="key">键。</param>
+    /// <param name="session">会话。</param>
+    /// <param name="removed">对应的 removed。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRouteEndpoint? RemoveShared(
         MqttZeroSharedGroupKey key,
         MqttZeroSessionState session,

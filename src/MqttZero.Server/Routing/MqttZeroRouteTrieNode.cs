@@ -2,17 +2,33 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace MqttZero.Server.Routing;
 
+/// <summary>
+/// 主题段前缀树节点。
+/// </summary>
 internal sealed class MqttZeroRouteTrieNode
 {
+    /// <summary>
+    /// 空。
+    /// </summary>
     public static MqttZeroRouteTrieNode Empty { get; } = new();
 
     private readonly MqttZeroRouteChild[] _exactChildren;
 
+    /// <summary>
+    /// 初始化 MqttZeroRouteTrieNode 的新实例。
+    /// </summary>
     private MqttZeroRouteTrieNode()
     {
         _exactChildren = [];
     }
 
+    /// <summary>
+    /// 初始化 MqttZeroRouteTrieNode 的新实例。
+    /// </summary>
+    /// <param name="endpoint">终结点。</param>
+    /// <param name="singleLevel">对应的 singleLevel。</param>
+    /// <param name="multiLevel">对应的 multiLevel。</param>
+    /// <param name="exactChildren">对应的 exactChildren。</param>
     private MqttZeroRouteTrieNode(
         MqttZeroRouteEndpoint? endpoint,
         MqttZeroRouteTrieNode? singleLevel,
@@ -25,10 +41,19 @@ internal sealed class MqttZeroRouteTrieNode
         _exactChildren = exactChildren;
     }
 
+    /// <summary>
+    /// 终结点。
+    /// </summary>
     public MqttZeroRouteEndpoint? Endpoint { get; }
 
+    /// <summary>
+    /// SingleLevel 的值。
+    /// </summary>
     public MqttZeroRouteTrieNode? SingleLevel { get; }
 
+    /// <summary>
+    /// MultiLevel 的值。
+    /// </summary>
     public MqttZeroRouteTrieNode? MultiLevel { get; }
 
     public ReadOnlySpan<MqttZeroRouteChild> ExactChildren
@@ -50,6 +75,10 @@ internal sealed class MqttZeroRouteTrieNode
         }
     }
 
+    /// <summary>
+    /// Collect共享组键。
+    /// </summary>
+    /// <param name="keys">键。</param>
     public void CollectSharedGroupKeys(
         HashSet<MqttZeroSharedGroupKey> keys)
     {
@@ -63,6 +92,11 @@ internal sealed class MqttZeroRouteTrieNode
         }
     }
 
+    /// <summary>
+    /// 附带终结点。
+    /// </summary>
+    /// <param name="endpoint">终结点。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRouteTrieNode WithEndpoint(
         MqttZeroRouteEndpoint? endpoint)
     {
@@ -73,6 +107,11 @@ internal sealed class MqttZeroRouteTrieNode
             _exactChildren);
     }
 
+    /// <summary>
+    /// 附带SingleLevel。
+    /// </summary>
+    /// <param name="singleLevel">对应的 singleLevel。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRouteTrieNode WithSingleLevel(
         MqttZeroRouteTrieNode? singleLevel)
     {
@@ -83,6 +122,11 @@ internal sealed class MqttZeroRouteTrieNode
             _exactChildren);
     }
 
+    /// <summary>
+    /// 附带MultiLevel。
+    /// </summary>
+    /// <param name="multiLevel">对应的 multiLevel。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRouteTrieNode WithMultiLevel(
         MqttZeroRouteTrieNode? multiLevel)
     {
@@ -93,6 +137,12 @@ internal sealed class MqttZeroRouteTrieNode
             _exactChildren);
     }
 
+    /// <summary>
+    /// 尝试GetExactChild。
+    /// </summary>
+    /// <param name="segment">段。</param>
+    /// <param name="node">节点。</param>
+    /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
     public bool TryGetExactChild(
         ReadOnlySpan<byte> segment,
         [NotNullWhen(true)] out MqttZeroRouteTrieNode? node)
@@ -126,6 +176,12 @@ internal sealed class MqttZeroRouteTrieNode
         return false;
     }
 
+    /// <summary>
+    /// 设置ExactChild。
+    /// </summary>
+    /// <param name="segment">段。</param>
+    /// <param name="node">节点。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRouteTrieNode SetExactChild(
         ReadOnlySpan<byte> segment,
         MqttZeroRouteTrieNode node)
@@ -175,6 +231,11 @@ internal sealed class MqttZeroRouteTrieNode
             inserted);
     }
 
+    /// <summary>
+    /// 移除ExactChild。
+    /// </summary>
+    /// <param name="segment">段。</param>
+    /// <returns>对应的结果。</returns>
     public MqttZeroRouteTrieNode RemoveExactChild(ReadOnlySpan<byte> segment)
     {
         int index = 0;

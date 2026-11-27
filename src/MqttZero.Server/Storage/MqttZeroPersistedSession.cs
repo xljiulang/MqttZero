@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Storage;
 
-/// <summary>Describes persisted session metadata.</summary>
+/// <summary>
+/// 持久化的会话元数据。
+/// </summary>
 public sealed class MqttZeroPersistedSession
 {
     /// <summary>Gets the client identifier.</summary>

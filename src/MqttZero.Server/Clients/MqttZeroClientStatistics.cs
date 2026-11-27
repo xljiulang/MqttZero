@@ -1,6 +1,8 @@
 namespace MqttZero.Server.Clients;
 
-/// <summary>Represents point-in-time connection statistics.</summary>
+/// <summary>
+/// 连接统计。
+/// </summary>
 public sealed class MqttZeroClientStatistics
 {
     /// <summary>Gets the connection timestamp.</summary>
