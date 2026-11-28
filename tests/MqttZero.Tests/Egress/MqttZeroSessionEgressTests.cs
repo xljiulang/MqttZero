@@ -54,12 +54,13 @@ public sealed class MqttZeroSessionEgressTests
             TestContext.Current.CancellationToken);
         actor.Signal();
         await WaitUntilAsync(
-            () => diagnostics.GetSnapshot().EgressDrainCount == 2,
+            () => diagnostics.GetSnapshot()
+                .EgressEmptyDataDrainCount == 1,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(
-            1,
-            diagnostics.GetSnapshot().EgressEmptyDataDrainCount);
+            2,
+            diagnostics.GetSnapshot().EgressDrainCount);
         await actor.StopAsync();
     }
 

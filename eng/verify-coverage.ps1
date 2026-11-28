@@ -46,7 +46,7 @@ New-Item -ItemType Directory -Force -Path $coverageDirectory | Out-Null
 Remove-Item -LiteralPath $brokerReportPath -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $dashboardReportPath -Force -ErrorAction SilentlyContinue
 
-dotnet test $brokerProject `
+dotnet test --project $brokerProject `
     -c $Configuration `
     --no-build `
     -- `
@@ -60,7 +60,7 @@ if ($LASTEXITCODE -ne 0)
     throw 'Broker coverage run failed.'
 }
 
-dotnet test $dashboardProject `
+dotnet test --project $dashboardProject `
     -c $Configuration `
     --no-build `
     -- `
