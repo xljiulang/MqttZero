@@ -678,6 +678,7 @@ public sealed partial class MqttZeroBroker
         if (session.PendingMessages.Count == 0)
         {
             _fanoutDiagnostics.RecordEgressSignalWithoutPending();
+            return;
         }
 
         _fanoutDiagnostics.RecordEgressSignal();

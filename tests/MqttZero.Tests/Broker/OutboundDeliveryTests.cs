@@ -348,10 +348,12 @@ namespace MqttZero.Tests.Broker
                         },
                         TestContext.Current.CancellationToken);
 
+                    MqttZeroFanoutDiagnosticsSnapshot snapshot =
+                        broker.GetFanoutDiagnosticsForTest();
                     Assert.Equal(
                         1,
-                        broker.GetFanoutDiagnosticsForTest()
-                            .EgressSignalWithoutPendingCount);
+                        snapshot.EgressSignalWithoutPendingCount);
+                    Assert.Equal(0, snapshot.EgressSignalCount);
                 }
                 finally
                 {
@@ -364,6 +366,110 @@ namespace MqttZero.Tests.Broker
                 AppContext.SetSwitch(
                     MqttZeroFanoutDiagnostics.AppContextSwitchName,
                     hadSwitch && originalSwitch);
+            }
+        }
+
+        [Fact(Timeout = 5_000)]
+        public async Task QosOnePubAckDrainsPendingMessage()
+        {
+            MqttZeroOptions options = new()
+            {
+                MaxInflight = 1,
+                MaxMessageQueueLength = 10
+            };
+            await using MqttZeroBroker broker = MqttZeroBroker.Create(
+                options,
+                TimeProvider.System);
+            await broker.StartAsync(TestContext.Current.CancellationToken);
+            BlockingPipeWriter subscriberWriter = new();
+            await using MqttZeroClientConnection subscriberConnection = new(
+                subscriberWriter,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                1,
+                1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState receiver = new(
+                "receiver",
+                options.MaxMessageQueueLength);
+            receiver.Subscriptions.Add(new MqttZeroSubscription(
+                "large/#"u8.ToArray(),
+                MqttQualityOfServiceLevel.AtLeastOnce,
+                false,
+                false,
+                null));
+            receiver.Connection = subscriberConnection;
+            AddSession(broker, receiver);
+            RebuildRoutes(broker);
+            TrackingPipeWriter publisherWriter = new();
+            await using MqttZeroClientConnection publisherConnection = new(
+                publisherWriter,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState publisher = new("publisher");
+            MqttZeroMessageLease first = CreateQosOneLease(1);
+            MqttZeroMessageLease second = CreateQosOneLease(2);
+            using CancellationTokenSource pumpLifetime = new();
+            MqttZeroSessionEgress pump = broker.StartEgress(
+                receiver,
+                subscriberConnection,
+                pumpLifetime.Token);
+
+            try
+            {
+                await broker.RoutePublishLeaseAsync(
+                    publisher,
+                    publisherConnection,
+                    first,
+                    TestContext.Current.CancellationToken);
+                await subscriberWriter.FlushStarted.WaitAsync(
+                    TimeSpan.FromSeconds(2),
+                    TestContext.Current.CancellationToken);
+                await broker.RoutePublishLeaseAsync(
+                    publisher,
+                    publisherConnection,
+                    second,
+                    TestContext.Current.CancellationToken);
+
+                await broker.Shards![receiver.ShardId].InvokeAsync(
+                    async cancellationToken =>
+                    {
+                        ushort packetIdentifier =
+                            receiver.InflightMessages.Single().Key;
+                        await broker.ProcessAcknowledgementCoreAsync(
+                            receiver,
+                            subscriberConnection,
+                            new MqttZeroAcknowledgementView(
+                                MqttPacketType.PubAck,
+                                packetIdentifier,
+                                MqttReasonCode.Success),
+                            cancellationToken);
+                        return true;
+                    },
+                    TestContext.Current.CancellationToken);
+                subscriberWriter.ReleaseFlush();
+                await subscriberWriter.SecondFlushStarted.WaitAsync(
+                    TimeSpan.FromSeconds(2),
+                    TestContext.Current.CancellationToken);
+                await WaitUntilAsync(
+                    () => receiver.PendingMessages.Count == 0 &&
+                        receiver.InflightMessages.Count == 1,
+                    TestContext.Current.CancellationToken);
+            }
+            finally
+            {
+                subscriberWriter.ReleaseFlush();
+                await pump.StopAsync();
+                first.Release();
+                second.Release();
+                receiver.TakeEgress();
             }
         }
 
@@ -1255,6 +1361,21 @@ namespace MqttZero.Tests.Broker
                 false,
                 null,
                 null);
+        }
+
+        private static MqttZeroMessageLease CreateQosOneLease(
+            ushort packetIdentifier)
+        {
+            MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                new ReadOnlySequence<byte>("large/topic"u8.ToArray()),
+                ReadOnlySequence<byte>.Empty,
+                new ReadOnlySequence<byte>(new byte[1024]),
+                MqttQualityOfServiceLevel.AtLeastOnce,
+                false,
+                null,
+                null);
+            lease.PacketIdentifier = packetIdentifier;
+            return lease;
         }
 
         private static MqttZeroMessageLease CreateQosZeroLease(
