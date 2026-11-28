@@ -47,6 +47,8 @@ public sealed class MqttZeroEgressSchedulerTests
         Assert.Equal(1, snapshot.EgressSchedulerPassCount);
         Assert.Equal(1, snapshot.EgressScheduledActorPassCount);
         Assert.Equal(1, snapshot.EgressDrainCount);
+        Assert.Equal(1, snapshot.EgressReadyToExecuteCount);
+        Assert.True(snapshot.TotalEgressReadyToExecuteTicks > 0);
         await actor.StopAsync();
     }
 

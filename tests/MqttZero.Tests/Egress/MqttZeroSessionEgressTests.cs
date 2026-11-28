@@ -1,12 +1,68 @@
 using MqttZero.Memory;
+using MqttZero.Server;
+using MqttZero.Server.Broker;
+using MqttZero.Server.Clients;
 using MqttZero.Server.Egress;
+using MqttZero.Server.Observers;
 using MqttZero.Server.Scheduling;
+using MqttZero.Server.Sessions;
 using System.IO.Pipelines;
+using System.Net;
 
 namespace MqttZero.Tests.Egress;
 
 public sealed class MqttZeroSessionEgressTests
 {
+    [Fact(Timeout = 5_000)]
+    public async Task SignalWithoutPendingDataRecordsEmptyDrain()
+    {
+        await using MqttZeroEventLoop shard = new(0, 32);
+        MqttZeroFanoutDiagnostics diagnostics = new(enabled: true);
+        await using MqttZeroEgressScheduler scheduler = new(
+            shard,
+            diagnostics);
+        Pipe output = new();
+        await using MqttZeroClientConnection connection = new(
+            output.Writer,
+            new IPEndPoint(IPAddress.Loopback, 0),
+            false,
+            false,
+            0,
+            32,
+            1024 * 1024,
+            TimeProvider.System);
+        MqttZeroSessionState session = new("receiver");
+        MqttZeroSessionEgressServices services = new(
+            new MqttZeroOptions(),
+            TimeProvider.System,
+            diagnostics,
+            () => 1,
+            (_, _, _) => ValueTask.CompletedTask,
+            (_, _, _, _) => ValueTask.CompletedTask,
+            (_, _, _) => ValueTask.CompletedTask,
+            _ => { });
+        await using MqttZeroSessionEgress actor = new(
+            session,
+            connection,
+            scheduler,
+            services,
+            _ => { });
+
+        actor.Signal();
+        await WaitUntilAsync(
+            () => diagnostics.GetSnapshot().EgressDrainCount == 1,
+            TestContext.Current.CancellationToken);
+        actor.Signal();
+        await WaitUntilAsync(
+            () => diagnostics.GetSnapshot().EgressDrainCount == 2,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            1,
+            diagnostics.GetSnapshot().EgressEmptyDataDrainCount);
+        await actor.StopAsync();
+    }
+
     [Fact(Timeout = 5_000)]
     public async Task SignalYieldsBeforeFirstDataDrain()
     {

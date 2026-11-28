@@ -10,7 +10,11 @@ internal sealed class MqttZeroFanoutDiagnostics
     private readonly bool _enabled;
     private long _deliveryCount;
     private long _egressDrainCount;
+    private long _egressEmptyDataDrainCount;
+    private long _egressReadyToExecuteCount;
     private long _egressSignalCount;
+    private long _egressSignalWithoutPendingCount;
+    private long _egressSynchronousFlushCount;
     private long _encodedPublishCount;
     private long _flushWaitCount;
     private long _localBatchCount;
@@ -31,6 +35,7 @@ internal sealed class MqttZeroFanoutDiagnostics
     private long _maxPendingSelectionTicks;
     private long _maxPublishEncodeTicks;
     private long _maxPublishWriteTicks;
+    private long _maxEgressReadyToExecuteTicks;
     private long _fanoutSchedulerBatchCount;
     private long _fanoutSchedulerEnqueueCount;
     private long _fanoutSchedulerFailureCount;
@@ -43,6 +48,7 @@ internal sealed class MqttZeroFanoutDiagnostics
     private long _totalPendingSelectionTicks;
     private long _totalPublishEncodeTicks;
     private long _totalPublishWriteTicks;
+    private long _totalEgressReadyToExecuteTicks;
     private long _shardOwnershipViolationCount;
     private long _ackWorkCount;
     private long _controlBatchCount;
@@ -108,6 +114,12 @@ internal sealed class MqttZeroFanoutDiagnostics
             Interlocked.Read(ref _maxFanoutTicks),
             Interlocked.Read(ref _egressSignalCount),
             Interlocked.Read(ref _egressDrainCount),
+            Interlocked.Read(ref _egressEmptyDataDrainCount),
+            Interlocked.Read(ref _egressReadyToExecuteCount),
+            Interlocked.Read(ref _totalEgressReadyToExecuteTicks),
+            Interlocked.Read(ref _maxEgressReadyToExecuteTicks),
+            Interlocked.Read(ref _egressSynchronousFlushCount),
+            Interlocked.Read(ref _egressSignalWithoutPendingCount),
             Interlocked.Read(ref _encodedPublishCount),
             Interlocked.Read(ref _flushWaitCount),
             Volatile.Read(ref _maxPendingQueueDepth),
@@ -167,6 +179,60 @@ internal sealed class MqttZeroFanoutDiagnostics
         if (_enabled)
         {
             Interlocked.Increment(ref _egressDrainCount);
+        }
+    }
+
+    /// <summary>
+    /// 记录没有待发数据的出站排空。
+    /// </summary>
+    public void RecordEgressEmptyDataDrain()
+    {
+        if (_enabled)
+        {
+            Interlocked.Increment(ref _egressEmptyDataDrainCount);
+        }
+    }
+
+    /// <summary>
+    /// 记录出站 Actor 从就绪到执行前的等待时间。
+    /// </summary>
+    /// <param name="elapsedTicks">等待时钟滴答。</param>
+    public void RecordEgressReadyToExecute(long elapsedTicks)
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref _egressReadyToExecuteCount);
+        Interlocked.Add(
+            ref _totalEgressReadyToExecuteTicks,
+            elapsedTicks);
+        InterlockedMax(
+            ref _maxEgressReadyToExecuteTicks,
+            elapsedTicks);
+    }
+
+    /// <summary>
+    /// 记录没有待发数据却被请求的出站信号。
+    /// </summary>
+    public void RecordEgressSignalWithoutPending()
+    {
+        if (_enabled)
+        {
+            Interlocked.Increment(
+                ref _egressSignalWithoutPendingCount);
+        }
+    }
+
+    /// <summary>
+    /// 记录同步完成的出站 Flush。
+    /// </summary>
+    public void RecordEgressSynchronousFlush()
+    {
+        if (_enabled)
+        {
+            Interlocked.Increment(ref _egressSynchronousFlushCount);
         }
     }
 
@@ -591,6 +657,12 @@ internal sealed class MqttZeroFanoutDiagnostics
         Interlocked.Exchange(ref _maxFanoutTicks, 0);
         Interlocked.Exchange(ref _egressSignalCount, 0);
         Interlocked.Exchange(ref _egressDrainCount, 0);
+        Interlocked.Exchange(ref _egressEmptyDataDrainCount, 0);
+        Interlocked.Exchange(ref _egressReadyToExecuteCount, 0);
+        Interlocked.Exchange(ref _totalEgressReadyToExecuteTicks, 0);
+        Interlocked.Exchange(ref _maxEgressReadyToExecuteTicks, 0);
+        Interlocked.Exchange(ref _egressSynchronousFlushCount, 0);
+        Interlocked.Exchange(ref _egressSignalWithoutPendingCount, 0);
         Interlocked.Exchange(ref _encodedPublishCount, 0);
         Interlocked.Exchange(ref _flushWaitCount, 0);
         Interlocked.Exchange(ref _maxPendingQueueDepth, 0);

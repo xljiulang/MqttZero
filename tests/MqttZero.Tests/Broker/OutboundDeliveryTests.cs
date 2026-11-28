@@ -292,6 +292,82 @@ namespace MqttZero.Tests.Broker
         }
 
         [Fact(Timeout = 5_000)]
+        public async Task UnknownQosOnePubAckWithoutPendingRecordsEmptySignal()
+        {
+            bool hadSwitch = AppContext.TryGetSwitch(
+                MqttZeroFanoutDiagnostics.AppContextSwitchName,
+                out bool originalSwitch);
+            AppContext.SetSwitch(
+                MqttZeroFanoutDiagnostics.AppContextSwitchName,
+                true);
+            try
+            {
+                await using MqttZeroBroker broker = MqttZeroBroker.Create(
+                    new MqttZeroOptions(),
+                    TimeProvider.System);
+                await broker.StartAsync(
+                    TestContext.Current.CancellationToken);
+                TrackingPipeWriter subscriberWriter = new();
+                await using MqttZeroClientConnection subscriberConnection = new(
+                    subscriberWriter,
+                    new IPEndPoint(IPAddress.Loopback, 0),
+                    false,
+                    false,
+                    0,
+                    32,
+                    1024 * 1024,
+                    TimeProvider.System);
+                MqttZeroSessionState receiver = new("receiver");
+                receiver.Connection = subscriberConnection;
+                using CancellationTokenSource pumpLifetime = new();
+                MqttZeroSessionEgress pump = broker.StartEgress(
+                    receiver,
+                    subscriberConnection,
+                    pumpLifetime.Token);
+
+                try
+                {
+                    await WaitUntilAsync(
+                        () => broker.GetFanoutDiagnosticsForTest()
+                            .EgressDrainCount > 0,
+                        TestContext.Current.CancellationToken);
+                    broker.ResetFanoutDiagnosticsForTest();
+
+                    await broker.Shards![receiver.ShardId].InvokeAsync(
+                        async cancellationToken =>
+                        {
+                            await broker.ProcessAcknowledgementCoreAsync(
+                                receiver,
+                                subscriberConnection,
+                                new MqttZeroAcknowledgementView(
+                                    MqttPacketType.PubAck,
+                                    42,
+                                    MqttReasonCode.Success),
+                                cancellationToken);
+                            return true;
+                        },
+                        TestContext.Current.CancellationToken);
+
+                    Assert.Equal(
+                        1,
+                        broker.GetFanoutDiagnosticsForTest()
+                            .EgressSignalWithoutPendingCount);
+                }
+                finally
+                {
+                    await pump.StopAsync();
+                    receiver.TakeEgress();
+                }
+            }
+            finally
+            {
+                AppContext.SetSwitch(
+                    MqttZeroFanoutDiagnostics.AppContextSwitchName,
+                    hadSwitch && originalSwitch);
+            }
+        }
+
+        [Fact(Timeout = 5_000)]
         public async Task PendingQosZeroMessagesShareOneFlush()
         {
             const int messageCount = 3;

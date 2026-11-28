@@ -68,6 +68,7 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
                 return;
             }
 
+            egress.MarkReady(Stopwatch.GetTimestamp());
             _diagnostics?.RecordEgressScheduledActor();
             _ready.Enqueue(egress);
             Schedule();
@@ -155,7 +156,16 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
                     TimeSpan.FromTicks(PassBudgetTimestampTicks) &&
                 _ready.TryDequeue(out MqttZeroSessionEgress? egress))
             {
+                long readyTimestamp = egress.ConsumeReadyTimestampTicks();
                 egress.MarkExecuting();
+                if (readyTimestamp != 0)
+                {
+                    long readyWait = Math.Max(
+                        0,
+                        Stopwatch.GetTimestamp() - readyTimestamp);
+                    _diagnostics?.RecordEgressReadyToExecute(readyWait);
+                }
+
                 _diagnostics?.RecordEgressDrain();
                 try
                 {

@@ -37,6 +37,7 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     private long _pendingFlushEncodedBytes;
     private TaskCompletionSource? _flushStopWaiter;
     private int _ready;
+    private long _readyTimestampTicks;
     private int _resumePending;
     private int _state = (int)MqttZeroSessionEgressState.Idle;
     private int _stopping;
@@ -172,6 +173,7 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
                     "The MQTT output writer completed during flush.");
             }
 
+            _scheduler.Diagnostics?.RecordEgressSynchronousFlush();
             return true;
         }
 
@@ -449,6 +451,24 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     }
 
     /// <summary>
+    /// 记录 Actor 进入就绪队列的时间。
+    /// </summary>
+    /// <param name="timestampTicks">时间戳时钟滴答。</param>
+    internal void MarkReady(long timestampTicks)
+    {
+        Volatile.Write(ref _readyTimestampTicks, timestampTicks);
+    }
+
+    /// <summary>
+    /// 读取并清理 Actor 的就绪时间。
+    /// </summary>
+    /// <returns>就绪时间；尚无可读取值时返回零。</returns>
+    internal long ConsumeReadyTimestampTicks()
+    {
+        return Interlocked.Exchange(ref _readyTimestampTicks, 0);
+    }
+
+    /// <summary>
     /// 执行 MarkExecuting 对应的处理。
     /// </summary>
     internal void MarkExecuting()
@@ -498,6 +518,12 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         MqttZeroClientConnection connection = _connection ??
             throw new InvalidOperationException(
                 "The session egress owner has no connection.");
+        if (Volatile.Read(ref _resumePending) == 0 &&
+            session.PendingMessages.Count == 0)
+        {
+            services.Diagnostics.RecordEgressEmptyDataDrain();
+            return false;
+        }
 
         long started = Stopwatch.GetTimestamp();
         try

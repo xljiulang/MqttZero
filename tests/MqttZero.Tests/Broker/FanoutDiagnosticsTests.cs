@@ -37,12 +37,20 @@ public sealed class FanoutDiagnosticsTests
         diagnostics.RecordEncodedPublishes(100);
         diagnostics.RecordFlushWait();
         diagnostics.RecordPendingQueueDepth(1000);
+        diagnostics.RecordEgressSignalWithoutPending();
+        diagnostics.RecordEgressReadyToExecute(10);
+        diagnostics.RecordEgressEmptyDataDrain();
+        diagnostics.RecordEgressSynchronousFlush();
 
         MqttZeroFanoutDiagnosticsSnapshot snapshot =
             diagnostics.GetSnapshot();
 
         Assert.Equal(0, snapshot.PublishCount);
         Assert.Equal(0, snapshot.EgressSignalCount);
+        Assert.Equal(0, snapshot.EgressSignalWithoutPendingCount);
+        Assert.Equal(0, snapshot.EgressReadyToExecuteCount);
+        Assert.Equal(0, snapshot.EgressEmptyDataDrainCount);
+        Assert.Equal(0, snapshot.EgressSynchronousFlushCount);
         Assert.Equal(0, snapshot.MaxPendingQueueDepth);
     }
 
@@ -83,6 +91,27 @@ public sealed class FanoutDiagnosticsTests
             diagnostics.GetSnapshot();
         Assert.Equal(7, snapshot.MaxObservedSessionPendingQueueDepth);
         Assert.Equal(3, snapshot.MaxObservedSessionInflightQueueDepth);
+    }
+
+    [Fact]
+    public void DiagnosticsTrackEmptyEgressAndSchedulerWait()
+    {
+        MqttZeroFanoutDiagnostics diagnostics = new(enabled: true);
+
+        diagnostics.RecordEgressSignalWithoutPending();
+        diagnostics.RecordEgressReadyToExecute(40);
+        diagnostics.RecordEgressReadyToExecute(7);
+        diagnostics.RecordEgressEmptyDataDrain();
+        diagnostics.RecordEgressSynchronousFlush();
+
+        MqttZeroFanoutDiagnosticsSnapshot snapshot =
+            diagnostics.GetSnapshot();
+        Assert.Equal(1, snapshot.EgressSignalWithoutPendingCount);
+        Assert.Equal(2, snapshot.EgressReadyToExecuteCount);
+        Assert.Equal(47, snapshot.TotalEgressReadyToExecuteTicks);
+        Assert.Equal(40, snapshot.MaxEgressReadyToExecuteTicks);
+        Assert.Equal(1, snapshot.EgressEmptyDataDrainCount);
+        Assert.Equal(1, snapshot.EgressSynchronousFlushCount);
     }
 
     [Fact]
@@ -173,6 +202,10 @@ public sealed class FanoutDiagnosticsTests
         MqttZeroFanoutDiagnostics diagnostics = new(enabled: true);
         diagnostics.RecordPublish(1, 2, 3, 4);
         diagnostics.RecordEgressSignal();
+        diagnostics.RecordEgressSignalWithoutPending();
+        diagnostics.RecordEgressReadyToExecute(2);
+        diagnostics.RecordEgressEmptyDataDrain();
+        diagnostics.RecordEgressSynchronousFlush();
         diagnostics.RecordEgressScheduledActor();
         diagnostics.RecordEgressSchedulerPass(1, 2);
         diagnostics.RecordEgressDrain();
@@ -195,6 +228,10 @@ public sealed class FanoutDiagnosticsTests
 
         Assert.Equal(0, snapshot.PublishCount);
         Assert.Equal(0, snapshot.EgressSignalCount);
+        Assert.Equal(0, snapshot.EgressSignalWithoutPendingCount);
+        Assert.Equal(0, snapshot.EgressReadyToExecuteCount);
+        Assert.Equal(0, snapshot.EgressEmptyDataDrainCount);
+        Assert.Equal(0, snapshot.EgressSynchronousFlushCount);
         Assert.Equal(0, snapshot.EgressScheduledActorCount);
         Assert.Equal(0, snapshot.EgressDrainCount);
         Assert.Equal(0, snapshot.EgressDataBatchCount);

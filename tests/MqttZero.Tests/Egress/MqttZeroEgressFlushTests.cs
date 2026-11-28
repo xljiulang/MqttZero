@@ -9,6 +9,41 @@ namespace MqttZero.Tests.Egress;
 public sealed class MqttZeroEgressFlushTests
 {
     [Fact(Timeout = 5_000)]
+    public async Task SynchronousFlushIsRecorded()
+    {
+        await using MqttZeroEventLoop shard = new(0, 32);
+        MqttZeroFanoutDiagnostics diagnostics = new(enabled: true);
+        await using MqttZeroEgressScheduler scheduler = new(
+            shard,
+            diagnostics);
+        MqttZeroSessionEgress? actorReference = null;
+        actorReference = new MqttZeroSessionEgress(
+            scheduler,
+            (_, _) => ValueTask.CompletedTask,
+            _ =>
+            {
+                Assert.True(actorReference!.BeginFlush(
+                    ValueTask.FromResult(
+                        new FlushResult(
+                            isCanceled: false,
+                            isCompleted: false))));
+                return ValueTask.FromResult(false);
+            },
+            _ => { });
+        await using MqttZeroSessionEgress actor = actorReference;
+
+        actor.Signal();
+        await WaitUntilAsync(
+            () => diagnostics.GetSnapshot().EgressDrainCount == 1,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            1,
+            diagnostics.GetSnapshot().EgressSynchronousFlushCount);
+        await actor.StopAsync();
+    }
+
+    [Fact(Timeout = 5_000)]
     public async Task FlushPendingDoesNotBlockOtherActorsOnSameShard()
     {
         await using MqttZeroEventLoop shard = new(0, 32);
