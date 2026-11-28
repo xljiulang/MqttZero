@@ -147,13 +147,62 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
     internal async ValueTask ExecuteAsync(
         CancellationToken cancellationToken)
     {
+        long deadlineTimestamp =
+            Stopwatch.GetTimestamp() + PassBudgetTimestampTicks;
+        _ = await DrainReadyActorsAsync(
+            deadlineTimestamp,
+            MaximumActorExecutionsPerPass,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 在所属分片上立即执行当前就绪 Actor。
+    /// </summary>
+    /// <param name="budgetTicks">本次续排的时间预算。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>预算耗尽后仍有就绪 Actor 时为 <see langword="true"/>。</returns>
+    internal async ValueTask<bool> DrainReadyActorsCurrentShardAsync(
+        long budgetTicks,
+        CancellationToken cancellationToken)
+    {
+        if (!Shard.IsCurrent)
+        {
+            throw new InvalidOperationException(
+                "The egress scheduler must run on its owning shard.");
+        }
+
+        long deadlineTimestamp =
+            Stopwatch.GetTimestamp() + Math.Max(0, budgetTicks);
+        bool hasMore = await DrainReadyActorsAsync(
+            deadlineTimestamp,
+            MaximumActorExecutionsPerPass,
+            cancellationToken).ConfigureAwait(false);
+        if (hasMore)
+        {
+            Schedule();
+        }
+
+        return hasMore;
+    }
+
+    /// <summary>
+    /// 排空当前就绪 Actor。
+    /// </summary>
+    /// <param name="deadlineTimestamp">截止时间戳。</param>
+    /// <param name="maximumActors">最大 Actor 数量。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>仍有就绪 Actor 时为 <see langword="true"/>。</returns>
+    private async ValueTask<bool> DrainReadyActorsAsync(
+        long deadlineTimestamp,
+        int maximumActors,
+        CancellationToken cancellationToken)
+    {
         long started = Stopwatch.GetTimestamp();
         int actorCount = 0;
         try
         {
-            while (actorCount < MaximumActorExecutionsPerPass &&
-                Stopwatch.GetElapsedTime(started) <
-                    TimeSpan.FromTicks(PassBudgetTimestampTicks) &&
+            while (actorCount < maximumActors &&
+                Stopwatch.GetTimestamp() < deadlineTimestamp &&
                 _ready.TryDequeue(out MqttZeroSessionEgress? egress))
             {
                 long readyTimestamp = egress.ConsumeReadyTimestampTicks();
@@ -179,6 +228,8 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
 
                 actorCount++;
             }
+
+            return !_ready.IsEmpty;
         }
         finally
         {
