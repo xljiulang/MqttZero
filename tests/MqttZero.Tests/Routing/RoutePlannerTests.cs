@@ -331,7 +331,7 @@ public sealed class RoutePlannerTests
         using MqttZeroRoutePlannerLanes lanes = new(8);
         MqttZeroRoutePlanBuffer buffer = lanes[0];
         MqttZeroSharedGroupCursors cursors = new();
-        for (int index = 0; index < 200; index++)
+        for (int index = 0; index < 2_000; index++)
         {
             _ = MqttZeroRoutePlanner.Plan(
                 epoch,
