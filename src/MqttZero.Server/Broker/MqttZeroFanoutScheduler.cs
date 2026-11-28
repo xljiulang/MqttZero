@@ -1,3 +1,4 @@
+using MqttZero.Server.Egress;
 using MqttZero.Server.Scheduling;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -10,10 +11,12 @@ namespace MqttZero.Server.Broker;
 internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
 {
     private const int MaximumEntriesPerPass = 64;
+    private static readonly long LocalEgressFollowUpBudgetTimestampTicks = Math.Max(1, Stopwatch.Frequency / 10_000);
     private static readonly long PassBudgetTimestampTicks = Math.Max(1, Stopwatch.Frequency / 4000);
 
     private readonly SemaphoreSlim _capacity;
     private readonly MqttZeroFanoutDiagnostics? _diagnostics;
+    private readonly MqttZeroEgressScheduler? _egressScheduler;
     private readonly ConcurrentQueue<MqttZeroFanoutScheduledBatch> _ready = new();
     private readonly MqttZeroEventLoop _shard;
     private readonly TaskCompletionSource _signalsDrained = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -31,14 +34,17 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
     /// <param name="shard">分片。</param>
     /// <param name="queueCapacity">队列容量。</param>
     /// <param name="diagnostics">诊断。</param>
+    /// <param name="egressScheduler">同分片出站调度器。</param>
     internal MqttZeroFanoutScheduler(
         MqttZeroEventLoop shard,
         int queueCapacity,
-        MqttZeroFanoutDiagnostics? diagnostics)
+        MqttZeroFanoutDiagnostics? diagnostics,
+        MqttZeroEgressScheduler? egressScheduler = null)
     {
         _shard = shard ?? throw new ArgumentNullException(nameof(shard));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(queueCapacity);
         _diagnostics = diagnostics;
+        _egressScheduler = egressScheduler;
         _queueCapacity = queueCapacity;
         _capacity = new SemaphoreSlim(queueCapacity, queueCapacity);
         _work = new MqttZeroFanoutSchedulerWork(this);
@@ -182,6 +188,16 @@ internal sealed class MqttZeroFanoutScheduler : IAsyncDisposable
                         _capacity.Release();
                         count++;
                     }
+                }
+
+                if (_egressScheduler != null &&
+                    !cancellationToken.IsCancellationRequested)
+                {
+                    _ = await _egressScheduler
+                        .DrainReadyActorsCurrentShardAsync(
+                            LocalEgressFollowUpBudgetTimestampTicks,
+                            cancellationToken)
+                        .ConfigureAwait(false);
                 }
             }
         }

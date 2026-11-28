@@ -67,7 +67,8 @@ internal sealed class MqttZeroShardSet : IAsyncDisposable
             _fanoutSchedulers[index] = new MqttZeroFanoutScheduler(
                 _shards[index],
                 queueCapacity,
-                fanoutDiagnostics);
+                fanoutDiagnostics,
+                _egressSchedulers[index]);
             _timerWheels[index] = new MqttZeroShardTimerWheel(
                 _shards[index],
                 resolvedTimeProvider,

@@ -1,6 +1,7 @@
 using MqttZero.Server.Broker;
 using MqttZero.Server.Egress;
 using MqttZero.Server.Scheduling;
+using System.Diagnostics;
 
 namespace MqttZero.Tests.Egress;
 
@@ -47,6 +48,8 @@ public sealed class MqttZeroEgressSchedulerTests
         Assert.Equal(1, snapshot.EgressSchedulerPassCount);
         Assert.Equal(1, snapshot.EgressScheduledActorPassCount);
         Assert.Equal(1, snapshot.EgressDrainCount);
+        Assert.Equal(1, snapshot.EgressReadyToExecuteCount);
+        Assert.True(snapshot.TotalEgressReadyToExecuteTicks > 0);
         await actor.StopAsync();
     }
 
@@ -115,6 +118,47 @@ public sealed class MqttZeroEgressSchedulerTests
             await second.DisposeAsync();
             await third.DisposeAsync();
         }
+    }
+
+    [Fact(Timeout = 5_000)]
+    public async Task DirectDrainRunsBeforeQueuedSchedulerWork()
+    {
+        await using MqttZeroEventLoop shard = new(0, 64);
+        MqttZeroFanoutDiagnostics diagnostics = new(enabled: true);
+        await using MqttZeroEgressScheduler scheduler = new(
+            shard,
+            diagnostics);
+        TaskCompletionSource directDrainCompleted = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        int drainCount = 0;
+        await using MqttZeroSessionEgress actor = CreateActor(
+            scheduler,
+            _ =>
+            {
+                Interlocked.Increment(ref drainCount);
+                return ValueTask.FromResult(false);
+            });
+
+        await shard.EnqueueAsync(
+            new DelegateShardWork(
+                async cancellationToken =>
+                {
+                    actor.Signal();
+                    _ = await scheduler.DrainReadyActorsCurrentShardAsync(
+                        Stopwatch.Frequency / 1000,
+                        cancellationToken);
+                    directDrainCompleted.TrySetResult();
+                }),
+            TestContext.Current.CancellationToken);
+        await directDrainCompleted.Task.WaitAsync(
+            TestContext.Current.CancellationToken);
+        await Task.Delay(
+            TimeSpan.FromMilliseconds(50),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, Volatile.Read(ref drainCount));
+        Assert.Equal(1, diagnostics.GetSnapshot().EgressDrainCount);
+        await actor.StopAsync();
     }
 
     [Fact(Timeout = 5_000)]
@@ -215,6 +259,24 @@ public sealed class MqttZeroEgressSchedulerTests
         {
             _started.TrySetResult();
             await _release.Task.WaitAsync(cancellationToken);
+        }
+    }
+
+    private sealed class DelegateShardWork : MqttZeroShardWork
+    {
+        private readonly Func<CancellationToken, ValueTask> _execute;
+
+        public DelegateShardWork(
+            Func<CancellationToken, ValueTask> execute)
+        {
+            _execute = execute;
+        }
+
+        public override ValueTask ExecuteAsync(
+            MqttZeroEventLoop shard,
+            CancellationToken cancellationToken)
+        {
+            return _execute(cancellationToken);
         }
     }
 }

@@ -675,6 +675,12 @@ public sealed partial class MqttZeroBroker
             return;
         }
 
+        if (session.PendingMessages.Count == 0)
+        {
+            _fanoutDiagnostics.RecordEgressSignalWithoutPending();
+            return;
+        }
+
         _fanoutDiagnostics.RecordEgressSignal();
         egress.Signal();
     }
