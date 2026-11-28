@@ -24,18 +24,38 @@ fi
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 mkdir -p "$output_root"
 runs_file="$output_root/runs.tsv"
+echo "mode=$mode qos=$qos_values subscribers=$subscriber_values payloads=$payload_values repetitions=$repetitions start_port=$start_port"
 printf 'mode\tqos\tsubscribers\tpayload\tmessage_count\twarmup_messages\trepetition\tbroker\tport\tattempt\tsummary\n' >"$runs_file"
 
 message_count_for() {
     local payload=$1
+    local subscribers=$2
     if [[ "$mode" == "latency" ]]; then
         echo "$latency_message_count"
         return
     fi
     case "$payload" in
-        32) echo 5000 ;;
-        8192) echo 1000 ;;
-        65536) echo 100 ;;
+        32)
+            if ((subscribers <= 1)); then
+                echo 5000
+            elif ((subscribers <= 100)); then
+                echo 1000
+            else
+                echo 200
+            fi
+            ;;
+        8192)
+            if ((subscribers <= 1)); then
+                echo 1000
+            elif ((subscribers <= 100)); then
+                echo 200
+            else
+                echo 50
+            fi
+            ;;
+        65536)
+            echo 100
+            ;;
         *)
             echo "unsupported payload $payload" >&2
             return 1
@@ -79,7 +99,7 @@ next_port=$start_port
 for qos in ${qos_values//,/ }; do
     for subscribers in ${subscriber_values//,/ }; do
         for payload in ${payload_values//,/ }; do
-            messages=$(message_count_for "$payload")
+            messages=$(message_count_for "$payload" "$subscribers")
             warmup_messages=$(warmup_count_for "$messages")
             cell_name="qos${qos}-subs${subscribers}-payload${payload}"
             for ((repetition = 1; repetition <= repetitions; repetition++)); do
@@ -105,7 +125,7 @@ for qos in ${qos_values//,/ }; do
 
                         echo "mode=$mode cell=$cell_name repetition=$repetition broker=$broker port=$next_port attempt=$attempt"
                         if PUBLISH_INTERVAL_MS="$publish_interval" \
-                            "$script_dir/run-cell.sh" \
+                            bash "$script_dir/run-cell.sh" \
                             "$broker" \
                             "$next_port" \
                             "$qos" \

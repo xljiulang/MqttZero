@@ -14,6 +14,7 @@ payload=$5
 messages=$6
 warmup_messages=$7
 output_dir=$8
+host_profile=${HOST_PROFILE:-}
 
 root=${MQTTZERO_DEV_ROOT:-/home/ubuntu/mqttzero-dev}
 runtime_dir=${MQTTZERO_BROKER_DIR:-"$root/artifacts/broker-linux-x64/current/runtime"}
@@ -27,6 +28,13 @@ publish_interval_ms=${PUBLISH_INTERVAL_MS:-0}
 process_sample_ms=${PROCESS_SAMPLE_MS:-100}
 enable_internal_memory_probe=${ENABLE_MQTTZERO_MEMORY_PROBE:-0}
 memory_probe_ms=${MEMORY_PROBE_MS:-100}
+enable_fanout_diagnostics=${ENABLE_FANOUT_DIAGNOSTICS:-0}
+max_buffered_bytes=${MAX_BUFFERED_BYTES:-}
+outbound_batch_bytes=${OUTBOUND_BATCH_BYTES:-}
+outbound_batch_messages=${OUTBOUND_BATCH_MESSAGES:-}
+outbound_batch_duration_us=${OUTBOUND_BATCH_DURATION_US:-}
+event_loop_shards=${EVENT_LOOP_SHARDS:-}
+io_queue_count=${IO_QUEUE_COUNT:-}
 run_id=$(date +%Y%m%d-%H%M%S-%N)
 topic="bench/${broker}/${qos}/${subscribers}/${payload}/${run_id}"
 
@@ -41,6 +49,7 @@ qoe_dump_log="$output_dir/qoe-dump.log"
 summary_json="$output_dir/summary.json"
 summary_markdown="$output_dir/summary.md"
 phases_json="$output_dir/phases.json"
+benchmark_config="$output_dir/benchmark-config.json"
 broker_samples="$output_dir/broker-samples.csv"
 subscriber_samples="$output_dir/subscriber-samples.csv"
 publisher_samples="$output_dir/publisher-samples.csv"
@@ -327,9 +336,88 @@ broker_arguments=(
     --broker "$broker"
     --port "$port"
 )
-if [[ "$broker" == "mqttzero" && "$enable_internal_memory_probe" == "1" ]]; then
-    broker_arguments+=(--memory-probe-ms "$memory_probe_ms")
+if [[ "$broker" == "mqttzero" ]]; then
+    if [[ -n "$max_buffered_bytes" ]]; then
+        broker_arguments+=(--max-buffered-bytes "$max_buffered_bytes")
+    fi
+    if [[ -n "$outbound_batch_bytes" ]]; then
+        broker_arguments+=(--outbound-batch-bytes "$outbound_batch_bytes")
+    fi
+    if [[ -n "$outbound_batch_messages" ]]; then
+        broker_arguments+=(--outbound-batch-messages "$outbound_batch_messages")
+    fi
+    if [[ -n "$outbound_batch_duration_us" ]]; then
+        broker_arguments+=(--outbound-batch-duration-us "$outbound_batch_duration_us")
+    fi
+    if [[ -n "$event_loop_shards" ]]; then
+        broker_arguments+=(--event-loop-shards "$event_loop_shards")
+    fi
+    if [[ -n "$io_queue_count" ]]; then
+        broker_arguments+=(--io-queue-count "$io_queue_count")
+    fi
+    if [[ "$enable_fanout_diagnostics" == "1" ]]; then
+        broker_arguments+=(--diagnostics true)
+    fi
+    if [[ "$enable_internal_memory_probe" == "1" ]]; then
+        broker_arguments+=(--memory-probe-ms "$memory_probe_ms")
+    fi
 fi
+
+if [[ "${PRINT_BROKER_ARGS:-0}" == "1" ]]; then
+    printf '%s\n' "${broker_arguments[@]}"
+    exit 0
+fi
+
+: "${host_profile:?必须通过 HOST_PROFILE 指定已批准的 host.json}"
+python3 "$script_dir/host_preflight.py" \
+    --validate "$host_profile" \
+    --current "$output_dir/current-host.json"
+
+python3 - \
+    "$benchmark_config" \
+    "$broker" \
+    "$host_profile" \
+    "$max_pending" \
+    "$max_buffered_bytes" \
+    "$outbound_batch_bytes" \
+    "$outbound_batch_messages" \
+    "$outbound_batch_duration_us" \
+    "$event_loop_shards" \
+    "$io_queue_count" \
+    "$enable_fanout_diagnostics" \
+    "$enable_internal_memory_probe" \
+    "${broker_arguments[@]}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+
+def optional_int(value: str) -> int | None:
+    return int(value) if value else None
+
+
+is_mqttzero = sys.argv[2] == "mqttzero"
+result = {
+    "broker": sys.argv[2],
+    "hostProfile": sys.argv[3],
+    "maxPending": int(sys.argv[4]),
+    "maxBufferedBytes": optional_int(sys.argv[5]) if is_mqttzero else None,
+    "outboundBatchBytes": optional_int(sys.argv[6]) if is_mqttzero else None,
+    "outboundBatchMessages": optional_int(sys.argv[7]) if is_mqttzero else None,
+    "outboundBatchDurationMicroseconds": (
+        optional_int(sys.argv[8]) if is_mqttzero else None
+    ),
+    "eventLoopShards": optional_int(sys.argv[9]) if is_mqttzero else None,
+    "ioQueueCount": optional_int(sys.argv[10]) if is_mqttzero else None,
+    "fanoutDiagnostics": is_mqttzero and sys.argv[11] == "1",
+    "memoryProbe": is_mqttzero and sys.argv[12] == "1",
+    "brokerArguments": sys.argv[13:],
+}
+Path(sys.argv[1]).write_text(
+    json.dumps(result, indent=2, ensure_ascii=False) + "\n",
+    encoding="utf-8",
+)
+PY
 
 cd "$runtime_dir"
 if [[ -x ./MqttZero.BrokerBenchmarks ]]; then
@@ -445,6 +533,7 @@ python3 "$script_dir/summarize.py" \
     --received-after "$received_after" \
     --expected-deliveries "$expected_deliveries" \
     --phases "$phases_json" \
+    --benchmark-config "$benchmark_config" \
     --broker-samples "$broker_samples" \
     --subscriber-samples "$subscriber_samples" \
     --publisher-samples "$publisher_samples" \

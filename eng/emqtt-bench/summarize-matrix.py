@@ -120,19 +120,39 @@ def summarize_cell(
         and mqtt_net["latencyP99Milliseconds"]
         else None
     )
+    p95_ratio = (
+        mqtt_zero["latencyP95Milliseconds"]
+        / mqtt_net["latencyP95Milliseconds"]
+        if mqtt_zero["latencyP95Milliseconds"]
+        and mqtt_net["latencyP95Milliseconds"]
+        else None
+    )
     complete = mqtt_zero["complete"] and mqtt_net["complete"]
     latency_complete = (
         mqtt_zero["latencyComplete"] and mqtt_net["latencyComplete"]
     )
     if mode == "throughput":
-        passed = bool(complete and delivery_ratio is not None and delivery_ratio >= 1.0)
+        throughput_gate_passed = bool(
+            complete
+            and delivery_ratio is not None
+            and delivery_ratio >= 1.0
+        )
+        tail_gate_passed = None
+        latency_gate_eligible = False
     else:
-        passed = bool(
+        throughput_gate_passed = None
+        latency_gate_eligible = latency_complete
+        tail_gate_passed = bool(
             complete
             and latency_complete
             and p99_ratio is not None
             and p99_ratio <= 1.0
         )
+    gate_passed = (
+        throughput_gate_passed
+        if mode == "throughput"
+        else tail_gate_passed
+    )
 
     return {
         "qos": qos,
@@ -140,8 +160,12 @@ def summarize_cell(
         "payloadBytes": payload,
         "mode": mode,
         "deliveryThroughputRatio": delivery_ratio,
+        "p95Ratio": p95_ratio,
         "p99Ratio": p99_ratio,
-        "gatePassed": passed,
+        "throughputGatePassed": throughput_gate_passed,
+        "latencyGateEligible": latency_gate_eligible,
+        "tailGatePassed": tail_gate_passed,
+        "gatePassed": gate_passed,
         "brokers": brokers,
     }
 
@@ -152,8 +176,8 @@ def write_markdown(path: str, mode: str, cells: list[dict[str, Any]]) -> None:
         "",
         "Development evidence on the current host; not a capacity claim.",
         "",
-        "| QoS | Subs | Payload | MQTTZero delivery/s | MQTTnet delivery/s | Ratio | MQTTZero p99 ms | MQTTnet p99 ms | P99 ratio | Broker CPU % (zero/net) | Broker peak RSS MB (zero/net) | Passed |",
-        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+        "| QoS | Subs | Payload | MQTTZero delivery/s | MQTTnet delivery/s | Ratio | MQTTZero p95 ms | MQTTnet p95 ms | P95 ratio (diagnostic) | MQTTZero p99 ms | MQTTnet p99 ms | P99 ratio | Broker CPU % (zero/net) | Broker peak RSS MB (zero/net) | Passed |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     for cell in cells:
         zero = cell["brokers"]["mqttzero"]
@@ -186,6 +210,9 @@ def write_markdown(path: str, mode: str, cells: list[dict[str, Any]]) -> None:
             f"{format_value(zero['deliveryRatePerSecond'], 1)} | "
             f"{format_value(net['deliveryRatePerSecond'], 1)} | "
             f"{format_value(cell['deliveryThroughputRatio'], 3)} | "
+            f"{format_value(zero['latencyP95Milliseconds'], 1)} | "
+            f"{format_value(net['latencyP95Milliseconds'], 1)} | "
+            f"{format_value(cell['p95Ratio'], 3)} | "
             f"{format_value(zero['latencyP99Milliseconds'], 1)} | "
             f"{format_value(net['latencyP99Milliseconds'], 1)} | "
             f"{format_value(cell['p99Ratio'], 3)} | "

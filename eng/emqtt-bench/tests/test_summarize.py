@@ -44,6 +44,33 @@ SAMPLES = [
 
 
 class SummarizeTests(unittest.TestCase):
+    def test_load_benchmark_configuration(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "benchmark-config.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "broker": "mqttzero",
+                        "maxBufferedBytes": 134217728,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            configuration = summarize.load_benchmark_configuration(
+                str(path)
+            )
+
+        self.assertEqual("mqttzero", configuration["broker"])
+        self.assertEqual(
+            134217728,
+            configuration["maxBufferedBytes"],
+        )
+
+    def test_missing_benchmark_configuration_returns_none(self) -> None:
+        self.assertIsNone(
+            summarize.load_benchmark_configuration(None)
+        )
+
     def test_qoe_loader_filters_warmup_and_sorts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "qoe.csv"
@@ -86,6 +113,7 @@ class SummarizeTests(unittest.TestCase):
                     {
                         "TimestampTicks": 1,
                         "ManagedHeapBytes": 10,
+                        "EgressDataBatchCount": 3,
                         "ObjectPools": {"Ignored": 100},
                     }
                 )
@@ -95,6 +123,7 @@ class SummarizeTests(unittest.TestCase):
                     {
                         "TimestampTicks": 2,
                         "ManagedHeapBytes": 20,
+                        "EgressDataBatchCount": 5,
                     }
                 )
                 + "\n",
@@ -106,6 +135,7 @@ class SummarizeTests(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(2, result["sampleCount"])
         self.assertEqual(20, result["peak"]["ManagedHeapBytes"])
+        self.assertEqual(5, result["peak"]["EgressDataBatchCount"])
         self.assertNotIn("TimestampTicks", result["peak"])
 
 

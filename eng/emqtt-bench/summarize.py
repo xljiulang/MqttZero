@@ -7,6 +7,12 @@ from pathlib import Path
 from typing import Any
 
 
+def load_benchmark_configuration(path: str | None) -> dict[str, Any] | None:
+    if not path:
+        return None
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
 def percentile(values: list[int], ratio: float) -> int | None:
     if not values:
         return None
@@ -263,6 +269,7 @@ def main() -> None:
     parser.add_argument("--received-after", required=True, type=int)
     parser.add_argument("--expected-deliveries", required=True, type=int)
     parser.add_argument("--phases", required=True)
+    parser.add_argument("--benchmark-config")
     parser.add_argument("--broker-samples", required=True)
     parser.add_argument("--subscriber-samples", required=True)
     parser.add_argument("--publisher-samples", required=True)
@@ -330,6 +337,9 @@ def main() -> None:
         "latencyP99Milliseconds": percentile(latencies, 0.99),
         "latencyMaxMilliseconds": max(latencies) if latencies else None,
         "phases": phases,
+        "benchmarkConfiguration": load_benchmark_configuration(
+            args.benchmark_config
+        ),
         "brokerResources": broker_resources,
         "clientResources": combine_client_resources(
             subscriber_resources,
