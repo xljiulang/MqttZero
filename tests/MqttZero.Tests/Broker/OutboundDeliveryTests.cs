@@ -631,6 +631,22 @@ namespace MqttZero.Tests.Broker
         }
 
         [Fact(Timeout = 5_000)]
+        public async Task LargeMessageBacklogUsesAdaptiveByteBudget()
+        {
+            MqttZeroOptions options = new()
+            {
+                MaxMessageQueueLength = 10
+            };
+
+            await AssertQosZeroBatchFlushCountAsync(
+                options,
+                messageCount: 5,
+                payloadSize: 64 * 1024,
+                expectedFlushCount: 5,
+                TestContext.Current.CancellationToken);
+        }
+
+        [Fact(Timeout = 5_000)]
         public async Task LargeMessageBacklogHonorsEncodedByteLimit()
         {
             const int messageCount = 8;
@@ -714,7 +730,7 @@ namespace MqttZero.Tests.Broker
                 await subscriberWriter.Completion.WaitAsync(
                     TimeSpan.FromSeconds(2),
                     TestContext.Current.CancellationToken);
-                Assert.Equal(2, subscriberWriter.FlushCount);
+                Assert.Equal(8, subscriberWriter.FlushCount);
             }
             finally
             {
@@ -722,6 +738,65 @@ namespace MqttZero.Tests.Broker
                 await publisherConnection.DisposeAsync();
                 await subscriberConnection.DisposeAsync();
             }
+        }
+
+        [Fact(Timeout = 5_000)]
+        public async Task MixedSmallThenLargeMessagesUseSeparateBatches()
+        {
+            MqttZeroOptions options = new()
+            {
+                MaxMessageQueueLength = 10
+            };
+
+            IReadOnlyList<int> flushSizes =
+                await GetQosZeroBatchFlushSizesAsync(
+                    options,
+                    [1024, 64 * 1024, 64 * 1024],
+                    TestContext.Current.CancellationToken);
+
+            Assert.Equal(3, flushSizes.Count);
+            Assert.InRange(flushSizes[0], 1024, 2048);
+            Assert.True(flushSizes[1] >= 64 * 1024);
+            Assert.True(flushSizes[2] >= 64 * 1024);
+        }
+
+        [Fact(Timeout = 5_000)]
+        public async Task MixedLargeThenSmallMessagesPreserveBatchOrder()
+        {
+            MqttZeroOptions options = new()
+            {
+                MaxMessageQueueLength = 10
+            };
+
+            IReadOnlyList<int> flushSizes =
+                await GetQosZeroBatchFlushSizesAsync(
+                    options,
+                    [64 * 1024, 1024, 1024],
+                    TestContext.Current.CancellationToken);
+
+            Assert.Equal(2, flushSizes.Count);
+            Assert.True(flushSizes[0] >= 64 * 1024);
+            Assert.InRange(flushSizes[1], 2048, 4096);
+        }
+
+        [Fact(Timeout = 5_000)]
+        public async Task AlternatingSmallAndLargeMessagesKeepQueueOrder()
+        {
+            MqttZeroOptions options = new()
+            {
+                MaxMessageQueueLength = 10
+            };
+
+            IReadOnlyList<int> flushSizes =
+                await GetQosZeroBatchFlushSizesAsync(
+                    options,
+                    [1024, 64 * 1024, 1024, 64 * 1024],
+                    TestContext.Current.CancellationToken);
+
+            Assert.Equal(3, flushSizes.Count);
+            Assert.InRange(flushSizes[0], 1024, 2048);
+            Assert.True(flushSizes[1] > 64 * 1024);
+            Assert.True(flushSizes[2] >= 64 * 1024);
         }
 
         [Fact(Timeout = 5_000)]
@@ -1224,6 +1299,98 @@ namespace MqttZero.Tests.Broker
             }
         }
 
+        private static async Task<IReadOnlyList<int>>
+            GetQosZeroBatchFlushSizesAsync(
+                MqttZeroOptions options,
+                IReadOnlyList<int> payloadSizes,
+                CancellationToken cancellationToken)
+        {
+            await using MqttZeroBroker broker = MqttZeroBroker.Create(
+                options,
+                TimeProvider.System);
+            await broker.StartAsync(cancellationToken);
+            TrackingPipeWriter subscriberWriter = new()
+            {
+                CompletionWrittenBytes = payloadSizes.Sum()
+            };
+            MqttZeroClientConnection subscriberConnection = new(
+                subscriberWriter,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                2 * 1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState receiver = new(
+                "receiver",
+                options.MaxMessageQueueLength);
+            receiver.Subscriptions.Add(new MqttZeroSubscription(
+                "batch/#"u8.ToArray(),
+                MqttQualityOfServiceLevel.AtMostOnce,
+                false,
+                false,
+                null));
+            receiver.Connection = subscriberConnection;
+            AddSession(broker, receiver);
+            RebuildRoutes(broker);
+            TrackingPipeWriter publisherWriter = new();
+            MqttZeroClientConnection publisherConnection = new(
+                publisherWriter,
+                new IPEndPoint(IPAddress.Loopback, 0),
+                false,
+                false,
+                0,
+                32,
+                2 * 1024 * 1024,
+                TimeProvider.System);
+            MqttZeroSessionState publisher = new("publisher");
+
+            for (int index = 0; index < payloadSizes.Count; index++)
+            {
+                MqttZeroMessageLease lease = MqttZeroMessageLease.CopyFrom(
+                    new ReadOnlySequence<byte>("batch/topic"u8.ToArray()),
+                    ReadOnlySequence<byte>.Empty,
+                    new ReadOnlySequence<byte>(
+                        new byte[payloadSizes[index]]),
+                    MqttQualityOfServiceLevel.AtMostOnce,
+                    false,
+                    null,
+                    null);
+                try
+                {
+                    await broker.RoutePublishLeaseAsync(
+                        publisher,
+                        publisherConnection,
+                        lease,
+                        cancellationToken);
+                }
+                finally
+                {
+                    lease.Release();
+                }
+            }
+
+            using CancellationTokenSource pumpLifetime = new();
+            MqttZeroSessionEgress pump = broker.StartEgress(
+                receiver,
+                subscriberConnection,
+                pumpLifetime.Token);
+            try
+            {
+                await subscriberWriter.Completion.WaitAsync(
+                    TimeSpan.FromSeconds(2),
+                    cancellationToken);
+                return subscriberWriter.FlushWrittenBytes.ToArray();
+            }
+            finally
+            {
+                await pump.StopAsync();
+                await publisherConnection.DisposeAsync();
+                await subscriberConnection.DisposeAsync();
+            }
+        }
+
         private static async Task QueueQosZeroMessagesAsync(
             MqttZeroBroker broker,
             MqttZeroSessionState publisher,
@@ -1437,6 +1604,7 @@ namespace MqttZero.Tests.Broker
             private readonly TaskCompletionSource _completion = new(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             private byte[] _buffer = new byte[1024];
+            private int _flushedWritten;
             private int _written;
 
             public Task Completion
@@ -1450,6 +1618,8 @@ namespace MqttZero.Tests.Broker
             public int CompletionWrittenBytes { get; set; } = int.MaxValue;
 
             public int FlushCount { get; private set; }
+
+            public List<int> FlushWrittenBytes { get; } = [];
 
             public bool FlushCompleted { get; set; }
 
@@ -1484,6 +1654,8 @@ namespace MqttZero.Tests.Broker
                 CancellationToken cancellationToken = default)
             {
                 FlushCount++;
+                FlushWrittenBytes.Add(_written - _flushedWritten);
+                _flushedWritten = _written;
                 if (_written >= CompletionWrittenBytes)
                 {
                     _completion.TrySetResult();

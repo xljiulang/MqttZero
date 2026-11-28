@@ -11,6 +11,7 @@ namespace MqttZero.Server.Egress;
 internal sealed class MqttZeroSessionEgressServices
 {
     private readonly Func<string, long, CancellationToken, ValueTask> _deleteMessageAsync;
+    private readonly Func<int> _getActiveConnectionCount;
     private readonly Func<MqttZeroSessionState, MqttZeroMessageLease, MqttZeroMessageDropReason, CancellationToken, ValueTask> _notifyDroppedAsync;
     private readonly Func<MqttZeroQueuedMessage, string, CancellationToken, ValueTask> _transitionQueuedToOutboundAsync;
     private readonly Action<MqttZeroSessionState> _rescheduleMessageExpiry;
@@ -21,6 +22,7 @@ internal sealed class MqttZeroSessionEgressServices
     /// <param name="options">选项。</param>
     /// <param name="timeProvider">时间Provider。</param>
     /// <param name="diagnostics">诊断。</param>
+    /// <param name="getActiveConnectionCount">获取活动连接数。</param>
     /// <param name="deleteMessageAsync">delete消息。</param>
     /// <param name="notifyDroppedAsync">notifyDropped。</param>
     /// <param name="transitionQueuedToOutboundAsync">transitionQueuedTo出站。</param>
@@ -29,6 +31,7 @@ internal sealed class MqttZeroSessionEgressServices
         MqttZeroOptions options,
         TimeProvider timeProvider,
         MqttZeroFanoutDiagnostics diagnostics,
+        Func<int> getActiveConnectionCount,
         Func<
             string,
             long,
@@ -53,6 +56,9 @@ internal sealed class MqttZeroSessionEgressServices
             throw new ArgumentNullException(nameof(timeProvider));
         Diagnostics = diagnostics ??
             throw new ArgumentNullException(nameof(diagnostics));
+        _getActiveConnectionCount = getActiveConnectionCount ??
+            throw new ArgumentNullException(
+                nameof(getActiveConnectionCount));
         _deleteMessageAsync = deleteMessageAsync ??
             throw new ArgumentNullException(nameof(deleteMessageAsync));
         _notifyDroppedAsync = notifyDroppedAsync ??
@@ -80,6 +86,17 @@ internal sealed class MqttZeroSessionEgressServices
     /// 诊断。
     /// </summary>
     internal MqttZeroFanoutDiagnostics Diagnostics { get; }
+
+    /// <summary>
+    /// 获取当前活动连接数。
+    /// </summary>
+    internal int ActiveConnectionCount
+    {
+        get
+        {
+            return _getActiveConnectionCount();
+        }
+    }
 
     /// <summary>
     /// 删除消息。

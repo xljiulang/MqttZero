@@ -47,6 +47,45 @@ public sealed class FanoutDiagnosticsTests
     }
 
     [Fact]
+    public void DiagnosticsTrackEncodedBytesUntilFlushCompletes()
+    {
+        MqttZeroFanoutDiagnostics diagnostics = new(enabled: true);
+
+        diagnostics.RecordEgressFlushStarted(64 * 1024);
+
+        MqttZeroFanoutDiagnosticsSnapshot snapshot =
+            diagnostics.GetSnapshot();
+        Assert.Equal(1, snapshot.CurrentEgressFlushPendingCount);
+        Assert.Equal(
+            64 * 1024,
+            snapshot.CurrentEncodedBytesAwaitingFlush);
+        Assert.Equal(1, snapshot.MaxEgressFlushPendingCount);
+        Assert.Equal(
+            64 * 1024,
+            snapshot.MaxEncodedBytesAwaitingFlush);
+
+        diagnostics.RecordEgressFlushCompleted(64 * 1024);
+
+        snapshot = diagnostics.GetSnapshot();
+        Assert.Equal(0, snapshot.CurrentEgressFlushPendingCount);
+        Assert.Equal(0, snapshot.CurrentEncodedBytesAwaitingFlush);
+    }
+
+    [Fact]
+    public void DiagnosticsTrackMaximumObservedQueueDepths()
+    {
+        MqttZeroFanoutDiagnostics diagnostics = new(enabled: true);
+
+        diagnostics.RecordPendingQueueDepth(7);
+        diagnostics.RecordInflightQueueDepth(3);
+
+        MqttZeroFanoutDiagnosticsSnapshot snapshot =
+            diagnostics.GetSnapshot();
+        Assert.Equal(7, snapshot.MaxObservedSessionPendingQueueDepth);
+        Assert.Equal(3, snapshot.MaxObservedSessionInflightQueueDepth);
+    }
+
+    [Fact]
     public void SnapshotCountsEgressSchedulerAndBatchMetrics()
     {
         MqttZeroFanoutDiagnostics diagnostics = new(enabled: true);
@@ -142,6 +181,8 @@ public sealed class FanoutDiagnosticsTests
         diagnostics.RecordEgressFlushStart();
         diagnostics.RecordFlushWait();
         diagnostics.RecordPendingQueueDepth(6);
+        diagnostics.RecordInflightQueueDepth(5);
+        diagnostics.RecordEgressFlushStarted(1024);
         diagnostics.RecordFanoutSchedulerEnqueue(7);
         diagnostics.RecordFanoutSchedulerPass(8);
         diagnostics.RecordFanoutSchedulerFailure();
@@ -160,6 +201,10 @@ public sealed class FanoutDiagnosticsTests
         Assert.Equal(0, snapshot.EgressFlushStartCount);
         Assert.Equal(0, snapshot.FlushWaitCount);
         Assert.Equal(0, snapshot.MaxPendingQueueDepth);
+        Assert.Equal(0, snapshot.MaxObservedSessionPendingQueueDepth);
+        Assert.Equal(0, snapshot.MaxObservedSessionInflightQueueDepth);
+        Assert.Equal(0, snapshot.CurrentEgressFlushPendingCount);
+        Assert.Equal(0, snapshot.CurrentEncodedBytesAwaitingFlush);
         Assert.Equal(0, snapshot.FanoutSchedulerEnqueueCount);
         Assert.Equal(0, snapshot.FanoutSchedulerPassCount);
         Assert.Equal(0, snapshot.FanoutSchedulerBatchCount);

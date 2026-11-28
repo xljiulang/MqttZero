@@ -942,7 +942,13 @@ static async Task RunOutboundAsync(Dictionary<string, string> arguments)
         diagnosticsSnapshot.TotalAckWorkQueueTicks,
         diagnosticsSnapshot.MaxAckWorkQueueTicks,
         diagnosticsSnapshot.QosZeroDirectCount,
-        diagnosticsSnapshot.QosZeroDeferredCount);
+        diagnosticsSnapshot.QosZeroDeferredCount,
+        diagnosticsSnapshot.CurrentEgressFlushPendingCount,
+        diagnosticsSnapshot.CurrentEncodedBytesAwaitingFlush,
+        diagnosticsSnapshot.MaxEgressFlushPendingCount,
+        diagnosticsSnapshot.MaxEncodedBytesAwaitingFlush,
+        diagnosticsSnapshot.MaxObservedSessionPendingQueueDepth,
+        diagnosticsSnapshot.MaxObservedSessionInflightQueueDepth);
     OutboundBenchmarkResult result = new(
         PublishedMessages: loopResult.PublishedMessages,
         ReceivedMessages: Interlocked.Read(ref receivedMessages),
@@ -1628,6 +1634,8 @@ static async Task RunMemoryProbeAsync(
 
         MqttZeroBrokerMemorySnapshot snapshot =
             broker.GetMemorySnapshotForTest();
+        MqttZeroFanoutDiagnosticsSnapshot fanout =
+            broker.GetFanoutDiagnosticsForTest();
         using Process process = Process.GetCurrentProcess();
         BrokerMemoryProbeSnapshot probe = new(
             Stopwatch.GetTimestamp(),
@@ -1653,7 +1661,24 @@ static async Task RunMemoryProbeAsync(
             GC.GetTotalMemory(forceFullCollection: false),
             process.WorkingSet64,
             GC.GetTotalAllocatedBytes(precise: false),
-            GC.CollectionCount(2));
+            GC.CollectionCount(2),
+            fanout.EgressDataBatchCount,
+            fanout.EgressBatchMessageCount,
+            fanout.EgressBatchByteCount,
+            fanout.EgressFlushStartCount,
+            fanout.FlushWaitCount,
+            fanout.EgressDrainCount,
+            fanout.EgressSchedulerPassCount,
+            fanout.TotalPublishEncodeTicks,
+            fanout.MaxPublishEncodeTicks,
+            fanout.TotalPublishWriteTicks,
+            fanout.MaxPublishWriteTicks,
+            fanout.CurrentEgressFlushPendingCount,
+            fanout.CurrentEncodedBytesAwaitingFlush,
+            fanout.MaxEgressFlushPendingCount,
+            fanout.MaxEncodedBytesAwaitingFlush,
+            fanout.MaxObservedSessionPendingQueueDepth,
+            fanout.MaxObservedSessionInflightQueueDepth);
         Console.Error.WriteLine(
             Prefix + JsonSerializer.Serialize(
                 probe,

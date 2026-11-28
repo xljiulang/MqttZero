@@ -22,6 +22,17 @@
 - MQTTZero `MEMORYPROBE` 数据只用于附加诊断，不能进入跨 Broker 公平排名。
 - 当前 2 vCPU 腾讯开发机只产生开发级证据，不能作为容量声明。
 
+### 2026-11-28 Linux 开发服务器收敛
+
+- 正式跨 Broker 吞吐和延迟声明使用 QoS1。
+- eMQTT-Bench 0.6.4 的 QoS0 在高扇出下不能稳定完整投递，因此 QoS0 仅保留
+  单订阅/小扇出冒烟和内部 Raw 诊断，不产生 MQTTnet 性能声明。
+- 快速开发门禁使用 `-Quick`：单轮、1 秒 QoE Flush，不产生 p99 发布结论。
+- 正式目标格使用三轮；吞吐离散超过 10% 时追加到五轮中位数。
+- 高扇出发布条数随订阅者数缩小，避免在 2 vCPU 开发机生成数百万次无效投递。
+- 当前严格门禁状态见
+  `perf/baseline/linux-dev-mqttnet-release-gate.md`。
+
 下述 MQTTnet Client 和 Raw Client 数据保留为历史证据。Raw Client 仍是内部
 微秒级延迟、顺序完整性、暂停读取和背压诊断工具，但不再是最终第三方客户端。
 

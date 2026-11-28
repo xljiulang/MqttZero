@@ -34,6 +34,7 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     private int _executing;
     private Exception? _flushFailure;
     private int _flushPending;
+    private long _pendingFlushEncodedBytes;
     private TaskCompletionSource? _flushStopWaiter;
     private int _ready;
     private int _resumePending;
@@ -156,8 +157,11 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     /// 执行 BeginFlush 对应的处理。
     /// </summary>
     /// <param name="flush">对应的 flush。</param>
+    /// <param name="encodedBytes">本次 Flush 的编码字节数。</param>
     /// <returns>成功时为 <see langword="true"/>；否则为 <see langword="false"/>。</returns>
-    internal bool BeginFlush(ValueTask<FlushResult> flush)
+    internal bool BeginFlush(
+        ValueTask<FlushResult> flush,
+        long encodedBytes = 0)
     {
         if (flush.IsCompletedSuccessfully)
         {
@@ -180,7 +184,28 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
         Volatile.Write(
             ref _state,
             (int)MqttZeroSessionEgressState.FlushPending);
-        _flushOperation.Start(flush);
+        Volatile.Write(ref _pendingFlushEncodedBytes, encodedBytes);
+        MqttZeroFanoutDiagnostics? diagnostics =
+            _scheduler.Diagnostics;
+        diagnostics?.RecordEgressFlushStarted(encodedBytes);
+        try
+        {
+            _flushOperation.Start(flush);
+        }
+        catch
+        {
+            long pendingBytes = Interlocked.Exchange(
+                ref _pendingFlushEncodedBytes,
+                0);
+            diagnostics?.RecordEgressFlushCompleted(pendingBytes);
+
+            Volatile.Write(ref _flushPending, 0);
+            Volatile.Write(
+                ref _state,
+                (int)MqttZeroSessionEgressState.Idle);
+            throw;
+        }
+
         return false;
     }
 
@@ -576,15 +601,43 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
                 (long)(
                     services.Options.OutboundBatchDuration.TotalSeconds *
                     services.TimeProvider.TimestampFrequency));
+            int maximumBytes = services.Options.OutboundBatchBytes;
+            int maximumMessages = services.Options.OutboundBatchMessages;
+            if (session.PendingMessages.Count > 0)
+            {
+                MqttZeroQueuedMessage head = session.PendingMessages[0];
+                int encodedLength = head.EncodedLength;
+                if (!head.IsEncodedLengthValidFor(
+                        connection.MaximumPacketSize))
+                {
+                    encodedLength = connection.GetPublishEncodedLength(
+                        head.Lease,
+                        head.QualityOfServiceLevel,
+                        head.Retain,
+                        head.SubscriptionIdentifiers);
+                }
+
+                (maximumBytes, maximumMessages) =
+                    MqttZeroEgressBatchPolicy.Resolve(
+                        encodedLength,
+                        services.ActiveConnectionCount,
+                        maximumBytes,
+                        maximumMessages);
+            }
+
             MqttZeroEgressBatchBudget budget = new(
-                services.Options.OutboundBatchBytes,
-                services.Options.OutboundBatchMessages,
+                maximumBytes,
+                maximumMessages,
                 batchStartedTimestamp + batchDurationTicks);
             List<MqttZeroQueuedMessage> expired =
                 _stateData.ExpiredMessages;
             List<MqttZeroQueuedMessage> batch =
                 _stateData.OutboundBatch;
             bool diagnosticsEnabled = services.Diagnostics.Enabled;
+            services.Diagnostics.RecordPendingQueueDepth(
+                session.PendingMessages.Count);
+            services.Diagnostics.RecordInflightQueueDepth(
+                session.InflightMessages.Count);
             _stateData.SelectBatch(
                 session,
                 connection,
@@ -746,7 +799,8 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
                     {
                         flushPending = !BeginFlush(
                             connection.FlushOutputAsync(
-                                cancellationToken));
+                                cancellationToken),
+                            encodedBytes);
                     }
 
                     MqttZeroSessionEgressBufferState.ReleaseQosZeroMessages(
@@ -785,6 +839,12 @@ internal sealed class MqttZeroSessionEgress : IAsyncDisposable
     /// <param name="exception">异常。</param>
     private void OnFlushCompleted(Exception? exception)
     {
+        long pendingBytes = Interlocked.Exchange(
+            ref _pendingFlushEncodedBytes,
+            0);
+        _scheduler.Diagnostics?.RecordEgressFlushCompleted(
+            pendingBytes);
+
         Volatile.Write(ref _flushPending, 0);
         if (exception != null)
         {

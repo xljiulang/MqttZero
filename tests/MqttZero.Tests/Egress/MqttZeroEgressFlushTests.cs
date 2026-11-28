@@ -1,4 +1,5 @@
 using MqttZero.Memory;
+using MqttZero.Server.Broker;
 using MqttZero.Server.Egress;
 using MqttZero.Server.Scheduling;
 using System.IO.Pipelines;
@@ -11,9 +12,10 @@ public sealed class MqttZeroEgressFlushTests
     public async Task FlushPendingDoesNotBlockOtherActorsOnSameShard()
     {
         await using MqttZeroEventLoop shard = new(0, 32);
+        MqttZeroFanoutDiagnostics diagnostics = new(enabled: true);
         await using MqttZeroEgressScheduler scheduler = new(
             shard,
-            diagnostics: null);
+            diagnostics);
         TaskCompletionSource<FlushResult> flushCompletion = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource firstFlushStarted = new(
@@ -27,7 +29,8 @@ public sealed class MqttZeroEgressFlushTests
             _ =>
             {
                 bool synchronous = firstActor!.BeginFlush(
-                    new ValueTask<FlushResult>(flushCompletion.Task));
+                    new ValueTask<FlushResult>(flushCompletion.Task),
+                    encodedBytes: 4096);
                 Assert.False(synchronous);
                 firstFlushStarted.TrySetResult();
                 return ValueTask.FromResult(false);
@@ -51,6 +54,10 @@ public sealed class MqttZeroEgressFlushTests
             TestContext.Current.CancellationToken);
         await secondActorRan.Task.WaitAsync(
             TestContext.Current.CancellationToken);
+        MqttZeroFanoutDiagnosticsSnapshot snapshot =
+            diagnostics.GetSnapshot();
+        Assert.Equal(1, snapshot.CurrentEgressFlushPendingCount);
+        Assert.Equal(4096, snapshot.CurrentEncodedBytesAwaitingFlush);
         Assert.Equal(
             MqttZeroSessionEgressState.FlushPending,
             first.State);
@@ -59,6 +66,9 @@ public sealed class MqttZeroEgressFlushTests
         await WaitUntilAsync(
             () => first.State == MqttZeroSessionEgressState.Idle,
             TestContext.Current.CancellationToken);
+        snapshot = diagnostics.GetSnapshot();
+        Assert.Equal(0, snapshot.CurrentEgressFlushPendingCount);
+        Assert.Equal(0, snapshot.CurrentEncodedBytesAwaitingFlush);
         await first.StopAsync();
         await second.StopAsync();
         await shard.StopAsync();

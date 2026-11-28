@@ -52,4 +52,10 @@ internal sealed record MqttZeroFanoutDiagnosticsSnapshot(
     long TotalAckWorkQueueTicks,
     long MaxAckWorkQueueTicks,
     long QosZeroDirectCount,
-    long QosZeroDeferredCount);
+    long QosZeroDeferredCount,
+    int CurrentEgressFlushPendingCount,
+    long CurrentEncodedBytesAwaitingFlush,
+    int MaxEgressFlushPendingCount,
+    long MaxEncodedBytesAwaitingFlush,
+    int MaxObservedSessionPendingQueueDepth,
+    int MaxObservedSessionInflightQueueDepth);

@@ -106,7 +106,20 @@ internal sealed class MqttZeroSessionEgressBufferState
                 connection,
                 head,
                 out bool headTooLarge);
-            if (headTooLarge ||
+            if (headTooLarge)
+            {
+                break;
+            }
+
+            if (OutboundBatch.Count > 0 &&
+                MqttZeroEgressBatchPolicy.IsLarge(head.EncodedLength) &&
+                !MqttZeroEgressBatchPolicy.IsLarge(
+                    OutboundBatch[0].EncodedLength))
+            {
+                break;
+            }
+
+            if (
                 !budget.TryAdd(
                     head.EncodedLength,
                     timeProvider.GetTimestamp()))

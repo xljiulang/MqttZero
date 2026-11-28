@@ -57,6 +57,11 @@ internal sealed class MqttZeroFanoutDiagnostics
     private long _qosZeroDirectCount;
     private long _totalAckWorkQueueTicks;
     private long _totalControlWriteTicks;
+    private int _currentEgressFlushPendingCount;
+    private long _currentEncodedBytesAwaitingFlush;
+    private int _maxEgressFlushPendingCount;
+    private long _maxEncodedBytesAwaitingFlush;
+    private int _maxInflightQueueDepth;
 
     /// <summary>
     /// 初始化 MqttZeroFanoutDiagnostics 的新实例。
@@ -145,7 +150,13 @@ internal sealed class MqttZeroFanoutDiagnostics
             Interlocked.Read(ref _totalAckWorkQueueTicks),
             Interlocked.Read(ref _maxAckWorkQueueTicks),
             Interlocked.Read(ref _qosZeroDirectCount),
-            Interlocked.Read(ref _qosZeroDeferredCount));
+            Interlocked.Read(ref _qosZeroDeferredCount),
+            Volatile.Read(ref _currentEgressFlushPendingCount),
+            Interlocked.Read(ref _currentEncodedBytesAwaitingFlush),
+            Volatile.Read(ref _maxEgressFlushPendingCount),
+            Interlocked.Read(ref _maxEncodedBytesAwaitingFlush),
+            Volatile.Read(ref _maxPendingQueueDepth),
+            Volatile.Read(ref _maxInflightQueueDepth));
     }
 
     /// <summary>
@@ -487,6 +498,55 @@ internal sealed class MqttZeroFanoutDiagnostics
     }
 
     /// <summary>
+    /// 记录正在等待 Flush 的编码字节。
+    /// </summary>
+    /// <param name="encodedBytes">编码字节数。</param>
+    internal void RecordEgressFlushStarted(long encodedBytes)
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        int pendingCount = Interlocked.Increment(
+            ref _currentEgressFlushPendingCount);
+        long pendingBytes = Interlocked.Add(
+            ref _currentEncodedBytesAwaitingFlush,
+            encodedBytes);
+        InterlockedMax(ref _maxEgressFlushPendingCount, pendingCount);
+        InterlockedMax(ref _maxEncodedBytesAwaitingFlush, pendingBytes);
+    }
+
+    /// <summary>
+    /// 记录一个 Flush 已完成。
+    /// </summary>
+    /// <param name="encodedBytes">编码字节数。</param>
+    internal void RecordEgressFlushCompleted(long encodedBytes)
+    {
+        if (!_enabled)
+        {
+            return;
+        }
+
+        Interlocked.Decrement(ref _currentEgressFlushPendingCount);
+        Interlocked.Add(
+            ref _currentEncodedBytesAwaitingFlush,
+            -encodedBytes);
+    }
+
+    /// <summary>
+    /// 记录观测到的最大 Inflight 队列深度。
+    /// </summary>
+    /// <param name="depth">队列深度。</param>
+    internal void RecordInflightQueueDepth(int depth)
+    {
+        if (_enabled)
+        {
+            InterlockedMax(ref _maxInflightQueueDepth, depth);
+        }
+    }
+
+    /// <summary>
     /// 记录待处理队列Depth。
     /// </summary>
     /// <param name="depth">对应的 depth。</param>
@@ -572,6 +632,11 @@ internal sealed class MqttZeroFanoutDiagnostics
         Interlocked.Exchange(ref _maxAckWorkQueueTicks, 0);
         Interlocked.Exchange(ref _qosZeroDirectCount, 0);
         Interlocked.Exchange(ref _qosZeroDeferredCount, 0);
+        Interlocked.Exchange(ref _currentEgressFlushPendingCount, 0);
+        Interlocked.Exchange(ref _currentEncodedBytesAwaitingFlush, 0);
+        Interlocked.Exchange(ref _maxEgressFlushPendingCount, 0);
+        Interlocked.Exchange(ref _maxEncodedBytesAwaitingFlush, 0);
+        Interlocked.Exchange(ref _maxInflightQueueDepth, 0);
     }
 
     /// <summary>
@@ -624,6 +689,29 @@ internal sealed class MqttZeroFanoutDiagnostics
         while (value > current)
         {
             long observed = Interlocked.CompareExchange(
+                ref target,
+                value,
+                current);
+            if (observed == current)
+            {
+                return;
+            }
+
+            current = observed;
+        }
+    }
+
+    /// <summary>
+    /// 执行整数 InterlockedMax。
+    /// </summary>
+    /// <param name="target">目标。</param>
+    /// <param name="value">值。</param>
+    private static void InterlockedMax(ref int target, int value)
+    {
+        int current = Volatile.Read(ref target);
+        while (value > current)
+        {
+            int observed = Interlocked.CompareExchange(
                 ref target,
                 value,
                 current);

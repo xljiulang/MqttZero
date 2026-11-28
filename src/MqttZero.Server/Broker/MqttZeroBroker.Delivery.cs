@@ -1071,6 +1071,7 @@ public sealed partial class MqttZeroBroker
             _options,
             _timeProvider,
             _fanoutDiagnostics,
+            () => ActiveConnectionCount,
             DeleteMessageAsync,
             (targetSession, lease, reason, token) =>
                 NotifyDroppedAsync(

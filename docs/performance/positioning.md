@@ -143,3 +143,22 @@ The branch is no longer blocked and no compatibility shim is planned.
 Performance claims stay limited to the four passing cells of the final A/B.
 The QoS 1 / 100 / 64 KiB gap against MQTTnet is tracked in
 `perf/baseline/compare-8core-2026-11-27.md`.
+
+## 2026-11-28 Linux Development Gate
+
+The current convergence branch is split into two review units:
+
+1. Linux benchmark harness and methodology.
+2. Egress diagnostics and large-message batch behavior.
+
+The target cell `QoS1 / 500 / 64 KiB` passes the strict five-run gate:
+
+- throughput: `1.082x` MQTTnet;
+- p95: `0.985x`;
+- p99: `0.991x`;
+- peak RSS: `0.949x`.
+
+The branch is nevertheless blocked from merge because the latency protection
+cell `QoS1 / 100 / 8 KiB` has a five-run p99 median of `1.125x` MQTTnet.
+The target-cell result is recorded in
+`perf/baseline/linux-dev-mqttnet-release-gate.md`.

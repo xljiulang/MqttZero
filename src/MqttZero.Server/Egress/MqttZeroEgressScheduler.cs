@@ -42,6 +42,17 @@ internal sealed class MqttZeroEgressScheduler : IAsyncDisposable
     public MqttZeroEventLoop Shard { get; }
 
     /// <summary>
+    /// 当前调度器使用的诊断计数器。
+    /// </summary>
+    internal MqttZeroFanoutDiagnostics? Diagnostics
+    {
+        get
+        {
+            return _diagnostics;
+        }
+    }
+
+    /// <summary>
     /// 通知。
     /// </summary>
     /// <param name="egress">出站。</param>
