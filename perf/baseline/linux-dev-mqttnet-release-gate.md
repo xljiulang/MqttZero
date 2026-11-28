@@ -2,12 +2,12 @@
 
 ## 状态
 
-**显式例外合并。** 主目标吞吐和 p99 已通过。保护格
-`QoS1 / 100 / 8 KiB` 的正式延迟档 p99 中位数为 MQTTnet 的 `1.125x`，
-绝对值为 `9 ms` 对 `8 ms`。
+**严格门禁通过。** 主目标吞吐和 p99 已通过。后续 Egress 空唤醒修复将
+`QoS1 / 100 / 8 KiB` 的三次正式 p99 中位数从 `9 ms` 对 `8 ms` 收敛到
+`10 ms` 对 `10 ms`，p99 比值 `1.000x`。
 
-该 1 ms 差距属于当前 QoE 毫秒采样分辨率下的已知尾延迟缺口。经明确决策接受
-该缺口后，PR2 允许合并，但不得据此声明严格 p99 全面领先。
+该单元格不再需要显式例外。结果仍只适用于当前 2 vCPU Linux 开发服务器，
+不构成全矩阵领先声明。
 
 ## 环境
 
@@ -67,15 +67,16 @@
 
 ### QoS1 / 100 / 8 KiB
 
-正式延迟档补足五轮：
+Egress 空唤醒修复后的正式延迟档三次：
 
 | Broker | p95 中位数 | p99 中位数 |
 |---|---:|---:|
-| MQTTZero | 7 ms | 9 ms |
-| MQTTnet | 7 ms | 8 ms |
-| 比值 | 1.000x | 1.125x |
+| MQTTZero | 8 ms | 10 ms |
+| MQTTnet | 8 ms | 10 ms |
+| 比值 | 1.000x | 1.000x |
 
-结果：**失败**。p95 持平，p99 多 1 ms。
+结果：**通过**。三次投递均完整，QoE 覆盖率为 `99%–100%`，交付吞吐比为
+`0.998x`。
 
 诊断：
 
@@ -84,18 +85,22 @@
 FlushWait：0
 PendingDepth：1
 InflightDepth：2
-吞吐：与 MQTTnet 持平
-CPU/1000 投递：更高
+Drain / Batch：2.013x -> 1.013x
+Empty Drain：54943 -> 0
 ```
 
-全局 `preferLocal=true` 可偶尔改善该单元格，但会让主目标
-`QoS1 / 500 / 64 KiB` 吞吐降到 `0.928x`，已回滚。
+做法是：
+
+- ACK 后待发队列为空时不再 Signal Egress。
+- 同 Shard Fanout Scheduled Batch 完成后直接执行已就绪 Egress Actor。
 
 原始结果：
 
-- `strict-guard-latency-q1-100-8k`
-- `strict-guard-latency-q1-100-8k-extra2`
-- `scheduling-latency-q1-100-8k`
+- `egress-empty-drain-baseline`
+- `egress-empty-drain-removed`
+- `egress-empty-drain-latency`
+- `egress-local-follow-up-latency-v1`
+- `egress-local-follow-up-latency-v2`
 
 ## 混合大小包修复
 
@@ -109,7 +114,10 @@ CPU/1000 投递：更高
 
 ## 未完成的门禁
 
-- `QoS1 / 100 / 8 KiB` p99 仍比 MQTTnet 高 1 ms。
-- 后续优化不得让该单元格进一步恶化。
-- 不把该结果描述为严格全矩阵 p99 通过。
+- `QoS1 / 100 / 8 KiB` p99 的三次中位数已与 MQTTnet 持平。
+- 后续优化不得让该单元格回退。
+- 仍不把该结果描述为严格全矩阵 p99 通过，因为完整 27 格矩阵尚未重跑。
 - 版本不提升，不修改发布声明。
+
+后续修复和原始结果见
+`perf/baseline/linux-dev-egress-empty-drain-2026-11-28.md`。

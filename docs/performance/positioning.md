@@ -32,9 +32,10 @@ described as ahead of MQTTnet only after three repetitions show higher median
 throughput and no worse p99. The strict matrix does not block an ordinary alpha
 release.
 
-Known gaps include large-payload high-fanout throughput and tail latency. Those
-cells are recorded in `perf/baseline` and are not implied by the general
-zero-allocation claim.
+The strict gate remains cell-scoped. The measured `QoS 1 / 500 / 64 KiB` and
+`QoS 1 / 100 / 8 KiB` cells pass after the 2026-11-28 Egress follow-up, but the
+full matrix has not been rerun. Passing cells do not imply a universal
+zero-allocation or cross-matrix performance claim.
 
 ## Shard-Owned Egress Status
 
@@ -110,20 +111,17 @@ dated, same-machine evidence only.
 
 ## Next Performance Step
 
-No further refactoring is planned on the shard or egress scheduling paths. The
-remaining gaps need new evidence first:
+The 2026-11-28 Egress follow-up closed the measured small-message p99 gap by
+skipping empty drains and draining ready actors on the owning shard after
+scheduled fanout. Remaining work needs new evidence:
 
-1. QoS 1 / 100 / 64 KiB is behind MQTTnet in all three samples (`0.896`,
-   `0.909`). Re-measure it on a quiet machine with more repetitions, and with a
-   client whose per-message cost is not the dominant term, before changing code.
-2. Keep the pooled QoS0 and PUBACK paths unchanged unless a repeatable
-   exception is found.
+1. Rerun the full measured matrix before making a cross-cell performance claim.
+2. Keep the one-subscriber large-message cell under formal three-run review;
+   its latest quick sample is positive but is not a release-gate result.
 3. Do not pipeline QoS2 PUBLISH unless the full PUBREC/PUBREL persistence and
    ordering suite remains green.
 4. Do not reopen Fast Fanout or the Publish Sequencer until routing or fanout
-   is measured as the bottleneck. The recorded diagnostics point at control
-   frame batching and per-message allocation instead (see
-   `docs/performance/hot-path-audit.md`).
+   is measured as the bottleneck.
 
 Development regression checks may use two repetitions to keep iteration cost
 bounded. Final performance claims and published comparison matrices still
@@ -158,8 +156,11 @@ The target cell `QoS1 / 500 / 64 KiB` passes the strict five-run gate:
 - p99: `0.991x`;
 - peak RSS: `0.949x`.
 
-The latency protection cell `QoS1 / 100 / 8 KiB` has a five-run p99 median of
-`1.125x` MQTTnet. The absolute result is `9 ms` versus `8 ms`; this one-millisecond
-gap is accepted as a documented exception for this branch and remains a known
-follow-up item. The target-cell result is recorded in
+The latency protection cell `QoS1 / 100 / 8 KiB` now closes the strict p99
+gate after removing empty Egress drains and draining ready Egress actors on
+the owning shard after scheduled fanout. Three formal runs report `10 ms`
+versus MQTTnet's `10 ms`, an effective `1.000x` ratio, with complete delivery
+and 99-100 percent QoE coverage. The target cell remains at `1.015x`
+throughput and `1.002x` p99 in the same follow-up campaign. Results are
+recorded in `perf/baseline/linux-dev-egress-empty-drain-2026-11-28.md` and
 `perf/baseline/linux-dev-mqttnet-release-gate.md`.

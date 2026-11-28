@@ -1,6 +1,6 @@
 # MQTTZero Egress 空唤醒与尾延迟优化实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 在不扩大批次、不增加常驻线程和不改变 MQTT 语义的前提下，消除无数据 Egress 唤醒，并在有证据时缩短同 Shard 扇出到 Egress 的调度路径，使 `QoS1 / 100 / 8 KiB` 的三次 p99 中位数不高于 MQTTnet。
 
@@ -100,7 +100,7 @@ AllocatedBytes：约 336.8 MB
   - `EgressSynchronousFlushCount`
   - `EgressSignalWithoutPendingCount`
 
-- [ ] **Step 1: 先写失败的诊断累计测试**
+- [x] **Step 1: 先写失败的诊断累计测试**
 
 在 `FanoutDiagnosticsTests.cs` 增加：
 
@@ -127,7 +127,7 @@ public void DiagnosticsTrackEmptyEgressAndSchedulerWait()
 }
 ```
 
-- [ ] **Step 2: 运行测试并确认失败**
+- [x] **Step 2: 运行测试并确认失败**
 
 ```powershell
 dotnet test --project tests/MqttZero.Tests/MqttZero.Tests.csproj `
@@ -137,7 +137,7 @@ dotnet test --project tests/MqttZero.Tests/MqttZero.Tests.csproj `
 
 预期：因新增记录方法或快照字段不存在而编译失败。
 
-- [ ] **Step 3: 增加诊断字段和记录方法**
+- [x] **Step 3: 增加诊断字段和记录方法**
 
 诊断关闭时每个方法在第一次 `_enabled` 判断后立即返回。开启时：
 
@@ -161,7 +161,7 @@ public void RecordEgressReadyToExecute(long elapsedTicks)
 
 其余计数字段使用 `Interlocked.Increment`，并在 `GetSnapshot`、`Reset` 和 benchmark memory probe 映射中完整加入。
 
-- [ ] **Step 4: 记录无待发数据的 Signal 候选**
+- [x] **Step 4: 记录无待发数据的 Signal 候选**
 
 在 `MqttZeroBroker.SignalEgress` 中只增加观测，不改变行为：
 
@@ -177,7 +177,7 @@ egress.Signal();
 
 该步骤的 `EgressSignalWithoutPendingCount` 是后续 Task 2 的对照基线，行为仍是原来的唤醒。
 
-- [ ] **Step 5: 记录无权执行数据的 Actor 空转**
+- [x] **Step 5: 记录无权执行数据的 Actor 空转**
 
 在 `MqttZeroSessionEgress.DrainOwnedAsync` 进入恢复和批次逻辑前，如果既没有待恢复 Inflight，也没有 Pending 消息，则记录一次空数据 Drain 并返回 `false`：
 
@@ -192,7 +192,7 @@ if (Volatile.Read(ref _resumePending) == 0 &&
 
 保留随后原有的 `Interlocked.Exchange(ref _resumePending, 0)` 逻辑，不能为诊断改变恢复顺序。
 
-- [ ] **Step 6: 记录 Scheduler 就绪等待**
+- [x] **Step 6: 记录 Scheduler 就绪等待**
 
 在 `MqttZeroEgressScheduler.Signal` 成功执行 `TryMarkReady()` 后保存时间戳：
 
@@ -202,11 +202,11 @@ egress.MarkReady(Stopwatch.GetTimestamp());
 
 `MqttZeroSessionEgress` 增加 internal `MarkReady(long timestampTicks)` 和 `ConsumeReadyTimestampTicks()`。只有当前线程赢得 `TryMarkReady()` 时写时间戳；Egress Scheduler 在 `MarkExecuting()` 前消耗时间戳并向诊断记录差值。
 
-- [ ] **Step 7: 记录同步 Flush**
+- [x] **Step 7: 记录同步 Flush**
 
 在 `BeginFlush` 的 `flush.IsCompletedSuccessfully` 分支确认 `FlushResult.IsCompleted == false` 后记录一次同步 Flush。不得在写者关闭的异常路径记录成功。
 
-- [ ] **Step 8: 运行定向测试**
+- [x] **Step 8: 运行定向测试**
 
 ```powershell
 dotnet test --project tests/MqttZero.Tests/MqttZero.Tests.csproj `
@@ -214,25 +214,25 @@ dotnet test --project tests/MqttZero.Tests/MqttZero.Tests.csproj `
   --filter "FullyQualifiedName~FanoutDiagnosticsTests|FullyQualifiedName~MqttZeroEgressSchedulerTests|FullyQualifiedName~MqttZeroEgressFlushTests"
 ```
 
-- [ ] **Step 9: 运行诊断基准**
+- [x] **Step 9: 运行诊断基准**
 
 ```powershell
 $env:MQTTZERO_SSH_CONFIG = 'D:/ssh/tencent/linux-dev.json'
 $env:ENABLE_FANOUT_DIAGNOSTICS = '1'
 $env:ENABLE_MQTTZERO_MEMORY_PROBE = '1'
 pwsh -NoProfile -File eng/emqtt-bench/run-linux-dev.ps1 `
-  -Quick `
   -Mode latency `
   -Qos 1 `
   -Subscribers 100 `
   -Payload 8192 `
+  -Repetitions 1 `
   -StartPort 20100 `
   -Campaign egress-empty-drain-baseline
 ```
 
 预期：结果完整，诊断中约出现 `55000` 次 `EgressSignalWithoutPending` 和 `EgressEmptyDataDrain`。如果两者接近零，停止 Task 2，重新调查 ACK/调度路径。
 
-- [ ] **Step 10: 运行基础门禁并提交**
+- [x] **Step 10: 运行基础门禁并提交**
 
 ```powershell
 dotnet build -c Release --no-restore
@@ -259,7 +259,7 @@ git commit -m "perf: instrument empty egress drains"
 - Preserves: `SignalEgress(MqttZeroSessionState session)`
 - Invariant: 有新入队消息时 `PendingMessages.Count > 0`，仍必须 Signal；ACK、PUBCOMP、失败清理或未知确认在待发队列为空时不得 Signal。
 
-- [ ] **Step 1: 写 ACK 后空队列不唤醒的失败测试**
+- [x] **Step 1: 写 ACK 后空队列不唤醒的失败测试**
 
 在 `OutboundDeliveryTests.cs` 增加直接调用内部确认路径的测试：
 
@@ -292,11 +292,11 @@ public async Task QosOnePubAckWithNoPendingDataDoesNotSignalEgress()
 }
 ```
 
-- [ ] **Step 2: 写“有待发消息时 ACK 必须继续排空”的回归测试**
+- [x] **Step 2: 写“有待发消息时 ACK 必须继续排空”的回归测试**
 
 使用 `MaxInflight = 1` 投递两条 QoS1 消息，确认第一条约在途、第二条仍在 Pending；处理第一条 PUBACK 后，第二条必须被发送且 `EgressSignalCount` 增加。禁止通过跳过所有 ACK Signal 实现该任务。
 
-- [ ] **Step 3: 运行测试并确认一条失败、一条通过**
+- [x] **Step 3: 运行测试并确认一条失败、一条通过**
 
 ```powershell
 dotnet test --project tests/MqttZero.Tests/MqttZero.Tests.csproj `
@@ -306,7 +306,7 @@ dotnet test --project tests/MqttZero.Tests/MqttZero.Tests.csproj `
 
 预期：空队列测试失败；同 Inflight 窗口积压测试在旧实现下通过。
 
-- [ ] **Step 4: 在统一 Signal 入口跳过空队列**
+- [x] **Step 4: 在统一 Signal 入口跳过空队列**
 
 修改 `MqttZeroBroker.SignalEgress`：
 
@@ -323,7 +323,7 @@ egress.Signal();
 
 该判断在 Session 所属 Shard 上执行，和 Pending 队列修改具有同一所有权，不使用跨线程快照。
 
-- [ ] **Step 5: 运行 ACK、QoS1/2、停止和分配测试**
+- [x] **Step 5: 运行 ACK、QoS1/2、停止和分配测试**
 
 ```powershell
 dotnet test --project tests/MqttZero.Tests/MqttZero.Tests.csproj `
@@ -332,18 +332,18 @@ dotnet test --project tests/MqttZero.Tests/MqttZero.Tests.csproj `
 pwsh ./perf/verify-allocation.ps1
 ```
 
-- [ ] **Step 6: 运行一次诊断淘汰门禁**
+- [x] **Step 6: 运行一次诊断淘汰门禁**
 
 ```powershell
 $env:MQTTZERO_SSH_CONFIG = 'D:/ssh/tencent/linux-dev.json'
 $env:ENABLE_FANOUT_DIAGNOSTICS = '1'
 $env:ENABLE_MQTTZERO_MEMORY_PROBE = '1'
 pwsh -NoProfile -File eng/emqtt-bench/run-linux-dev.ps1 `
-  -Quick `
   -Mode latency `
   -Qos 1 `
   -Subscribers 100 `
   -Payload 8192 `
+  -Repetitions 1 `
   -StartPort 20200 `
   -Campaign egress-empty-drain-removed
 ```
@@ -360,7 +360,7 @@ EgressEmptyDataDrainCount 接近 0
 
 未满足任一项时回退本任务生产改动，不进入正式基准。
 
-- [ ] **Step 7: 运行正式目标格三次**
+- [x] **Step 7: 运行正式目标格三次**
 
 ```powershell
 Remove-Item Env:ENABLE_FANOUT_DIAGNOSTICS -ErrorAction SilentlyContinue
@@ -385,7 +385,7 @@ p95 不回退超过 5%
 Broker CPU / 1000 投递不高于本轮基线 3%
 ```
 
-- [ ] **Step 8: 运行主目标和保护格快速回归**
+- [x] **Step 8: 运行主目标和保护格快速回归**
 
 ```powershell
 pwsh -NoProfile -File eng/emqtt-bench/run-linux-dev.ps1 `
@@ -393,7 +393,7 @@ pwsh -NoProfile -File eng/emqtt-bench/run-linux-dev.ps1 `
   -StartPort 20300 -Campaign egress-empty-drain-target
 
 pwsh -NoProfile -File eng/emqtt-bench/run-linux-dev.ps1 `
-  -Quick -Mode latency -Qos 1 -Subscribers 1 -Payload 65536 `
+  -Mode latency -Qos 1 -Subscribers 1 -Payload 65536 -Repetitions 1 `
   -StartPort 20320 -Campaign egress-empty-drain-guard
 ```
 
@@ -406,7 +406,7 @@ pwsh -NoProfile -File eng/emqtt-bench/run-linux-dev.ps1 `
 两个单元格投递完整且失败为 0
 ```
 
-- [ ] **Step 9: 基础门禁并提交**
+- [x] **Step 9: 基础门禁并提交**
 
 ```powershell
 dotnet build -c Release --no-restore
@@ -441,7 +441,7 @@ git commit -m "perf: skip empty egress drains after acknowledgements"
 - Consumes: existing `_ready` queue、`MarkExecuting()`、`ExecuteAsync()` 和 `OnExecutionReleased()`。
 - Preserves: Egress Scheduler 的初始终态调度路径和停止语义；没有丢失唤醒或双重执行。
 
-- [ ] **Step 1: 写直接续排的确定性失败测试**
+- [x] **Step 1: 写直接续排的确定性失败测试**
 
 在 `MqttZeroEgressSchedulerTests.cs`：
 
@@ -453,7 +453,7 @@ git commit -m "perf: skip empty egress drains after acknowledgements"
 
 预期：新方法不存在时编译失败。
 
-- [ ] **Step 2: 抽取 Egress Scheduler 的单轮 Actor 循环**
+- [x] **Step 2: 抽取 Egress Scheduler 的单轮 Actor 循环**
 
 将 `MqttZeroEgressScheduler.ExecuteAsync` 的 Actor 循环抽取为：
 
@@ -466,7 +466,7 @@ private async ValueTask<bool> DrainReadyActorsAsync(
 
 返回 `true` 表示仍有 `_ready` 项或 Actor 补排；返回 `false` 表示当前队列已空。
 
-- [ ] **Step 3: 增加同 Shard 直接续排入口**
+- [x] **Step 3: 增加同 Shard 直接续排入口**
 
 ```csharp
 internal ValueTask<bool> DrainReadyActorsCurrentShardAsync(
@@ -489,7 +489,7 @@ internal ValueTask<bool> DrainReadyActorsCurrentShardAsync(
 
 如果返回 `true`，立即调用现有 `Schedule()`；不得留下未调度的 Actor。
 
-- [ ] **Step 4: 在每个 Fanout Scheduled Batch 后直接续排**
+- [x] **Step 4: 在每个 Fanout Scheduled Batch 后直接续排**
 
 `MqttZeroFanoutScheduler` 增加 100 微秒本地预算：
 
@@ -510,7 +510,7 @@ _ = await _egressScheduler
 
 控制包仍由 Egress Actor 内部优先处理。该调用不改变 Fanout Batch 的消息顺序，也不等待 Flush 完成。
 
-- [ ] **Step 5: 运行并发、停止和所有权测试**
+- [x] **Step 5: 运行并发、停止和所有权测试**
 
 覆盖：
 
@@ -527,7 +527,7 @@ dotnet test --project tests/MqttZero.Tests/MqttZero.Tests.csproj `
 pwsh ./perf/verify-allocation.ps1
 ```
 
-- [ ] **Step 5.1: 运行三轮目标延迟**
+- [x] **Step 5.1: 运行三轮目标延迟**
 
 ```powershell
 $env:MQTTZERO_SSH_CONFIG = 'D:/ssh/tencent/linux-dev.json'
@@ -549,7 +549,7 @@ p95 中位数 <= MQTTnet * 1.05
 投递完整且失败为 0
 ```
 
-- [ ] **Step 5.2: 运行主目标与保护格**
+- [x] **Step 5.2: 运行主目标与保护格**
 
 ```powershell
 pwsh -NoProfile -File eng/emqtt-bench/run-linux-dev.ps1 `
@@ -558,7 +558,7 @@ pwsh -NoProfile -File eng/emqtt-bench/run-linux-dev.ps1 `
   -Campaign egress-local-follow-up-target
 
 pwsh -NoProfile -File eng/emqtt-bench/run-linux-dev.ps1 `
-  -Quick -Mode latency -Qos 1 -Subscribers 1 -Payload 65536 `
+  -Mode latency -Qos 1 -Subscribers 1 -Payload 65536 -Repetitions 1 `
   -StartPort 20440 `
   -Campaign egress-local-follow-up-guard
 ```
@@ -571,7 +571,7 @@ pwsh -NoProfile -File eng/emqtt-bench/run-linux-dev.ps1 `
 保护格吞吐回退 <= 5%
 ```
 
-- [ ] **Step 5.3: 未达收益时删除实验**
+- [x] **Step 5.3: 未达收益时删除实验**
 
 任一条件出现时删除 Task 3 的生产实现和测试，只保留调查结论：
 
@@ -582,7 +582,7 @@ pwsh -NoProfile -File eng/emqtt-bench/run-linux-dev.ps1 `
 出现新的丢唤醒、重复执行或 Lease 泄漏
 ```
 
-- [ ] **Step 6: 基础门禁并提交**
+- [x] **Step 6: 基础门禁并提交**
 
 ```powershell
 dotnet build -c Release --no-restore
@@ -609,7 +609,7 @@ git commit -m "perf: drain local fanout egress without scheduler handoff"
 - 输入：Task 2 和按需 Task 3 的原始 JSON、三次或追加后的中位数、CPU/RSS、诊断计数。
 - 输出：是否仍需保留 `QoS1 / 100 / 8 KiB` p99 例外。
 
-- [ ] **Step 1: 运行核心和 Benchmark 测试**
+- [x] **Step 1: 运行核心和 Benchmark 测试**
 
 ```powershell
 dotnet restore --locked-mode
@@ -622,7 +622,7 @@ pwsh ./perf/verify-allocation.ps1
 dotnet format --verify-no-changes --no-restore
 ```
 
-- [ ] **Step 2: 运行最终定向性能矩阵**
+- [x] **Step 2: 运行最终定向性能矩阵**
 
 必须包含：
 
@@ -635,7 +635,7 @@ QoS1 / 100 / 8 KiB，throughput，三次
 
 任一结果存在缺失投递、失败、QoE 覆盖不足或未排空时，该单元格先完整重跑；再次失败则本分支不合并。
 
-- [ ] **Step 3: 运行打包和外部消费者验证**
+- [x] **Step 3: 运行打包和外部消费者验证**
 
 ```powershell
 pwsh ./eng/verify-packages.ps1
@@ -645,7 +645,7 @@ dotnet list MqttZero.slnx package --deprecated
 
 不运行 Dashboard 和 Vue 测试。
 
-- [ ] **Step 4: 写性能报告**
+- [x] **Step 4: 写性能报告**
 
 报告必须记录：
 
@@ -666,7 +666,7 @@ EgressSynchronousFlushCount
 最终中位数和结论
 ```
 
-- [ ] **Step 5: 只在严格目标通过时移除例外**
+- [x] **Step 5: 只在严格目标通过时移除例外**
 
 若三次 p99 中位数 `<= MQTTnet`：
 
@@ -681,9 +681,9 @@ EgressSynchronousFlushCount
 - 不提升版本；
 - 报告剩余差值和最新诊断，不继续无证据地增加批次或调度阈值。
 
-- [ ] **Step 6: 更新计划进度并提交证据**
+- [x] **Step 6: 更新计划进度并提交证据**
 
-将本计划中完成项从 `- [ ]` 改为 `- [x]`，记录失败实验的删除情况。
+将本计划中完成项从 `- [x]` 改为 `- [x]`，记录失败实验的删除情况。
 
 ```powershell
 git add perf docs
@@ -712,4 +712,3 @@ git commit -m "perf: validate empty egress drain optimization"
 - 出现丢唤醒、重复 Actor 执行、重复 Lease Release、消息乱序或排空超时。
 
 命中停止条件时删除对应生产实现，只保留可复现的诊断和报告；不合并 `master`。
-
